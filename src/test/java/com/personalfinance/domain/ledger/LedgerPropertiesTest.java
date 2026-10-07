@@ -5,8 +5,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 import com.personalfinance.domain.ledger.LedgerScenario.OperationKind;
 import com.personalfinance.domain.ledger.LedgerScenario.Step;
 import com.personalfinance.domain.shared.Money;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.function.IntPredicate;
 import net.jqwik.api.Arbitraries;
 import net.jqwik.api.Arbitrary;
 import net.jqwik.api.Combinators;
@@ -26,6 +28,7 @@ class LedgerPropertiesTest {
 
     private static final int LONGEST_HISTORY = 40;
     private static final int DAYS_COVERED = 60;
+    private static final Instant CANCELLED_AT = Instant.parse("2026-06-01T12:00:00Z");
 
     @Property
     void everyOperationProducesABalancedTransaction(@ForAll("anyStep") Step step) {
@@ -91,6 +94,45 @@ class LedgerPropertiesTest {
 
         assertThat(ledger.totalFor(AccountType.ASSET, theEnd)).isEqualTo(Money.ZERO);
         assertThat(ledger.moneyReallyMine(theEnd)).isEqualTo(Money.ZERO);
+    }
+
+    /**
+     * The real meaning of cancelling: a ledger where you recorded A, B and C
+     * and then cancelled B must read exactly like a ledger that only ever saw
+     * A and C. Every account, every date. If these two ever disagree,
+     * cancelling is leaking.
+     */
+    @Property
+    void cancellingIsTheSameAsNeverHavingRecordedIt(
+            @ForAll("anyHistory") List<Step> history,
+            @ForAll("anyStride") int stride,
+            @ForAll("anyDayOffset") int dayOffset) {
+
+        IntPredicate cancelled = position -> position % stride == 0;
+
+        LedgerScenario withCancellations = new LedgerScenario();
+        Ledger amended = withCancellations.ledgerFromWithCancellations(
+                history, cancelled, CANCELLED_AT);
+
+        LedgerScenario asIfNeverHappened = new LedgerScenario();
+        Ledger survivorsOnly = asIfNeverHappened.ledgerFrom(
+                asIfNeverHappened.stepsSurviving(history, cancelled));
+
+        LocalDate asOf = withCancellations.dayAfterStart(dayOffset);
+
+        for (int index = 0; index < withCancellations.allAccounts.size(); index++) {
+            Account inOne = withCancellations.allAccounts.get(index);
+            Account inTheOther = asIfNeverHappened.allAccounts.get(index);
+
+            assertThat(amended.balanceOf(inOne, asOf))
+                    .isEqualTo(survivorsOnly.balanceOf(inTheOther, asOf));
+        }
+        assertThat(amended.sumOfEveryEntry()).isEqualTo(Money.ZERO);
+    }
+
+    @Provide
+    Arbitrary<Integer> anyStride() {
+        return Arbitraries.integers().between(1, 5);
     }
 
     @Provide

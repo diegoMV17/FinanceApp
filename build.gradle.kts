@@ -1,30 +1,14 @@
-plugins {
-    id("java")
-}
+// Raíz: solo lo común. No hay dependencias aquí a propósito.
+//
+// Lo que cada módulo puede usar se declara en su propio build, y es esa
+// separación la que garantiza que el dominio no pueda importar Spring: no está
+// en su classpath y Gradle no lo pone ahí por descuido.
 
-group = "com.personalfinance"
-version = "1.0-SNAPSHOT"
+allprojects {
+    group = "com.personalfinance"
+    version = "0.1.0-SNAPSHOT"
 
-java {
-    toolchain {
-        languageVersion = JavaLanguageVersion.of(21)
-    }
-}
-
-repositories {
-    mavenCentral()
-}
-
-dependencies {
-    testImplementation("org.junit.jupiter:junit-jupiter:5.11.3")
-    testImplementation("org.assertj:assertj-core:3.26.3")
-    testRuntimeOnly("org.junit.platform:junit-platform-launcher")
-    testImplementation("net.jqwik:jqwik:1.9.1")   // Bloque D
-}
-
-tasks.test {
-    useJUnitPlatform()
-    testLogging {
-        events("passed", "skipped", "failed")
+    repositories {
+        mavenCentral()
     }
 }

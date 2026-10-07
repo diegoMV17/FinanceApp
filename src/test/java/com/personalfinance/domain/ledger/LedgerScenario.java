@@ -1,8 +1,11 @@
 package com.personalfinance.domain.ledger;
 
 import com.personalfinance.domain.shared.Money;
+import java.time.Instant;
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.function.IntPredicate;
 
 /**
  * A fresh set of accounts plus a way to turn a generated {@link Step} into a
@@ -77,6 +80,33 @@ final class LedgerScenario {
         Ledger ledger = new Ledger();
         steps.forEach(step -> ledger.record(transactionFor(step)));
         return ledger;
+    }
+
+    /** Records everything, then cancels the steps whose position matches. */
+    Ledger ledgerFromWithCancellations(List<Step> steps, IntPredicate cancelled, Instant when) {
+        Ledger ledger = new Ledger();
+        List<TransactionId> toCancel = new ArrayList<>();
+
+        for (int position = 0; position < steps.size(); position++) {
+            Transaction transaction = transactionFor(steps.get(position));
+            ledger.record(transaction);
+            if (cancelled.test(position)) {
+                toCancel.add(transaction.id());
+            }
+        }
+        toCancel.forEach(id -> ledger.cancel(id, when, "Generado"));
+        return ledger;
+    }
+
+    /** The steps that would be left if those same positions had never happened. */
+    List<Step> stepsSurviving(List<Step> steps, IntPredicate cancelled) {
+        List<Step> survivors = new ArrayList<>();
+        for (int position = 0; position < steps.size(); position++) {
+            if (!cancelled.test(position)) {
+                survivors.add(steps.get(position));
+            }
+        }
+        return List.copyOf(survivors);
     }
 
     /** A ledger holding only the steps that happened on or before {@code asOf}. */

@@ -1,9 +1,11 @@
 package com.personalfinance.domain.ledger;
 
 import com.personalfinance.domain.shared.Money;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 
 /**
  * One financial event, made of entries that sum to zero.
@@ -12,8 +14,13 @@ import java.util.Objects;
  * drift away from the sum of its entries, and then there would be two answers
  * to the same question.
  *
- * <p>Nothing here can be modified after construction. Correcting a transaction
- * means cancelling it and recording a replacement, which arrives with Block C.
+ * <p>The entries never change. Correcting a transaction does not edit it: the
+ * old one is cancelled and a new one takes its place, pointing back at what it
+ * replaced. That chain is the audit trail, and it is why a balance can always
+ * be explained by the movements that produced it.
+ *
+ * <p>The one thing that does change after construction is the cancellation,
+ * and it can only be set once.
  */
 public final class Transaction {
 
@@ -24,19 +31,24 @@ public final class Transaction {
     private final String description;
     private final TransactionSource source;
     private final List<Entry> entries;
+    private final TransactionId replaces;
+
+    private Cancellation cancellation;
 
     private Transaction(
             TransactionId id,
             LocalDate date,
             String description,
             TransactionSource source,
-            List<Entry> entries) {
+            List<Entry> entries,
+            TransactionId replaces) {
 
         this.id = Objects.requireNonNull(id, "id");
         this.date = Objects.requireNonNull(date, "date");
         this.source = Objects.requireNonNull(source, "source");
         this.description = description == null ? "" : description.trim();
         this.entries = List.copyOf(requireBalancedEntries(entries));
+        this.replaces = replaces;
     }
 
     public static Transaction record(
@@ -46,12 +58,44 @@ public final class Transaction {
             TransactionSource source,
             List<Entry> entries) {
 
-        return new Transaction(id, date, description, source, entries);
+        return new Transaction(id, date, description, source, entries, null);
     }
 
     public static Transaction record(LocalDate date, String description, List<Entry> entries) {
         return new Transaction(
-                TransactionId.generate(), date, description, TransactionSource.APP, entries);
+                TransactionId.generate(), date, description, TransactionSource.APP, entries, null);
+    }
+
+    /**
+     * A copy of this transaction, with a new identity, marked as the successor
+     * of {@code original}. The ledger uses it to carry out an amendment; it is
+     * not something a caller assembles by hand.
+     */
+    Transaction asReplacementFor(TransactionId original) {
+        Objects.requireNonNull(original, "original");
+        return new Transaction(
+                TransactionId.generate(), date, description, source, entries, original);
+    }
+
+    void cancel(Cancellation how) {
+        Objects.requireNonNull(how, "how");
+        if (isCancelled()) {
+            throw new TransactionAlreadyCancelledException(this);
+        }
+        this.cancellation = how;
+    }
+
+    public boolean isCancelled() {
+        return cancellation != null;
+    }
+
+    public Optional<Cancellation> cancellation() {
+        return Optional.ofNullable(cancellation);
+    }
+
+    /** The transaction this one corrects, when it is a correction. */
+    public Optional<TransactionId> replaces() {
+        return Optional.ofNullable(replaces);
     }
 
     /** How much this transaction moved the given account. Zero if it did not touch it. */
@@ -114,6 +158,7 @@ public final class Transaction {
 
     @Override
     public String toString() {
-        return "%s %s %s".formatted(date, description, entries);
+        String state = isCancelled() ? " [anulada]" : "";
+        return "%s %s %s%s".formatted(date, description, entries, state);
     }
 }

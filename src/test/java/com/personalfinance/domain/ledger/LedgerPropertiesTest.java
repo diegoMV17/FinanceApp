@@ -29,6 +29,7 @@ class LedgerPropertiesTest {
     private static final int LONGEST_HISTORY = 40;
     private static final int DAYS_COVERED = 60;
     private static final Instant CANCELLED_AT = Instant.parse("2026-06-01T12:00:00Z");
+    private static final Instant ARCHIVED_AT = Instant.parse("2026-12-31T12:00:00Z");
 
     @Property
     void everyOperationProducesABalancedTransaction(@ForAll("anyStep") Step step) {
@@ -128,6 +129,41 @@ class LedgerPropertiesTest {
                     .isEqualTo(survivorsOnly.balanceOf(inTheOther, asOf));
         }
         assertThat(amended.sumOfEveryEntry()).isEqualTo(Money.ZERO);
+    }
+
+    /**
+     * Archiving is bookkeeping, not an accounting entry. Retiring everything the
+     * rules allow, at any point in any history, must leave every balance exactly
+     * where it was.
+     */
+    @Property
+    void archivingNeverMovesMoney(
+            @ForAll("anyHistory") List<Step> history,
+            @ForAll("anyDayOffset") int dayOffset) {
+
+        LedgerScenario scenario = new LedgerScenario();
+        Ledger ledger = scenario.ledgerFrom(history);
+        LocalDate asOf = scenario.dayAfterStart(dayOffset);
+
+        List<Money> before = scenario.allAccounts.stream()
+                .map(account -> ledger.balanceOf(account, asOf))
+                .toList();
+
+        scenario.allAccounts.stream()
+                .filter(account -> mayBeArchived(account, ledger))
+                .forEach(account -> scenario.chart.archive(account.id(), ledger, ARCHIVED_AT));
+
+        List<Money> after = scenario.allAccounts.stream()
+                .map(account -> ledger.balanceOf(account, asOf))
+                .toList();
+
+        assertThat(after).isEqualTo(before);
+        assertThat(ledger.sumOfEveryEntry()).isEqualTo(Money.ZERO);
+    }
+
+    private static boolean mayBeArchived(Account account, Ledger ledger) {
+        return !account.type().requiresZeroBalanceToArchive()
+                || ledger.eventualBalanceOf(account).isZero();
     }
 
     @Provide

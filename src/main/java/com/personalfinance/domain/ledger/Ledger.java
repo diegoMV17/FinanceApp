@@ -78,6 +78,19 @@ public final class Ledger {
     }
 
     /**
+     * The balance once every recorded movement has taken effect, scheduled ones
+     * included. This is the honest answer to "am I finished with this account?",
+     * which is a different question from "what is in it today".
+     */
+    public Money eventualBalanceOf(Account account) {
+        Objects.requireNonNull(account, "account");
+        return book.values().stream()
+                .filter(transaction -> !transaction.isCancelled())
+                .map(transaction -> transaction.effectOn(account))
+                .reduce(Money.ZERO, Money::plus);
+    }
+
+    /**
      * Everything of one kind, as the person reads it: total expenses, total
      * owed to you, total held for other people.
      */

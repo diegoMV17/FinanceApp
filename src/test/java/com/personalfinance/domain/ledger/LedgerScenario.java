@@ -41,15 +41,17 @@ final class LedgerScenario {
     record Step(OperationKind kind, long amount, int dayOffset) {
     }
 
-    final Account bancolombia = Account.open(AccountType.ASSET, "Bancolombia");
-    final Account nequi = Account.open(AccountType.ASSET, "Nequi");
-    final Account cash = Account.open(AccountType.ASSET, "Efectivo");
-    final Account food = Account.open(AccountType.EXPENSE, "Alimentación");
-    final Account salary = Account.open(AccountType.INCOME, "Salario");
-    final Account juan = Account.open(AccountType.RECEIVABLE, "Juan");
-    final Account brother = Account.open(AccountType.PAYABLE, "Hermano");
-    final Account momsFund = Account.open(AccountType.THIRD_PARTY_FUND, "Mamá");
-    final Account openingBalances = Account.open(AccountType.EQUITY, "Saldos iniciales");
+    final Chart chart = new Chart();
+
+    final Account bancolombia = chart.open(AccountType.ASSET, "Bancolombia");
+    final Account nequi = chart.open(AccountType.ASSET, "Nequi");
+    final Account cash = chart.open(AccountType.ASSET, "Efectivo");
+    final Account food = chart.open(AccountType.EXPENSE, "Alimentación");
+    final Account salary = chart.open(AccountType.INCOME, "Salario");
+    final Account juan = chart.open(AccountType.RECEIVABLE, "Juan");
+    final Account brother = chart.open(AccountType.PAYABLE, "Hermano");
+    final Account momsFund = chart.open(AccountType.THIRD_PARTY_FUND, "Mamá");
+    final Account openingBalances = chart.open(AccountType.EQUITY, "Saldos iniciales");
 
     final List<Account> allAccounts = List.of(
             bancolombia, nequi, cash, food, salary, juan, brother, momsFund, openingBalances);

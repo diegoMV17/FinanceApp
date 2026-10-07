@@ -4,6 +4,7 @@ build/
 !**/src/main/**/build/
 !**/src/test/**/build/
 
+.jqwik-database
 *.class
 ### IntelliJ IDEA ###
 .idea/modules.xml

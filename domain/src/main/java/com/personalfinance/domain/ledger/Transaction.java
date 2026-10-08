@@ -67,6 +67,28 @@ public final class Transaction {
     }
 
     /**
+     * A transaction as it was stored, cancellation included. The balance rules
+     * still run: a stored transaction that does not add up is a corrupt book,
+     * and loading it must fail rather than carry the error into every balance.
+     *
+     * @param replaces     the transaction this one corrects, or {@code null}
+     * @param cancellation how it was cancelled, or {@code null} if it still counts
+     */
+    public static Transaction rehydrated(
+            TransactionId id,
+            LocalDate date,
+            String description,
+            TransactionSource source,
+            List<Entry> entries,
+            TransactionId replaces,
+            Cancellation cancellation) {
+
+        Transaction loaded = new Transaction(id, date, description, source, entries, replaces);
+        loaded.cancellation = cancellation;
+        return loaded;
+    }
+
+    /**
      * A copy of this transaction, with a new identity, marked as the successor
      * of {@code original}. The ledger uses it to carry out an amendment; it is
      * not something a caller assembles by hand.

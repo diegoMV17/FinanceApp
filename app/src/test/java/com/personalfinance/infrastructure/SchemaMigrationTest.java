@@ -95,12 +95,21 @@ class SchemaMigrationTest extends PostgresIntegrationTest {
         }
 
         @Test
-        @DisplayName("P2 · con las cuatro tablas, la vista y los cuatro triggers")
+        @DisplayName("P2 · con las cuatro tablas, la vista y cada uno de sus triggers")
         void everythingIsThere() {
             assertThat(tableNames())
                     .contains("accounts", "transactions", "entries", "audit_log");
             assertThat(viewNames()).contains("account_eventual_balances");
-            assertThat(triggerCount()).isEqualTo(4);
+            // Por nombre y no por cantidad: un número no dice cuál falta, y uno
+            // reemplazado por otro con distinto alcance daría el mismo total.
+            assertThat(triggerNames()).containsExactlyInAnyOrder(
+                    "entries_must_balance",
+                    "entries_are_immutable",
+                    "transactions_are_never_deleted",
+                    "transactions_only_cancel_once",
+                    "accounts_keep_their_identity",
+                    "accounts_are_never_deleted",
+                    "audit_log_only_grows");
         }
 
         @Test
@@ -333,6 +342,192 @@ class SchemaMigrationTest extends PostgresIntegrationTest {
         }
     }
 
+    @Nested
+    @DisplayName("guarda quién anuló")
+    class CancellationSource {
+
+        @Test
+        @DisplayName("P24 · una anulación sin origen no pasa")
+        void aCancellationNeedsItsSource() {
+            String id = lunch();
+
+            assertThatThrownBy(() -> jdbc.update(
+                    "UPDATE transactions SET cancelled_at = now() WHERE id = ?::uuid", id))
+                    .hasStackTraceContaining("transactions_cancellation_is_complete");
+        }
+
+        @Test
+        @DisplayName("P25 · ni un origen sin anulación")
+        void aSourceNeedsACancellation() {
+            String id = lunch();
+
+            assertThatThrownBy(() -> jdbc.update(
+                    "UPDATE transactions SET cancellation_source = 'BOT' WHERE id = ?::uuid", id))
+                    .hasStackTraceContaining("transactions_cancellation_is_complete");
+        }
+
+        @Test
+        @DisplayName("P26 · y una anulación completa sí queda guardada")
+        void aCompleteCancellationIsStored() {
+            String id = lunch();
+            cancel(id, "2026-10-06T20:00:00Z");
+
+            String stored = jdbc.queryForObject(
+                    "SELECT cancellation_source::text FROM transactions WHERE id = ?::uuid",
+                    String.class, id);
+
+            assertThat(stored).isEqualTo("APP");
+        }
+    }
+
+    @Nested
+    @DisplayName("no deja reescribir un movimiento guardado")
+    class TransactionHeader {
+
+        @Test
+        @DisplayName("P27 · ni moverlo de fecha, que movería los saldos de ese mes")
+        void theDateIsFinal() {
+            String id = lunch();
+
+            assertThatThrownBy(() -> jdbc.update(
+                    "UPDATE transactions SET occurred_on = '2026-01-01' WHERE id = ?::uuid", id))
+                    .hasStackTraceContaining("no se modifica");
+        }
+
+        @Test
+        @DisplayName("P28 · ni cambiar su descripción")
+        void theDescriptionIsFinal() {
+            String id = lunch();
+
+            assertThatThrownBy(() -> jdbc.update(
+                    "UPDATE transactions SET description = 'Otra cosa' WHERE id = ?::uuid", id))
+                    .hasStackTraceContaining("no se modifica");
+        }
+
+        @Test
+        @DisplayName("P29 · ni a cuál otro reemplaza")
+        void whatItReplacesIsFinal() {
+            String id = lunch();
+            String other = lunch();
+
+            assertThatThrownBy(() -> jdbc.update(
+                    "UPDATE transactions SET replaces_id = ?::uuid WHERE id = ?::uuid", other, id))
+                    .hasStackTraceContaining("no se modifica");
+        }
+
+        @Test
+        @DisplayName("P30 · ni el origen de una anulación ya hecha")
+        void theCancellationSourceIsFinal() {
+            String id = lunch();
+            cancel(id, "2026-10-06T20:00:00Z");
+
+            assertThatThrownBy(() -> jdbc.update(
+                    "UPDATE transactions SET cancellation_source = 'BOT' WHERE id = ?::uuid", id))
+                    .hasStackTraceContaining("ya fue anulada");
+        }
+
+        @Test
+        @DisplayName("P31 · ni su motivo")
+        void theCancellationNoteIsFinal() {
+            String id = lunch();
+            cancel(id, "2026-10-06T20:00:00Z");
+
+            assertThatThrownBy(() -> jdbc.update(
+                    "UPDATE transactions SET cancellation_note = 'Otro motivo' WHERE id = ?::uuid",
+                    id))
+                    .hasStackTraceContaining("ya fue anulada");
+        }
+
+        @Test
+        @DisplayName("P32 · ni deshacerla")
+        void aCancellationCannotBeUndone() {
+            String id = lunch();
+            cancel(id, "2026-10-06T20:00:00Z");
+
+            assertThatThrownBy(() -> jdbc.update("UPDATE transactions "
+                    + "SET cancelled_at = NULL, cancellation_source = NULL WHERE id = ?::uuid", id))
+                    .hasStackTraceContaining("ya fue anulada");
+        }
+
+        @Test
+        @DisplayName("P33 · ni colgarle una segunda copia de sus apuntes")
+        void itsEntriesCannotBeWrittenTwice() {
+            String id = lunch();
+
+            assertThatThrownBy(() -> inOneCommit.executeWithoutResult(status -> {
+                insertEntry(id, new Line(CASH, -3_500_000), (short) 0);
+                insertEntry(id, new Line(FOOD, 3_500_000), (short) 1);
+            })).hasStackTraceContaining("entries_one_per_position");
+
+            assertThat(entryCount()).isEqualTo(2);
+        }
+    }
+
+    @Nested
+    @DisplayName("protege la identidad de las cuentas")
+    class AccountIdentity {
+
+        @Test
+        @DisplayName("P34 · una cuenta no cambia de tipo")
+        void theTypeIsFinal() {
+            assertThatThrownBy(() -> jdbc.update(
+                    "UPDATE accounts SET type = 'EXPENSE' WHERE id = ?::uuid", CASH))
+                    .hasStackTraceContaining("no cambia de tipo");
+        }
+
+        @Test
+        @DisplayName("P35 · ni se desarchiva")
+        void archivingIsFinal() {
+            jdbc.update("UPDATE accounts SET archived_at = now() WHERE id = ?::uuid", CASH);
+
+            assertThatThrownBy(() -> jdbc.update(
+                    "UPDATE accounts SET archived_at = NULL WHERE id = ?::uuid", CASH))
+                    .hasStackTraceContaining("ya fue archivada");
+        }
+
+        @Test
+        @DisplayName("P36 · ni se borra")
+        void accountsAreNeverDeleted() {
+            assertThatThrownBy(() -> jdbc.update("DELETE FROM accounts WHERE id = ?::uuid", FOOD))
+                    .hasStackTraceContaining("no se borran");
+        }
+
+        @Test
+        @DisplayName("P37 · pero sí se puede renombrar")
+        void renamingIsAllowed() {
+            assertThatNoException().isThrownBy(() -> jdbc.update(
+                    "UPDATE accounts SET name = 'Billetera' WHERE id = ?::uuid", CASH));
+        }
+    }
+
+    @Nested
+    @DisplayName("conserva la auditoría")
+    class AuditLog {
+
+        @Test
+        @DisplayName("P38 · sin dejar editarla")
+        void itCannotBeEdited() {
+            audit();
+
+            assertThatThrownBy(() -> jdbc.update("UPDATE audit_log SET action = 'CANCEL'"))
+                    .hasStackTraceContaining("solo admite agregar");
+        }
+
+        @Test
+        @DisplayName("P39 · ni borrarla")
+        void itCannotBeDeleted() {
+            audit();
+
+            assertThatThrownBy(() -> jdbc.update("DELETE FROM audit_log"))
+                    .hasStackTraceContaining("solo admite agregar");
+        }
+
+        private void audit() {
+            jdbc.update("INSERT INTO audit_log (entity, entity_id, action, source) "
+                    + "VALUES ('transaction', ?::uuid, 'CREATE', 'APP')", newId());
+        }
+    }
+
     // --- Ayudas. SQL crudo a propósito: lo que se prueba es el esquema, así que
     // --- cualquier capa intermedia estorbaría.
 
@@ -348,11 +543,8 @@ class SchemaMigrationTest extends PostgresIntegrationTest {
             jdbc.update("INSERT INTO transactions (id, occurred_on, description) "
                     + "VALUES (?::uuid, ?::date, ?)", id, occurredOn, description);
 
-            for (Line line : lines) {
-                jdbc.update("INSERT INTO entries "
-                                + "(id, transaction_id, account_id, amount_cents) "
-                                + "VALUES (?::uuid, ?::uuid, ?::uuid, ?)",
-                        newId(), id, line.accountId(), line.cents());
+            for (short position = 0; position < lines.length; position++) {
+                insertEntry(id, lines[position], position);
             }
         });
     }
@@ -361,14 +553,22 @@ class SchemaMigrationTest extends PostgresIntegrationTest {
         return record("Almuerzo", new Line(CASH, -3_500_000), new Line(FOOD, 3_500_000));
     }
 
+    /** Desde la V3 la posición es obligatoria y única dentro de la transacción. */
+    private void insertEntry(String transactionId, Line line, short position) {
+        jdbc.update("INSERT INTO entries "
+                        + "(id, transaction_id, account_id, amount_cents, position) "
+                        + "VALUES (?::uuid, ?::uuid, ?::uuid, ?, ?)",
+                newId(), transactionId, line.accountId(), line.cents(), position);
+    }
+
     private void openAccount(String id, String type, String name) {
         jdbc.update("INSERT INTO accounts (id, type, name) "
                 + "VALUES (?::uuid, ?::account_type, ?)", id, type, name);
     }
 
     private void cancel(String id, String at) {
-        jdbc.update("UPDATE transactions SET cancelled_at = ?::timestamptz WHERE id = ?::uuid",
-                at, id);
+        jdbc.update("UPDATE transactions SET cancelled_at = ?::timestamptz, "
+                + "cancellation_source = 'APP' WHERE id = ?::uuid", at, id);
     }
 
     private void replace(String originalId) {
@@ -378,10 +578,8 @@ class SchemaMigrationTest extends PostgresIntegrationTest {
                     + "(id, occurred_on, description, replaces_id) "
                     + "VALUES (?::uuid, ?::date, 'Corrección', ?::uuid)",
                     id, SOME_DAY, originalId);
-            jdbc.update("INSERT INTO entries (id, transaction_id, account_id, amount_cents) "
-                    + "VALUES (?::uuid, ?::uuid, ?::uuid, -4000000)", newId(), id, CASH);
-            jdbc.update("INSERT INTO entries (id, transaction_id, account_id, amount_cents) "
-                    + "VALUES (?::uuid, ?::uuid, ?::uuid, 4000000)", newId(), id, FOOD);
+            insertEntry(id, new Line(CASH, -4_000_000), (short) 0);
+            insertEntry(id, new Line(FOOD, 4_000_000), (short) 1);
         });
     }
 
@@ -395,10 +593,10 @@ class SchemaMigrationTest extends PostgresIntegrationTest {
         return jdbc.queryForObject("SELECT count(*) FROM entries", Integer.class);
     }
 
-    private Integer triggerCount() {
-        return jdbc.queryForObject(
-                "SELECT count(DISTINCT trigger_name) FROM information_schema.triggers "
-                        + "WHERE trigger_schema = 'public'", Integer.class);
+    private List<String> triggerNames() {
+        return jdbc.queryForList(
+                "SELECT DISTINCT trigger_name FROM information_schema.triggers "
+                        + "WHERE trigger_schema = 'public'", String.class);
     }
 
     private List<String> tableNames() {
@@ -420,7 +618,7 @@ class SchemaMigrationTest extends PostgresIntegrationTest {
 
     /**
      * Si el esquema no está, falla aquí con el motivo en vez de dejar que
-     * reviente el TRUNCATE y los veintidós tests den el mismo stack trace sin
+     * reviente el TRUNCATE y todos los tests den el mismo stack trace sin
      * decir nada.
      *
      * <p>El caso real que motivó esto: en Spring Boot 4 las autoconfiguraciones

@@ -1,5 +1,7 @@
 package com.personalfinance.domain.ledger;
 
+import java.time.Instant;
+
 /**
  * Cancelling twice is a bug somewhere, not a no-op: either two parts of the app
  * think they own the same correction, or a sync replayed an old instruction.
@@ -10,10 +12,16 @@ public final class TransactionAlreadyCancelledException extends LedgerException 
     private final TransactionId id;
 
     public TransactionAlreadyCancelledException(Transaction transaction) {
-        super("Transaction %s was already cancelled on %s"
-                .formatted(transaction.id(),
-                        transaction.cancellation().orElseThrow().at()));
-        this.id = transaction.id();
+        this(transaction.id(), transaction.cancellation().orElseThrow().at());
+    }
+
+    /**
+     * For a caller that holds what was stored rather than the whole
+     * transaction, such as a store that only read the header.
+     */
+    public TransactionAlreadyCancelledException(TransactionId id, Instant cancelledAt) {
+        super("Transaction %s was already cancelled on %s".formatted(id, cancelledAt));
+        this.id = id;
     }
 
     public TransactionId id() {

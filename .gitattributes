@@ -1,0 +1,10 @@
+# Saltos de línea LF en el repositorio, sin importar el sistema de quien edite.
+# Sin esto, al guardar en Windows todo pasa a CRLF y un cambio de 100 líneas
+# aparece en el diff como uno de 1.600: imposible de revisar en un PR.
+* text=auto eol=lf
+
+# Los scripts de Windows sí necesitan CRLF para ejecutarse allá.
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+*.jar binary

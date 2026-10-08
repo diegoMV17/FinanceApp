@@ -35,6 +35,20 @@ public final class Account {
         return new Account(AccountId.generate(), type, name);
     }
 
+    /**
+     * An account as it was stored. Unlike {@link #archive}, it does not ask for
+     * a balance: that rule was checked on the day the account was archived, and
+     * loading history must not re-litigate it.
+     *
+     * @param archivedAt when it was archived, or {@code null} if it is still open
+     */
+    public static Account rehydrated(
+            AccountId id, AccountType type, String name, Instant archivedAt) {
+        Account loaded = new Account(id, type, name);
+        loaded.archivedAt = archivedAt;
+        return loaded;
+    }
+
     void rename(String newName) {
         this.name = requireUsableName(newName);
     }

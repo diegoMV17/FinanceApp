@@ -111,8 +111,8 @@ class InputLimitsTest {
                         assertThat(thrown.field()).isEqualTo("description");
                         assertThat(thrown.maximum())
                                 .isEqualTo(Transaction.MAX_DESCRIPTION_LENGTH);
-                        // Lo que vino de afuera no se repite en el mensaje: ese
-                        // mensaje termina en un log o en una respuesta de la API.
+                        // What came from outside is not echoed in the message:
+                        // that message ends up in a log and in an API response.
                         assertThat(thrown.getMessage()).doesNotContain(tooLong);
                     });
         }

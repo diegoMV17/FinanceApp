@@ -60,10 +60,11 @@ public final class Ledger {
         Transaction original = require(originalId);
         Transaction replacement = correction.asReplacementFor(originalId);
 
-        // El id de la corrección se revisa antes de anular. Al revés —anular y
-        // después registrar— un id repetido dejaba el original anulado y sin
-        // reemplazo: el movimiento desaparecía de todos los saldos. Con ids que
-        // vienen del cliente, eso dejó de ser hipotético.
+        // The correction's id is checked before anything is cancelled. The
+        // other way round -- cancel first, record afterwards -- a taken id left
+        // the original cancelled with nothing in its place, and the movement
+        // vanished from every balance. With ids coming from the client, that
+        // stopped being hypothetical.
         if (book.containsKey(replacement.id())) {
             throw new DuplicateTransactionException(replacement.id());
         }

@@ -106,8 +106,8 @@ class ContentComparisonTest {
                     id, TODAY, "Almuerzo", TransactionSource.APP,
                     lunch.entries(), TransactionId.generate(), null);
 
-            // Lo que reemplaza se revisa aparte, en el caso de uso: una
-            // corrección con el mismo contenido no es el mismo movimiento.
+            // What it replaces is checked separately, by the use case: a
+            // correction with identical content is not the same movement.
             assertThat(correction.sameContentAs(asStored)).isTrue();
             assertThat(correction.replaces()).isPresent();
         }

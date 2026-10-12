@@ -33,8 +33,8 @@ public final class Entry {
         if (amount.isZero()) {
             throw new ZeroAmountEntryException(account);
         }
-        // Comparado contra los dos extremos y no con Math.abs: el valor
-        // absoluto de Long.MIN_VALUE sigue siendo negativo y pasaría.
+        // Compared against both ends rather than with Math.abs: the absolute
+        // value of Long.MIN_VALUE is still negative, and would slip through.
         if (amount.cents() > MAX_ABSOLUTE_CENTS || amount.cents() < -MAX_ABSOLUTE_CENTS) {
             throw new AmountOutOfRangeException(account, amount, MAX_ABSOLUTE_CENTS);
         }

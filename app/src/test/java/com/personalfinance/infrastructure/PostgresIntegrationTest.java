@@ -26,5 +26,5 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 @SpringBootTest
 @Import(PostgresContainer.class)
 @Testcontainers(disabledWithoutDocker = true)
-abstract class PostgresIntegrationTest {
+public abstract class PostgresIntegrationTest {
 }

@@ -34,6 +34,16 @@ spring:
     # dejaría la base en un estado que nadie sabría reproducir.
     validate-on-migrate: true
 
+# Cuánto espera una escritura su turno antes de rendirse con un 503.
+#
+# El valor por defecto (5 s) vive en BookLockProperties, no aquí: una sola
+# fuente de verdad, y la aplicación arranca igual sin este archivo. Esto queda
+# escrito solo para que se sepa que la propiedad existe y cómo se llama.
+#
+# finance:
+#   book-lock:
+#     timeout: 5s
+
 logging:
   level:
     org.flywaydb: INFO

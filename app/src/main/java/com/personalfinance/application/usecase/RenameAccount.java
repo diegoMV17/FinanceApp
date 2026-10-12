@@ -3,9 +3,11 @@ package com.personalfinance.application.usecase;
 import com.personalfinance.application.BookLoader;
 import com.personalfinance.application.Outcome;
 import com.personalfinance.application.command.RenameAccountCommand;
+import com.personalfinance.application.port.AuditRecord;
 import com.personalfinance.application.port.AuditTrail;
 import com.personalfinance.application.port.BookLock;
 import com.personalfinance.domain.ledger.Account;
+import com.personalfinance.domain.ledger.Chart;
 import com.personalfinance.domain.ledger.port.AccountStore;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -47,6 +49,22 @@ public class RenameAccount {
      */
     @Transactional
     public Outcome<Account> execute(RenameAccountCommand command) {
-        throw new UnsupportedOperationException("paso 4");
+        lock.acquire();
+        Chart chart = loader.load().chart();
+
+        Account account = chart.require(command.id());
+        if (account.answersTo(command.newName())) {
+            return Outcome.alreadyApplied(account);
+        }
+
+        String before = account.name();
+        chart.rename(command.id(), command.newName());
+
+        // El nombre que guarda la base es el que quedó en el dominio, ya
+        // recortado, no el que llegó en el comando.
+        accounts.rename(command.id(), account.name());
+        audit.record(AuditRecord.accountRenamed(command.id(), before, account.name()));
+
+        return Outcome.applied(account);
     }
 }

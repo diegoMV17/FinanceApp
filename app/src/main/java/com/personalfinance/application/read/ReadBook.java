@@ -1,10 +1,17 @@
 package com.personalfinance.application.read;
 
 import com.personalfinance.application.BookLoader;
+import com.personalfinance.domain.ledger.Account;
 import com.personalfinance.domain.ledger.AccountId;
+import com.personalfinance.domain.ledger.AccountType;
+import com.personalfinance.domain.ledger.Book;
+import com.personalfinance.domain.ledger.Ledger;
 import com.personalfinance.domain.ledger.TransactionId;
+import com.personalfinance.domain.shared.Money;
 import java.time.LocalDate;
+import java.util.EnumMap;
 import java.util.List;
+import java.util.Map;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
@@ -36,24 +43,43 @@ public class ReadBook {
     /** HU22. Cuánto es de verdad suyo, y los totales por tipo, a esa fecha. */
     @Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)
     public BookSummary summary(LocalDate asOf) {
-        throw new UnsupportedOperationException("paso 4");
+        Ledger ledger = loader.load().ledger();
+
+        Map<AccountType, Money> totals = new EnumMap<>(AccountType.class);
+        for (AccountType type : AccountType.values()) {
+            totals.put(type, ledger.totalFor(type, asOf));
+        }
+
+        return new BookSummary(asOf, ledger.moneyReallyMine(asOf), totals);
     }
 
     /** El saldo de cada cuenta, archivadas incluidas, en el orden en que se abrieron. */
     @Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)
     public List<AccountBalance> balances(LocalDate asOf) {
-        throw new UnsupportedOperationException("paso 4");
+        Book book = loader.load();
+
+        return book.chart().all().stream()
+                .map(account -> AccountBalance.of(
+                        account, book.ledger().displayedBalanceOf(account, asOf)))
+                .toList();
     }
 
     /** HU21, HU24. Los movimientos que siguen contando sobre una cuenta, el más viejo primero. */
     @Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)
     public List<MovementView> movementsOf(AccountId id) {
-        throw new UnsupportedOperationException("paso 4");
+        Book book = loader.load();
+        Account account = book.chart().require(id);
+
+        return book.ledger().movementsOf(account).stream()
+                .map(movement -> MovementView.of(movement, account))
+                .toList();
     }
 
     /** HU06. La cadena de versiones de un movimiento, la original primero. */
     @Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)
     public List<RevisionView> revisionsOf(TransactionId id) {
-        throw new UnsupportedOperationException("paso 4");
+        return loader.load().ledger().revisionsOf(id).stream()
+                .map(RevisionView::of)
+                .toList();
     }
 }

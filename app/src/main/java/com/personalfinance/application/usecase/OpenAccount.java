@@ -3,10 +3,14 @@ package com.personalfinance.application.usecase;
 import com.personalfinance.application.BookLoader;
 import com.personalfinance.application.Outcome;
 import com.personalfinance.application.command.OpenAccountCommand;
+import com.personalfinance.application.port.AuditRecord;
 import com.personalfinance.application.port.AuditTrail;
 import com.personalfinance.application.port.BookLock;
 import com.personalfinance.domain.ledger.Account;
+import com.personalfinance.domain.ledger.Chart;
+import com.personalfinance.domain.ledger.DuplicateAccountException;
 import com.personalfinance.domain.ledger.port.AccountStore;
+import java.util.Optional;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -44,6 +48,32 @@ public class OpenAccount {
      */
     @Transactional
     public Outcome<Account> execute(OpenAccountCommand command) {
-        throw new UnsupportedOperationException("paso 4");
+        lock.acquire();
+        Chart chart = loader.load().chart();
+
+        Optional<Account> stored = chart.find(command.id());
+        if (stored.isPresent()) {
+            return sameOrConflict(stored.get(), command);
+        }
+
+        Account opened = chart.open(command.id(), command.type(), command.name());
+        accounts.open(opened);
+        audit.record(AuditRecord.accountOpened(opened.id()));
+
+        return Outcome.applied(opened);
+    }
+
+    /**
+     * La cuenta que se pidió se construye solo para compararla: es la forma de
+     * que el nombre llegue recortado y con los mismos límites que tendría si se
+     * fuera a guardar, y la comparación use la misma regla de nombres que el
+     * catálogo.
+     */
+    private static Outcome<Account> sameOrConflict(Account stored, OpenAccountCommand command) {
+        Account asked = Account.open(command.id(), command.type(), command.name());
+        if (stored.sameContentAs(asked)) {
+            return Outcome.alreadyApplied(stored);
+        }
+        throw new DuplicateAccountException(command.id());
     }
 }

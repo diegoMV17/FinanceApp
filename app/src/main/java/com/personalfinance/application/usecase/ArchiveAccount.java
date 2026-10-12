@@ -3,11 +3,14 @@ package com.personalfinance.application.usecase;
 import com.personalfinance.application.BookLoader;
 import com.personalfinance.application.Outcome;
 import com.personalfinance.application.command.ArchiveAccountCommand;
+import com.personalfinance.application.port.AuditRecord;
 import com.personalfinance.application.port.AuditTrail;
 import com.personalfinance.application.port.BookLock;
 import com.personalfinance.domain.ledger.Account;
+import com.personalfinance.domain.ledger.Book;
 import com.personalfinance.domain.ledger.port.AccountStore;
 import java.time.Clock;
+import java.time.Instant;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -57,6 +60,22 @@ public class ArchiveAccount {
      */
     @Transactional
     public Outcome<Account> execute(ArchiveAccountCommand command) {
-        throw new UnsupportedOperationException("paso 4");
+        lock.acquire();
+        Book book = loader.load();
+
+        Account account = book.chart().require(command.id());
+        if (account.isArchived()) {
+            return Outcome.alreadyApplied(account);
+        }
+
+        // La misma fecha en el libro y en la base. Dos llamadas al reloj darían
+        // dos fechas distintas para el mismo hecho, y el archivado no se
+        // reescribe después.
+        Instant when = clock.instant();
+        book.chart().archive(command.id(), book.ledger(), when);
+        accounts.markArchived(command.id(), when);
+        audit.record(AuditRecord.accountArchived(command.id()));
+
+        return Outcome.applied(account);
     }
 }

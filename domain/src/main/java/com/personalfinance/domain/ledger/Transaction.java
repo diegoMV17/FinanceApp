@@ -26,6 +26,9 @@ public final class Transaction {
 
     private static final int MINIMUM_ENTRIES = 2;
 
+    /** Room for a sentence, not for a document pasted in by accident. */
+    public static final int MAX_DESCRIPTION_LENGTH = 200;
+
     private final TransactionId id;
     private final LocalDate date;
     private final String description;
@@ -46,11 +49,16 @@ public final class Transaction {
         this.id = Objects.requireNonNull(id, "id");
         this.date = Objects.requireNonNull(date, "date");
         this.source = Objects.requireNonNull(source, "source");
-        this.description = description == null ? "" : description.trim();
+        this.description = Text.within("description", description, MAX_DESCRIPTION_LENGTH);
         this.entries = List.copyOf(requireBalancedEntries(entries));
         this.replaces = replaces;
     }
 
+    /**
+     * A new movement. The id comes from the caller — the phone generates it
+     * offline — which is what lets a retried request be recognised as the same
+     * movement instead of recorded twice.
+     */
     public static Transaction record(
             TransactionId id,
             LocalDate date,
@@ -59,11 +67,6 @@ public final class Transaction {
             List<Entry> entries) {
 
         return new Transaction(id, date, description, source, entries, null);
-    }
-
-    public static Transaction record(LocalDate date, String description, List<Entry> entries) {
-        return new Transaction(
-                TransactionId.generate(), date, description, TransactionSource.APP, entries, null);
     }
 
     /**
@@ -89,14 +92,40 @@ public final class Transaction {
     }
 
     /**
-     * A copy of this transaction, with a new identity, marked as the successor
-     * of {@code original}. The ledger uses it to carry out an amendment; it is
-     * not something a caller assembles by hand.
+     * A copy of this transaction marked as the successor of {@code original}.
+     * The ledger uses it to carry out an amendment; it is not something a
+     * caller assembles by hand.
+     *
+     * <p>It keeps this transaction's own id. Minting a new one here would mean
+     * that sending the same correction twice produces two different
+     * corrections, and nothing upstream could tell that the second one was a
+     * retry of the first.
      */
     Transaction asReplacementFor(TransactionId original) {
         Objects.requireNonNull(original, "original");
-        return new Transaction(
-                TransactionId.generate(), date, description, source, entries, original);
+        return new Transaction(id, date, description, source, entries, original);
+    }
+
+    /**
+     * Whether this is the same movement somebody is describing again, used to
+     * tell a retried request from a contradiction.
+     *
+     * <p>{@link #equals} cannot answer that: two transactions are equal when
+     * their ids match, and that is precisely the case under suspicion. What is
+     * compared here is everything the caller stated — id, date, description,
+     * source and the entries in order.
+     *
+     * <p>What happened to the transaction afterwards is not content: a
+     * cancellation and a {@code replaces} are facts the book added, and whoever
+     * asks has to look at those separately.
+     */
+    public boolean sameContentAs(Transaction other) {
+        Objects.requireNonNull(other, "other");
+        return id.equals(other.id)
+                && date.equals(other.date)
+                && description.equals(other.description)
+                && source == other.source
+                && entries.equals(other.entries);
     }
 
     void cancel(Cancellation how) {

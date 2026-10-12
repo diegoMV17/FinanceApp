@@ -39,7 +39,9 @@ class TransactionValidationTest {
                     Entry.of(food, ofUnits(35_050)));
 
             assertThatExceptionOfType(UnbalancedTransactionException.class)
-                    .isThrownBy(() -> Transaction.record(TODAY, "Almuerzo", unbalanced))
+                    .isThrownBy(() -> Transaction.record(
+                            TransactionId.generate(), TODAY, "Almuerzo",
+                            TransactionSource.APP, unbalanced))
                     .satisfies(thrown ->
                             assertThat(thrown.difference()).isEqualTo(ofUnits(50)));
         }
@@ -50,7 +52,9 @@ class TransactionValidationTest {
             List<Entry> lonely = List.of(Entry.of(cash, ofUnits(-35_000)));
 
             assertThatExceptionOfType(NotEnoughEntriesException.class)
-                    .isThrownBy(() -> Transaction.record(TODAY, "Almuerzo", lonely))
+                    .isThrownBy(() -> Transaction.record(
+                            TransactionId.generate(), TODAY, "Almuerzo",
+                            TransactionSource.APP, lonely))
                     .satisfies(thrown -> assertThat(thrown.actual()).isEqualTo(1));
         }
 
@@ -58,7 +62,9 @@ class TransactionValidationTest {
         @DisplayName("A2b · it has no entries at all")
         void noEntries() {
             assertThatExceptionOfType(NotEnoughEntriesException.class)
-                    .isThrownBy(() -> Transaction.record(TODAY, "Nada", List.of()));
+                    .isThrownBy(() -> Transaction.record(
+                            TransactionId.generate(), TODAY, "Nada",
+                            TransactionSource.APP, List.of()));
         }
     }
 
@@ -97,15 +103,19 @@ class TransactionValidationTest {
                     Entry.of(food, ofUnits(35_000)));
 
             assertThatNoException()
-                    .isThrownBy(() -> Transaction.record(TODAY, "Almuerzo a medias", split));
+                    .isThrownBy(() -> Transaction.record(
+                            TransactionId.generate(), TODAY, "Almuerzo a medias",
+                            TransactionSource.APP, split));
         }
 
         @Test
         @DisplayName("A4b · and reports its effect on each account it touches")
         void reportsItsEffect() {
-            Transaction lunch = Transaction.record(TODAY, "Almuerzo", List.of(
-                    Entry.of(cash, ofUnits(-35_000)),
-                    Entry.of(food, ofUnits(35_000))));
+            Transaction lunch = Transaction.record(
+                    TransactionId.generate(), TODAY, "Almuerzo",
+                    TransactionSource.APP, List.of(
+                            Entry.of(cash, ofUnits(-35_000)),
+                            Entry.of(food, ofUnits(35_000))));
 
             assertThat(lunch.effectOn(cash)).isEqualTo(ofUnits(-35_000));
             assertThat(lunch.effectOn(food)).isEqualTo(ofUnits(35_000));
@@ -115,9 +125,11 @@ class TransactionValidationTest {
         @Test
         @DisplayName("A4c · and cannot be altered through the list it was given")
         void entriesAreCopied() {
-            Transaction lunch = Transaction.record(TODAY, "Almuerzo", List.of(
-                    Entry.of(cash, ofUnits(-35_000)),
-                    Entry.of(food, ofUnits(35_000))));
+            Transaction lunch = Transaction.record(
+                    TransactionId.generate(), TODAY, "Almuerzo",
+                    TransactionSource.APP, List.of(
+                            Entry.of(cash, ofUnits(-35_000)),
+                            Entry.of(food, ofUnits(35_000))));
 
             assertThatExceptionOfType(UnsupportedOperationException.class)
                     .isThrownBy(() -> lunch.entries().clear());

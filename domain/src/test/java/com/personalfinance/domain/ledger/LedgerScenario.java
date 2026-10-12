@@ -63,18 +63,29 @@ final class LedgerScenario {
 
         return switch (step.kind()) {
             case OPENING_BALANCE ->
-                    Operations.openingBalance(on, bancolombia, openingBalances, amount);
-            case INCOME -> Operations.income(on, what, bancolombia, salary, amount);
-            case EXPENSE -> Operations.expense(on, what, cash, food, amount);
-            case TRANSFER -> Operations.transfer(on, what, bancolombia, nequi, amount);
-            case LEND -> Operations.lend(on, what, bancolombia, juan, amount);
-            case COLLECT_LOAN -> Operations.collectLoan(on, what, juan, bancolombia, amount);
-            case BORROW -> Operations.borrow(on, what, brother, cash, amount);
-            case REPAY_DEBT -> Operations.repayDebt(on, what, cash, brother, amount);
+                    Operations.openingBalance(TransactionId.generate(),
+                            on, bancolombia, openingBalances, amount);
+            case INCOME -> Operations.income(TransactionId.generate(),
+                    on, what, bancolombia, salary, amount);
+            case EXPENSE -> Operations.expense(TransactionId.generate(),
+                    on, what, cash, food, amount);
+            case TRANSFER -> Operations.transfer(TransactionId.generate(),
+                    on, what, bancolombia, nequi, amount);
+            case LEND -> Operations.lend(TransactionId.generate(),
+                    on, what, bancolombia, juan, amount);
+            case COLLECT_LOAN -> Operations.collectLoan(TransactionId.generate(),
+                    on, what, juan, bancolombia, amount);
+            case BORROW -> Operations.borrow(TransactionId.generate(),
+                    on, what, brother, cash, amount);
+            case REPAY_DEBT -> Operations.repayDebt(TransactionId.generate(),
+                    on, what, cash, brother, amount);
             case RECEIVE_FUND ->
-                    Operations.receiveThirdPartyMoney(on, what, momsFund, cash, amount);
-            case SPEND_FUND -> Operations.spendThirdPartyMoney(on, what, momsFund, cash, amount);
-            case RETURN_FUND -> Operations.returnThirdPartyMoney(on, what, momsFund, cash, amount);
+                    Operations.receiveThirdPartyMoney(TransactionId.generate(),
+                            on, what, momsFund, cash, amount);
+            case SPEND_FUND -> Operations.spendThirdPartyMoney(TransactionId.generate(),
+                    on, what, momsFund, cash, amount);
+            case RETURN_FUND -> Operations.returnThirdPartyMoney(TransactionId.generate(),
+                    on, what, momsFund, cash, amount);
         };
     }
 

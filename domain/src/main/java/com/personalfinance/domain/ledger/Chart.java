@@ -23,20 +23,32 @@ public final class Chart {
 
     private final Map<AccountId, Account> accounts = new LinkedHashMap<>();
 
-    /** Opens a new account and registers it. The usual way to create one. */
-    public Account open(AccountType type, String name) {
-        Objects.requireNonNull(type, "type");
-        Objects.requireNonNull(name, "name");
-        refuseDuplicateName(type, name);
-
-        Account opened = Account.open(type, name);
-        accounts.put(opened.id(), opened);
-        return opened;
+    /**
+     * Opens a new account under the id the caller brought, which is how the
+     * phone can create an account offline and send it afterwards.
+     */
+    public Account open(AccountId id, AccountType type, String name) {
+        return add(Account.open(id, type, name));
     }
 
-    /** Registers an account built elsewhere, such as one loaded from the database. */
+    /** Opens a new account with an id of its own. The usual way to create one. */
+    public Account open(AccountType type, String name) {
+        return open(AccountId.generate(), type, name);
+    }
+
+    /**
+     * Registers an account built elsewhere, such as one loaded from the
+     * database.
+     *
+     * <p>An id already in the catalogue is refused rather than replaced: the
+     * entries already written point at the instance that is there, and swapping
+     * it would split that account's balance in two.
+     */
     public Account add(Account account) {
         Objects.requireNonNull(account, "account");
+        if (accounts.containsKey(account.id())) {
+            throw new DuplicateAccountException(account.id());
+        }
         if (!account.isArchived()) {
             refuseDuplicateName(account.type(), account.name());
         }

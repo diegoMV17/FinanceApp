@@ -38,7 +38,7 @@ class ArchivingTest {
     private final Account openingBalances = chart.open(AccountType.EQUITY, "Saldos iniciales");
 
     private void startWith(Account account, long amount) {
-        ledger.record(Operations.openingBalance(
+        ledger.record(Operations.openingBalance(TransactionId.generate(),
                 TODAY, account, openingBalances, ofUnits(amount)));
     }
 
@@ -50,7 +50,8 @@ class ArchivingTest {
         @DisplayName("E1 · retires even with movements, and keeps its name in history")
         void archivesWithHistory() {
             startWith(cash, 100_000);
-            ledger.record(Operations.expense(TODAY, "Almuerzo", cash, food, ofUnits(35_000)));
+            ledger.record(Operations.expense(TransactionId.generate(),
+                    TODAY, "Almuerzo", cash, food, ofUnits(35_000)));
 
             chart.archive(food.id(), ledger, NOW);
 
@@ -64,7 +65,8 @@ class ArchivingTest {
         @DisplayName("E1b · still prints on a report for a month it was active")
         void stillNamedInReports() {
             startWith(cash, 100_000);
-            ledger.record(Operations.expense(TODAY, "Almuerzo", cash, food, ofUnits(35_000)));
+            ledger.record(Operations.expense(TransactionId.generate(),
+                    TODAY, "Almuerzo", cash, food, ofUnits(35_000)));
             chart.archive(food.id(), ledger, NOW);
 
             assertThat(food.name()).isEqualTo("Alimentación");
@@ -92,7 +94,8 @@ class ArchivingTest {
         @DisplayName("E3 · retires once it is empty, history and all")
         void archivesWhenEmptied() {
             startWith(cash, 100_000);
-            ledger.record(Operations.transfer(TODAY, "Vacío la caja", cash, nequi,
+            ledger.record(Operations.transfer(TransactionId.generate(),
+                    TODAY, "Vacío la caja", cash, nequi,
                     ofUnits(100_000)));
 
             assertThatNoException().isThrownBy(() -> chart.archive(cash.id(), ledger, NOW));
@@ -106,7 +109,7 @@ class ArchivingTest {
         void refusesWhenScheduledMovementsLeaveMoney() {
             // Empty today, but next month's pay lands here. Checking only today's
             // balance would let this account be retired with money on the way in.
-            ledger.record(Operations.income(
+            ledger.record(Operations.income(TransactionId.generate(),
                     NEXT_MONTH, "Quincena", cash, salary, ofUnits(50_000)));
 
             assertThat(ledger.displayedBalanceOf(cash, TODAY)).isEqualTo(Money.ZERO);
@@ -122,7 +125,7 @@ class ArchivingTest {
             // 40,000 in it today, and the movement that empties it is already
             // recorded for next month. The account is on its way out, so it goes.
             startWith(cash, 40_000);
-            ledger.record(Operations.expense(
+            ledger.record(Operations.expense(TransactionId.generate(),
                     NEXT_MONTH, "Último gasto", cash, food, ofUnits(40_000)));
 
             assertThat(ledger.displayedBalanceOf(cash, TODAY)).isEqualTo(ofUnits(40_000));
@@ -133,7 +136,7 @@ class ArchivingTest {
         @Test
         @DisplayName("E5c · a third-party fund cannot be retired with money still in it")
         void refusesAFundWithMoney() {
-            ledger.record(Operations.receiveThirdPartyMoney(
+            ledger.record(Operations.receiveThirdPartyMoney(TransactionId.generate(),
                     TODAY, "Mamá me deja plata", momsFund, cash, ofUnits(100_000)));
 
             assertThatExceptionOfType(AccountStillHoldsMoneyException.class)
@@ -143,9 +146,9 @@ class ArchivingTest {
         @Test
         @DisplayName("E5d · a fund retires once it has been handed back in full")
         void archivesAFundOnceReturned() {
-            ledger.record(Operations.receiveThirdPartyMoney(
+            ledger.record(Operations.receiveThirdPartyMoney(TransactionId.generate(),
                     TODAY, "Entrega", momsFund, cash, ofUnits(100_000)));
-            ledger.record(Operations.returnThirdPartyMoney(
+            ledger.record(Operations.returnThirdPartyMoney(TransactionId.generate(),
                     TODAY, "Le devuelvo", momsFund, cash, ofUnits(100_000)));
 
             assertThatNoException().isThrownBy(() -> chart.archive(momsFund.id(), ledger, NOW));
@@ -155,12 +158,13 @@ class ArchivingTest {
         @DisplayName("E5e · a cancelled movement does not keep an account alive")
         void cancelledMovementsDoNotCount() {
             startWith(cash, 50_000);
-            Transaction mistake = Operations.expense(
+            Transaction mistake = Operations.expense(TransactionId.generate(),
                     NEXT_MONTH, "Error", cash, food, ofUnits(10_000));
             ledger.record(mistake);
             ledger.cancel(mistake.id(), NOW, "No era");
 
-            ledger.record(Operations.transfer(TODAY, "Vacío", cash, nequi, ofUnits(50_000)));
+            ledger.record(Operations.transfer(TransactionId.generate(),
+                    TODAY, "Vacío", cash, nequi, ofUnits(50_000)));
 
             assertThatNoException().isThrownBy(() -> chart.archive(cash.id(), ledger, LATER));
         }
@@ -176,7 +180,8 @@ class ArchivingTest {
             assertThat(chart.selectableOf(AccountType.ASSET)).contains(cash, nequi);
 
             startWith(cash, 100_000);
-            ledger.record(Operations.transfer(TODAY, "Vacío", cash, nequi, ofUnits(100_000)));
+            ledger.record(Operations.transfer(TransactionId.generate(),
+                    TODAY, "Vacío", cash, nequi, ofUnits(100_000)));
             chart.archive(cash.id(), ledger, NOW);
 
             assertThat(chart.selectableOf(AccountType.ASSET)).containsExactly(nequi);
@@ -190,7 +195,7 @@ class ArchivingTest {
             chart.archive(food.id(), ledger, NOW);
 
             assertThatExceptionOfType(ArchivedAccountException.class)
-                    .isThrownBy(() -> Operations.expense(
+                    .isThrownBy(() -> Operations.expense(TransactionId.generate(),
                             TODAY, "Tarde", nequi, food, ofUnits(10_000)));
         }
 
@@ -219,7 +224,8 @@ class ArchivingTest {
     @DisplayName("E7 · archiving changes no balance anywhere")
     void archivingChangesNoBalance() {
         startWith(cash, 100_000);
-        ledger.record(Operations.expense(TODAY, "Almuerzo", cash, food, ofUnits(35_000)));
+        ledger.record(Operations.expense(TransactionId.generate(),
+                TODAY, "Almuerzo", cash, food, ofUnits(35_000)));
 
         Money cashBefore = ledger.displayedBalanceOf(cash, TODAY);
         Money foodBefore = ledger.displayedBalanceOf(food, TODAY);

@@ -16,6 +16,13 @@ import java.util.Objects;
  */
 public final class Entry {
 
+    /**
+     * Ten thousand million pesos, which is far more than this book will ever
+     * see and far less than what breaks the arithmetic. See
+     * {@link AmountOutOfRangeException} for why the ceiling exists at all.
+     */
+    public static final long MAX_ABSOLUTE_CENTS = 1_000_000_000_000L;
+
     private final Account account;
     private final Money amount;
 
@@ -25,6 +32,11 @@ public final class Entry {
 
         if (amount.isZero()) {
             throw new ZeroAmountEntryException(account);
+        }
+        // Comparado contra los dos extremos y no con Math.abs: el valor
+        // absoluto de Long.MIN_VALUE sigue siendo negativo y pasaría.
+        if (amount.cents() > MAX_ABSOLUTE_CENTS || amount.cents() < -MAX_ABSOLUTE_CENTS) {
+            throw new AmountOutOfRangeException(account, amount, MAX_ABSOLUTE_CENTS);
         }
     }
 
@@ -48,7 +60,9 @@ public final class Entry {
     /**
      * An entry as it was stored. It may point at an account that has been
      * archived since: archiving stops new movements, it does not rewrite the
-     * ones that already happened. Everything else is still checked.
+     * ones that already happened. Everything else is still checked, the amount
+     * limit included: a row somebody edited in the database has to fail here,
+     * on load, and not in every balance from then on.
      */
     public static Entry rehydrated(Account account, Money amount) {
         return new Entry(account, amount);

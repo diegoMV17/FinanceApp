@@ -15,6 +15,7 @@ import com.personalfinance.domain.ledger.DuplicateTransactionException;
 import com.personalfinance.domain.ledger.Operations;
 import com.personalfinance.domain.ledger.Transaction;
 import com.personalfinance.domain.ledger.TransactionAlreadyCancelledException;
+import com.personalfinance.domain.ledger.TransactionId;
 import com.personalfinance.domain.ledger.TransactionSource;
 import com.personalfinance.domain.ledger.UnbalancedTransactionException;
 import com.personalfinance.domain.ledger.port.AccountStore;
@@ -92,13 +93,19 @@ class BookRoundTripTest extends PostgresIntegrationTest {
         momsFund = open(AccountType.THIRD_PARTY_FUND, "Mamá");
         equity = open(AccountType.EQUITY, "Saldos iniciales");
 
-        record(Operations.openingBalance(JANUARY, bancolombia, equity, ofUnits(800_000)));
-        record(Operations.income(JANUARY, "Sueldo", bancolombia, salary, ofUnits(2_000_000)));
-        record(Operations.transfer(TODAY, "A efectivo", bancolombia, cash, ofUnits(200_000)));
-        record(Operations.expense(TODAY, "Almuerzo", cash, food, ofUnits(35_000)));
-        record(Operations.lend(TODAY, "Préstamo a Juan", bancolombia, juan, ofUnits(300_000)));
-        record(Operations.borrow(TODAY, "Me prestó", brother, bancolombia, ofUnits(200_000)));
-        record(Operations.receiveThirdPartyMoney(
+        record(Operations.openingBalance(TransactionId.generate(),
+                JANUARY, bancolombia, equity, ofUnits(800_000)));
+        record(Operations.income(TransactionId.generate(),
+                JANUARY, "Sueldo", bancolombia, salary, ofUnits(2_000_000)));
+        record(Operations.transfer(TransactionId.generate(),
+                TODAY, "A efectivo", bancolombia, cash, ofUnits(200_000)));
+        record(Operations.expense(TransactionId.generate(),
+                TODAY, "Almuerzo", cash, food, ofUnits(35_000)));
+        record(Operations.lend(TransactionId.generate(),
+                TODAY, "Préstamo a Juan", bancolombia, juan, ofUnits(300_000)));
+        record(Operations.borrow(TransactionId.generate(),
+                TODAY, "Me prestó", brother, bancolombia, ofUnits(200_000)));
+        record(Operations.receiveThirdPartyMoney(TransactionId.generate(),
                 TODAY, "Fondo de mamá", momsFund, bancolombia, ofUnits(100_000)));
     }
 
@@ -198,7 +205,8 @@ class BookRoundTripTest extends PostgresIntegrationTest {
         void theRevisionChainComesBack() {
             Transaction lunch = written.ledger().movementsOf(food).getFirst();
             Transaction correction =
-                    Operations.expense(TODAY, "Almuerzo", cash, food, ofUnits(42_000));
+                    Operations.expense(TransactionId.generate(),
+                            TODAY, "Almuerzo", cash, food, ofUnits(42_000));
 
             Transaction replacement =
                     written.ledger().amend(lunch.id(), correction, WHEN);
@@ -229,7 +237,8 @@ class BookRoundTripTest extends PostgresIntegrationTest {
         @DisplayName("R10 · y un movimiento viejo sobre una cuenta ya archivada se carga igual")
         void historyOfAnArchivedAccountLoads() {
             Account retired = open(AccountType.EXPENSE, "Suscripciones");
-            record(Operations.expense(JANUARY, "Netflix", cash, retired, ofUnits(44_000)));
+            record(Operations.expense(TransactionId.generate(),
+                    JANUARY, "Netflix", cash, retired, ofUnits(44_000)));
             written.chart().archive(retired.id(), written.ledger(), WHEN);
             accounts.markArchived(retired.id(), WHEN);
 
@@ -361,7 +370,8 @@ class BookRoundTripTest extends PostgresIntegrationTest {
             Transaction lunch = written.ledger().movementsOf(food).getFirst();
             Account unsaved = written.chart().open(AccountType.EXPENSE, "Nunca guardada");
             Transaction replacement = written.ledger().amend(lunch.id(),
-                    Operations.expense(TODAY, "Almuerzo", cash, unsaved, ofUnits(42_000)), WHEN);
+                    Operations.expense(TransactionId.generate(),
+                            TODAY, "Almuerzo", cash, unsaved, ofUnits(42_000)), WHEN);
 
             assertThatThrownBy(() ->
                     transactions.amend(replacement, lunch.cancellation().orElseThrow()))

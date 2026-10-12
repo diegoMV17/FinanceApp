@@ -22,46 +22,51 @@ import java.util.List;
  *
  * <p>Callers always pass the amount as a positive number, the way the person
  * says it out loud. Working out the signs is this class's job.
+ *
+ * <p>Every method also takes the id of the movement it is building. The id
+ * belongs to whoever is recording — the phone mints it offline, before it has
+ * any way to reach the server — and that is what makes a retried request
+ * recognisable as the same movement instead of a second one.
  */
 public final class Operations {
 
     /** HU01. Opening balance, stated the way the person reads it. */
     public static Transaction openingBalance(
-            LocalDate date, Account account, Account equity, Money amount) {
+            TransactionId id, LocalDate date, Account account, Account equity, Money amount) {
 
         requirePositive("An opening balance", amount);
         requireType(equity, EQUITY);
 
         Money onTheLedger = amount.times(account.type().nature().presentationSign());
-        return Transaction.record(date, "Saldo inicial", List.of(
+        return Transaction.record(id, date, "Saldo inicial", TransactionSource.APP, List.of(
                 Entry.of(account, onTheLedger),
                 Entry.of(equity, onTheLedger.negated())));
     }
 
     /** HU04. Money arrives and it is yours. */
     public static Transaction income(
-            LocalDate date, String description,
+            TransactionId id, LocalDate date, String description,
             Account receivedInto, Account category, Money amount) {
 
         requirePositive("Income", amount);
         requireType(receivedInto, ASSET);
         requireType(category, INCOME);
 
-        return Transaction.record(date, description, List.of(
+        return Transaction.record(id, date, description, TransactionSource.APP, List.of(
                 Entry.of(receivedInto, amount),
                 Entry.of(category, amount.negated())));
     }
 
     /** HU05, HU12. Money leaves and it was yours. */
     public static Transaction expense(
-            LocalDate date, String description,
+            TransactionId id, LocalDate date, String description,
             Account paidFrom, Account category, Money amount) {
 
         requirePositive("An expense", amount);
         requireType(paidFrom, ASSET);
         requireType(category, EXPENSE);
 
-        return Transaction.record(date, description, List.of(
+        return Transaction.record(id, date, description, TransactionSource.APP, List.of(
                 Entry.of(paidFrom, amount.negated()),
                 Entry.of(category, amount)));
     }
@@ -71,7 +76,8 @@ public final class Operations {
      * category, which is exactly what the user story asks for.
      */
     public static Transaction transfer(
-            LocalDate date, String description, Account from, Account to, Money amount) {
+            TransactionId id, LocalDate date, String description,
+            Account from, Account to, Money amount) {
 
         requirePositive("A transfer", amount);
         requireType(from, ASSET);
@@ -80,77 +86,77 @@ public final class Operations {
             throw new IllegalArgumentException("A transfer needs two different accounts");
         }
 
-        return Transaction.record(date, description, List.of(
+        return Transaction.record(id, date, description, TransactionSource.APP, List.of(
                 Entry.of(from, amount.negated()),
                 Entry.of(to, amount)));
     }
 
     /** HU13. You lend money out. It left your pocket but it is still yours. */
     public static Transaction lend(
-            LocalDate date, String description,
+            TransactionId id, LocalDate date, String description,
             Account paidFrom, Account borrower, Money amount) {
 
         requirePositive("A loan", amount);
         requireType(paidFrom, ASSET);
         requireType(borrower, RECEIVABLE);
 
-        return Transaction.record(date, description, List.of(
+        return Transaction.record(id, date, description, TransactionSource.APP, List.of(
                 Entry.of(paidFrom, amount.negated()),
                 Entry.of(borrower, amount)));
     }
 
     /** HU14. They pay you back, in full or in part. */
     public static Transaction collectLoan(
-            LocalDate date, String description,
+            TransactionId id, LocalDate date, String description,
             Account borrower, Account receivedInto, Money amount) {
 
         requirePositive("A repayment", amount);
         requireType(borrower, RECEIVABLE);
         requireType(receivedInto, ASSET);
 
-        return Transaction.record(date, description, List.of(
+        return Transaction.record(id, date, description, TransactionSource.APP, List.of(
                 Entry.of(borrower, amount.negated()),
                 Entry.of(receivedInto, amount)));
     }
 
     /** HU15. Someone lends to you. The money is in your pocket but is not yours. */
     public static Transaction borrow(
-            LocalDate date, String description,
+            TransactionId id, LocalDate date, String description,
             Account lender, Account receivedInto, Money amount) {
 
         requirePositive("A borrowing", amount);
         requireType(lender, PAYABLE);
         requireType(receivedInto, ASSET);
 
-        return Transaction.record(date, description, List.of(
+        return Transaction.record(id, date, description, TransactionSource.APP, List.of(
                 Entry.of(receivedInto, amount),
                 Entry.of(lender, amount.negated())));
     }
 
     /** HU16. You pay down what you owe. */
     public static Transaction repayDebt(
-            LocalDate date, String description,
+            TransactionId id, LocalDate date, String description,
             Account paidFrom, Account lender, Money amount) {
 
         requirePositive("A debt payment", amount);
         requireType(paidFrom, ASSET);
         requireType(lender, PAYABLE);
 
-        return Transaction.record(date, description, List.of(
+        return Transaction.record(id, date, description, TransactionSource.APP, List.of(
                 Entry.of(paidFrom, amount.negated()),
                 Entry.of(lender, amount)));
     }
 
     /** HU17. Someone hands you money to keep. Not income. */
     public static Transaction receiveThirdPartyMoney(
-            LocalDate date, String description,
+            TransactionId id, LocalDate date, String description,
             Account fund, Account heldIn, Money amount) {
 
         requirePositive("A third-party deposit", amount);
         requireType(fund, THIRD_PARTY_FUND);
         requireType(heldIn, ASSET);
 
-        return Transaction.record(date, description, List.of(
+        return Transaction.record(id, date, description, TransactionSource.APP, List.of(
                 Entry.of(heldIn, amount),
                 Entry.of(fund, amount.negated())));
     }
@@ -160,10 +166,11 @@ public final class Operations {
      * expense category is touched: the fund itself is the other side.
      */
     public static Transaction spendThirdPartyMoney(
-            LocalDate date, String description,
+            TransactionId id, LocalDate date, String description,
             Account fund, Account paidFrom, Money amount) {
 
-        return drawDownFund("A third-party payment", date, description, fund, paidFrom, amount);
+        return drawDownFund(
+                "A third-party payment", id, date, description, fund, paidFrom, amount);
     }
 
     /**
@@ -175,21 +182,22 @@ public final class Operations {
      * ledger genuinely does not care.
      */
     public static Transaction returnThirdPartyMoney(
-            LocalDate date, String description,
+            TransactionId id, LocalDate date, String description,
             Account fund, Account paidFrom, Money amount) {
 
-        return drawDownFund("A third-party refund", date, description, fund, paidFrom, amount);
+        return drawDownFund(
+                "A third-party refund", id, date, description, fund, paidFrom, amount);
     }
 
     private static Transaction drawDownFund(
-            String operation, LocalDate date, String description,
+            String operation, TransactionId id, LocalDate date, String description,
             Account fund, Account paidFrom, Money amount) {
 
         requirePositive(operation, amount);
         requireType(fund, THIRD_PARTY_FUND);
         requireType(paidFrom, ASSET);
 
-        return Transaction.record(date, description, List.of(
+        return Transaction.record(id, date, description, TransactionSource.APP, List.of(
                 Entry.of(paidFrom, amount.negated()),
                 Entry.of(fund, amount)));
     }

@@ -88,6 +88,37 @@ class ChartTest {
     }
 
     @Test
+    @DisplayName("E14 · opens an account under the id the caller brought")
+    void opensWithAGivenId() {
+        AccountId id = AccountId.generate();
+
+        Account opened = chart.open(id, AccountType.ASSET, "Bancolombia");
+
+        assertThat(opened.id()).isEqualTo(id);
+        assertThat(chart.require(id)).isSameAs(opened);
+    }
+
+    /**
+     * Replacing the instance silently is what splits a balance in two: the
+     * entries already written point at the old object, the new ones at the new.
+     */
+    @Test
+    @DisplayName("E15 · refuses an id it already holds instead of replacing it")
+    void refusesADuplicateId() {
+        Account bank = chart.open(AccountType.ASSET, "Bancolombia");
+
+        assertThatExceptionOfType(DuplicateAccountException.class)
+                .isThrownBy(() -> chart.open(bank.id(), AccountType.EXPENSE, "Otra cosa"));
+
+        assertThatExceptionOfType(DuplicateAccountException.class)
+                .isThrownBy(() -> chart.add(Account.rehydrated(
+                        bank.id(), AccountType.EXPENSE, "Otra cosa", null)));
+
+        assertThat(chart.require(bank.id())).isSameAs(bank);
+        assertThat(chart.all()).containsExactly(bank);
+    }
+
+    @Test
     @DisplayName("E13 · takes in an account built elsewhere, archived ones included")
     void adoptsExistingAccounts() {
         Account loaded = Account.open(AccountType.ASSET, "Daviplata");

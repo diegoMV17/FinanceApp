@@ -35,12 +35,16 @@ class CancellationTest {
     }
 
     private void startWith(long amount) {
-        ledger.record(Operations.openingBalance(
+        ledger.record(Operations.openingBalance(TransactionId.generate(),
                 TODAY, cash, openingBalances, ofUnits(amount)));
     }
 
     private Transaction lunchOf(long amount) {
-        return Operations.expense(TODAY, "Almuerzo", cash, food, ofUnits(amount));
+        return lunchOf(TransactionId.generate(), amount);
+    }
+
+    private Transaction lunchOf(TransactionId id, long amount) {
+        return Operations.expense(id, TODAY, "Almuerzo", cash, food, ofUnits(amount));
     }
 
     @Nested
@@ -167,6 +171,50 @@ class CancellationTest {
 
             assertThatExceptionOfType(TransactionAlreadyCancelledException.class)
                     .isThrownBy(() -> ledger.amend(first.id(), lunchOf(50_000), LATER));
+        }
+
+        /**
+         * The correction keeps the id it arrived with. Generating a fresh one
+         * here would mean a retried correction produces a second, different
+         * correction, and the use case would have nothing to recognise.
+         */
+        @Test
+        @DisplayName("C4d · records the correction under the id it was given")
+        void keepsTheIdOfTheCorrection() {
+            startWith(100_000);
+            Transaction wrong = lunchOf(35_000);
+            ledger.record(wrong);
+            Transaction correction = lunchOf(40_000);
+
+            Transaction recorded = ledger.amend(wrong.id(), correction, NOW);
+
+            assertThat(recorded.id()).isEqualTo(correction.id());
+            assertThat(ledger.revisionsOf(wrong.id()))
+                    .extracting(Transaction::id)
+                    .containsExactly(wrong.id(), correction.id());
+        }
+
+        /**
+         * With client-supplied ids this is reachable: the correction carries an
+         * id the book already holds. Cancelling first and failing afterwards
+         * would leave the original cancelled with nothing in its place.
+         */
+        @Test
+        @DisplayName("C4e · checks that id before cancelling anything")
+        void aTakenIdLeavesTheOriginalCounting() {
+            startWith(100_000);
+            Transaction wrong = lunchOf(35_000);
+            ledger.record(wrong);
+            Transaction somethingElse = lunchOf(10_000);
+            ledger.record(somethingElse);
+
+            assertThatExceptionOfType(DuplicateTransactionException.class)
+                    .isThrownBy(() -> ledger.amend(
+                            wrong.id(), lunchOf(somethingElse.id(), 40_000), NOW));
+
+            assertThat(wrong.isCancelled()).isFalse();
+            assertThat(cashBalance()).isEqualTo(ofUnits(55_000));
+            assertThat(ledger.history()).hasSize(3);
         }
     }
 

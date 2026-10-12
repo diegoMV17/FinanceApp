@@ -46,7 +46,7 @@ class OperationsTest {
     @Test
     @DisplayName("B0 · an opening balance starts the book without inventing money")
     void openingBalance() {
-        ledger.record(Operations.openingBalance(
+        ledger.record(Operations.openingBalance(TransactionId.generate(),
                 TODAY, bancolombia, openingBalances, ofUnits(500_000)));
 
         assertThat(shown(bancolombia)).isEqualTo(ofUnits(500_000));
@@ -56,7 +56,7 @@ class OperationsTest {
     @Test
     @DisplayName("B0b · an opening balance works for a debt you already had")
     void openingDebt() {
-        ledger.record(Operations.openingBalance(
+        ledger.record(Operations.openingBalance(TransactionId.generate(),
                 TODAY, brother, openingBalances, ofUnits(500_000)));
 
         assertThat(shown(brother)).isEqualTo(ofUnits(500_000));
@@ -65,7 +65,7 @@ class OperationsTest {
     @Test
     @DisplayName("B1 · income raises the account and the income total")
     void income() {
-        ledger.record(Operations.income(
+        ledger.record(Operations.income(TransactionId.generate(),
                 TODAY, "Quincena", bancolombia, salary, ofUnits(2_000_000)));
 
         assertThat(shown(bancolombia)).isEqualTo(ofUnits(2_000_000));
@@ -76,8 +76,10 @@ class OperationsTest {
     @Test
     @DisplayName("B2 · an expense lowers the account and raises the category")
     void expense() {
-        ledger.record(Operations.openingBalance(TODAY, cash, openingBalances, ofUnits(100_000)));
-        ledger.record(Operations.expense(TODAY, "Almuerzo", cash, food, ofUnits(35_000)));
+        ledger.record(Operations.openingBalance(TransactionId.generate(),
+                TODAY, cash, openingBalances, ofUnits(100_000)));
+        ledger.record(Operations.expense(TransactionId.generate(),
+                TODAY, "Almuerzo", cash, food, ofUnits(35_000)));
 
         assertThat(shown(cash)).isEqualTo(ofUnits(65_000));
         assertThat(shown(food)).isEqualTo(ofUnits(35_000));
@@ -91,10 +93,10 @@ class OperationsTest {
         @Test
         @DisplayName("B5 · a transfer moves money without touching income or expenses")
         void transferIsNeitherIncomeNorExpense() {
-            ledger.record(Operations.openingBalance(
+            ledger.record(Operations.openingBalance(TransactionId.generate(),
                     TODAY, bancolombia, openingBalances, ofUnits(500_000)));
 
-            ledger.record(Operations.transfer(
+            ledger.record(Operations.transfer(TransactionId.generate(),
                     TODAY, "A Nequi", bancolombia, nequi, ofUnits(100_000)));
 
             assertThat(shown(bancolombia)).isEqualTo(ofUnits(400_000));
@@ -108,10 +110,10 @@ class OperationsTest {
         @Test
         @DisplayName("B6 · lending money is not an expense, it is money you still own")
         void lendingIsNotAnExpense() {
-            ledger.record(Operations.openingBalance(
+            ledger.record(Operations.openingBalance(TransactionId.generate(),
                     TODAY, bancolombia, openingBalances, ofUnits(500_000)));
 
-            ledger.record(Operations.lend(
+            ledger.record(Operations.lend(TransactionId.generate(),
                     TODAY, "Préstamo a Juan", bancolombia, juan, ofUnits(300_000)));
 
             assertThat(shown(bancolombia)).isEqualTo(ofUnits(200_000));
@@ -122,12 +124,12 @@ class OperationsTest {
         @Test
         @DisplayName("B7 · spending someone else's money is not your expense")
         void spendingThirdPartyMoneyIsNotYourExpense() {
-            ledger.record(Operations.openingBalance(
+            ledger.record(Operations.openingBalance(TransactionId.generate(),
                     TODAY, cash, openingBalances, ofUnits(50_000)));
-            ledger.record(Operations.receiveThirdPartyMoney(
+            ledger.record(Operations.receiveThirdPartyMoney(TransactionId.generate(),
                     TODAY, "Mamá me deja plata", momsFund, cash, ofUnits(100_000)));
 
-            ledger.record(Operations.spendThirdPartyMoney(
+            ledger.record(Operations.spendThirdPartyMoney(TransactionId.generate(),
                     TODAY, "Factura de mamá", momsFund, cash, ofUnits(30_000)));
 
             assertThat(shown(cash)).isEqualTo(ofUnits(120_000));
@@ -146,12 +148,12 @@ class OperationsTest {
         @Test
         @DisplayName("B8 · a partial repayment leaves the rest pending (HU14)")
         void partialRepayment() {
-            ledger.record(Operations.openingBalance(
+            ledger.record(Operations.openingBalance(TransactionId.generate(),
                     TODAY, bancolombia, openingBalances, ofUnits(500_000)));
-            ledger.record(Operations.lend(
+            ledger.record(Operations.lend(TransactionId.generate(),
                     TODAY, "Préstamo a Juan", bancolombia, juan, ofUnits(300_000)));
 
-            ledger.record(Operations.collectLoan(
+            ledger.record(Operations.collectLoan(TransactionId.generate(),
                     TODAY, "Juan abona", juan, bancolombia, ofUnits(100_000)));
 
             assertThat(shown(juan)).isEqualTo(ofUnits(200_000));
@@ -161,14 +163,14 @@ class OperationsTest {
         @Test
         @DisplayName("B9 · borrowing then paying part of it back (HU15, HU16)")
         void borrowAndRepay() {
-            ledger.record(Operations.borrow(
+            ledger.record(Operations.borrow(TransactionId.generate(),
                     TODAY, "Mi hermano me presta", brother, cash, ofUnits(500_000)));
 
             assertThat(shown(brother)).isEqualTo(ofUnits(500_000));
             assertThat(shown(cash)).isEqualTo(ofUnits(500_000));
             assertThat(ledger.moneyReallyMine(TODAY)).isEqualTo(Money.ZERO);
 
-            ledger.record(Operations.repayDebt(
+            ledger.record(Operations.repayDebt(TransactionId.generate(),
                     TODAY, "Abono al hermano", cash, brother, ofUnits(200_000)));
 
             assertThat(shown(brother)).isEqualTo(ofUnits(300_000));
@@ -179,12 +181,12 @@ class OperationsTest {
         @Test
         @DisplayName("B10 · giving a fund back empties it (HU20)")
         void returningThirdPartyMoney() {
-            ledger.record(Operations.receiveThirdPartyMoney(
+            ledger.record(Operations.receiveThirdPartyMoney(TransactionId.generate(),
                     TODAY, "Mamá me deja plata", momsFund, cash, ofUnits(100_000)));
-            ledger.record(Operations.spendThirdPartyMoney(
+            ledger.record(Operations.spendThirdPartyMoney(TransactionId.generate(),
                     TODAY, "Factura", momsFund, cash, ofUnits(30_000)));
 
-            ledger.record(Operations.returnThirdPartyMoney(
+            ledger.record(Operations.returnThirdPartyMoney(TransactionId.generate(),
                     TODAY, "Le devuelvo a mamá", momsFund, cash, ofUnits(70_000)));
 
             assertThat(shown(momsFund)).isEqualTo(Money.ZERO);
@@ -200,23 +202,24 @@ class OperationsTest {
         @DisplayName("B11 · a negative or zero amount")
         void nonPositiveAmount() {
             assertThatExceptionOfType(NonPositiveAmountException.class)
-                    .isThrownBy(() -> Operations.expense(
+                    .isThrownBy(() -> Operations.expense(TransactionId.generate(),
                             TODAY, "Raro", cash, food, ofUnits(-10_000)));
 
             assertThatExceptionOfType(NonPositiveAmountException.class)
-                    .isThrownBy(() -> Operations.expense(TODAY, "Raro", cash, food, Money.ZERO));
+                    .isThrownBy(() -> Operations.expense(TransactionId.generate(),
+                            TODAY, "Raro", cash, food, Money.ZERO));
         }
 
         @Test
         @DisplayName("B12 · an account of the wrong kind")
         void wrongAccountType() {
             assertThatExceptionOfType(UnexpectedAccountTypeException.class)
-                    .isThrownBy(() -> Operations.expense(
+                    .isThrownBy(() -> Operations.expense(TransactionId.generate(),
                             TODAY, "Imposible", salary, food, ofUnits(10_000)))
                     .satisfies(thrown -> assertThat(thrown.account()).isEqualTo(salary));
 
             assertThatExceptionOfType(UnexpectedAccountTypeException.class)
-                    .isThrownBy(() -> Operations.lend(
+                    .isThrownBy(() -> Operations.lend(TransactionId.generate(),
                             TODAY, "Imposible", bancolombia, momsFund, ofUnits(10_000)));
         }
 
@@ -224,7 +227,7 @@ class OperationsTest {
         @DisplayName("B13 · a transfer to the same account")
         void transferToItself() {
             assertThatIllegalArgumentException()
-                    .isThrownBy(() -> Operations.transfer(
+                    .isThrownBy(() -> Operations.transfer(TransactionId.generate(),
                             TODAY, "Circular", nequi, nequi, ofUnits(10_000)));
         }
     }

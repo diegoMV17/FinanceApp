@@ -21,7 +21,8 @@ class BookTest {
 
         Account cash = book.chart().open(AccountType.ASSET, "Efectivo");
         Account food = book.chart().open(AccountType.EXPENSE, "Alimentación");
-        book.ledger().record(Operations.expense(TODAY, "Almuerzo", cash, food, ofUnits(35_000)));
+        book.ledger().record(Operations.expense(TransactionId.generate(),
+                TODAY, "Almuerzo", cash, food, ofUnits(35_000)));
 
         assertThat(book.ledger().displayedBalanceOf(food, TODAY)).isEqualTo(ofUnits(35_000));
     }

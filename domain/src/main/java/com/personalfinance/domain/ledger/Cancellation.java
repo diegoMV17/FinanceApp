@@ -12,10 +12,13 @@ import java.util.Objects;
  */
 public record Cancellation(Instant at, String reason, TransactionSource source) {
 
+    /** Same room as a description: a sentence explaining what happened. */
+    public static final int MAX_REASON_LENGTH = 200;
+
     public Cancellation {
         Objects.requireNonNull(at, "at");
         Objects.requireNonNull(source, "source");
-        reason = reason == null ? "" : reason.trim();
+        reason = Text.within("reason", reason, MAX_REASON_LENGTH);
     }
 
     static Cancellation because(Instant at, String reason) {

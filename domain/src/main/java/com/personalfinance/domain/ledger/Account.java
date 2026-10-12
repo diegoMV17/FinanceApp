@@ -16,6 +16,9 @@ import java.util.Optional;
  */
 public final class Account {
 
+    /** Long enough for "Bancolombia ahorros de la casa", short enough to fit a list. */
+    public static final int MAX_NAME_LENGTH = 60;
+
     private final AccountId id;
     private final AccountType type;
     private String name;
@@ -97,13 +100,27 @@ public final class Account {
     }
 
     /** Two open accounts of one type cannot share a name; an archived one may. */
-    boolean answersTo(String candidateName) {
+    public boolean answersTo(String candidateName) {
+        Objects.requireNonNull(candidateName, "candidateName");
         return name.equalsIgnoreCase(candidateName.trim());
+    }
+
+    /**
+     * Whether this is the same account somebody is describing again, used to
+     * tell a retried "open this account" from a contradiction.
+     *
+     * <p>Only what the caller states counts: id, type and name, and the name
+     * under the same rule as {@link #answersTo}. Whether it has been archived
+     * since is a fact the book added, not content.
+     */
+    public boolean sameContentAs(Account other) {
+        Objects.requireNonNull(other, "other");
+        return id.equals(other.id) && type == other.type && answersTo(other.name);
     }
 
     private static String requireUsableName(String candidate) {
         Objects.requireNonNull(candidate, "name");
-        String trimmed = candidate.trim();
+        String trimmed = Text.within("name", candidate, MAX_NAME_LENGTH);
         if (trimmed.isEmpty()) {
             throw new IllegalArgumentException("An account needs a name");
         }

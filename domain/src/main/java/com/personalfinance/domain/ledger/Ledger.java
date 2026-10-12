@@ -8,6 +8,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.stream.Stream;
 
 /**
@@ -57,8 +58,16 @@ public final class Ledger {
     public Transaction amend(TransactionId originalId, Transaction correction, Instant when) {
         Objects.requireNonNull(correction, "correction");
         Transaction original = require(originalId);
-
         Transaction replacement = correction.asReplacementFor(originalId);
+
+        // El id de la corrección se revisa antes de anular. Al revés —anular y
+        // después registrar— un id repetido dejaba el original anulado y sin
+        // reemplazo: el movimiento desaparecía de todos los saldos. Con ids que
+        // vienen del cliente, eso dejó de ser hipotético.
+        if (book.containsKey(replacement.id())) {
+            throw new DuplicateTransactionException(replacement.id());
+        }
+
         original.cancel(Cancellation.supersededBy(when, replacement.id()));
         record(replacement);
         return replacement;
@@ -167,6 +176,15 @@ public final class Ledger {
             }
         }
         return List.copyOf(chain);
+    }
+
+    /**
+     * The movement under that id, if the book holds it. This is what a caller
+     * asks before writing: an id that is already here is either a retry of
+     * something identical or a contradiction, and only the caller can tell.
+     */
+    public Optional<Transaction> find(TransactionId id) {
+        return Optional.ofNullable(book.get(Objects.requireNonNull(id, "id")));
     }
 
     private Transaction require(TransactionId id) {

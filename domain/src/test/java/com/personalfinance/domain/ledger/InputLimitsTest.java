@@ -146,16 +146,31 @@ class InputLimitsTest {
         }
 
         /**
-         * The order matters: trimmed first, checked afterwards. A message typed
-         * into a chat ends in a newline more often than not, and refusing it
-         * would be refusing the message. What is left after trimming is what
-         * gets stored, and that is what may not hold a control character.
+         * At the ends it matters most, because that is where trimming would
+         * have hidden it: {@code trim()} eats a newline, a tab and a NUL at
+         * either end, so checking after trimming would let "Almuerzo\n" through
+         * without a word. What arrives has to be clean, not what is left of it.
          */
         @Test
-        @DisplayName("G9 · blanks at the ends go away, control characters among them")
+        @DisplayName("G8b · at the start and at the end too, where trimming would hide it")
+        void controlCharactersAtTheEdgesAreRefusedToo() {
+            assertThatExceptionOfType(ControlCharactersException.class)
+                    .isThrownBy(() -> lunchDescribed("Almuerzo\n"));
+
+            assertThatExceptionOfType(ControlCharactersException.class)
+                    .isThrownBy(() -> lunchDescribed("\nAlmuerzo"));
+
+            assertThatExceptionOfType(ControlCharactersException.class)
+                    .isThrownBy(() -> lunchDescribed("Almuerzo\u0000"));
+
+            assertThatExceptionOfType(ControlCharactersException.class)
+                    .isThrownBy(() -> lunchDescribed("\tAlmuerzo "));
+        }
+
+        @Test
+        @DisplayName("G9 · plain blanks at the ends do go away, and only-blanks leaves nothing")
         void blanksAreTrimmed() {
-            assertThat(lunchDescribed("  Almuerzo \n ").description()).isEqualTo("Almuerzo");
-            assertThat(lunchDescribed("Almuerzo\u0000").description()).isEqualTo("Almuerzo");
+            assertThat(lunchDescribed("  Almuerzo  ").description()).isEqualTo("Almuerzo");
             assertThat(lunchDescribed("   ").description()).isEmpty();
             assertThat(lunchDescribed(null).description()).isEmpty();
         }
@@ -206,11 +221,22 @@ class InputLimitsTest {
         }
 
         @Test
-        @DisplayName("G12 · a line break is refused there too")
+        @DisplayName("G12 · a line break is refused there too, at either end included")
         void controlCharactersAreRefused() {
             assertThatExceptionOfType(ControlCharactersException.class)
                     .isThrownBy(() -> new Cancellation(
                             NOW, "Duplicada\nAnulada por el sistema", TransactionSource.APP));
+
+            assertThatExceptionOfType(ControlCharactersException.class)
+                    .isThrownBy(() -> new Cancellation(
+                            NOW, "Duplicada\n", TransactionSource.APP));
+
+            assertThatExceptionOfType(ControlCharactersException.class)
+                    .isThrownBy(() -> new Cancellation(
+                            NOW, "\tDuplicada", TransactionSource.APP));
+
+            assertThat(new Cancellation(NOW, "  Duplicada  ", TransactionSource.APP).reason())
+                    .isEqualTo("Duplicada");
         }
 
         @Test
@@ -256,11 +282,21 @@ class InputLimitsTest {
         }
 
         @Test
-        @DisplayName("G16 · control characters are refused, blanks trimmed, blank-only rejected")
-        void whatANameMayNotBe() {
+        @DisplayName("G16 · control characters are refused, inside and at either end")
+        void controlCharactersAreRefused() {
             assertThatExceptionOfType(ControlCharactersException.class)
                     .isThrownBy(() -> Account.open(AccountType.ASSET, "Banco\nFalso"));
 
+            assertThatExceptionOfType(ControlCharactersException.class)
+                    .isThrownBy(() -> Account.open(AccountType.ASSET, "Bancolombia\n"));
+
+            assertThatExceptionOfType(ControlCharactersException.class)
+                    .isThrownBy(() -> Account.open(AccountType.ASSET, "\u0000Bancolombia"));
+        }
+
+        @Test
+        @DisplayName("G16b · plain blanks are trimmed, and a name of only blanks is no name")
+        void whatANameMayNotBe() {
             assertThat(Account.open(AccountType.ASSET, "  Bancolombia  ").name())
                     .isEqualTo("Bancolombia");
 

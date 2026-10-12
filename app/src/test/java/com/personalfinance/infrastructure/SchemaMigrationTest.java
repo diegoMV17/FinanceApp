@@ -11,6 +11,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Propagation;
@@ -91,7 +92,7 @@ class SchemaMigrationTest extends PostgresIntegrationTest {
                     "SELECT description FROM flyway_schema_history WHERE success",
                     String.class);
 
-            assertThat(applied).contains("esquema inicial");
+            assertThat(applied).contains("esquema inicial", "limites de entrada");
         }
 
         @Test
@@ -528,6 +529,127 @@ class SchemaMigrationTest extends PostgresIntegrationTest {
         }
     }
 
+    /**
+     * Los límites de la V4. Cada uno se prueba en el máximo exacto y en el
+     * máximo más uno: un límite probado solo "por encima" pasa igual si el
+     * número está mal copiado.
+     */
+    @Nested
+    @DisplayName("acota lo que entra")
+    class InputLimits {
+
+        private static final long MAX_CENTS = 1_000_000_000_000L;
+
+        @Test
+        @DisplayName("P40 · un apunte en el límite exacto pasa, en los dos signos")
+        void theExactLimitGoesThrough() {
+            assertThatNoException().isThrownBy(() -> record(
+                    "Enorme",
+                    new Line(CASH, -MAX_CENTS),
+                    new Line(FOOD, MAX_CENTS)));
+
+            assertThat(entryCount()).isEqualTo(2);
+        }
+
+        @Test
+        @DisplayName("P41 · y un centavo más no, en los dos signos")
+        void oneCentTooMuch() {
+            assertThatThrownBy(() -> record(
+                    "Imposible",
+                    new Line(CASH, -(MAX_CENTS + 1)),
+                    new Line(FOOD, MAX_CENTS + 1)))
+                    .hasStackTraceContaining("entries_amount_within_range");
+
+            assertThatThrownBy(() -> record(
+                    "Imposible",
+                    new Line(CASH, MAX_CENTS + 1),
+                    new Line(FOOD, -(MAX_CENTS + 1))))
+                    .hasStackTraceContaining("entries_amount_within_range");
+
+            assertThat(entryCount()).isZero();
+        }
+
+        @Test
+        @DisplayName("P42 · una descripción de doscientos caracteres pasa y una de 201 no")
+        void theDescriptionLimit() {
+            assertThatNoException().isThrownBy(() -> lunchDescribed("a".repeat(200)));
+
+            assertThatThrownBy(() -> lunchDescribed("a".repeat(201)))
+                    .hasStackTraceContaining("transactions_description_within_length");
+        }
+
+        @Test
+        @DisplayName("P43 · y una con un salto de línea o un tabulador tampoco")
+        void theDescriptionIsOneLine() {
+            assertThatThrownBy(() -> lunchDescribed("Almuerzo\nSaldo: 0"))
+                    .hasStackTraceContaining("transactions_description_is_one_line");
+
+            assertThatThrownBy(() -> lunchDescribed("Almuerzo\tcolumna"))
+                    .hasStackTraceContaining("transactions_description_is_one_line");
+        }
+
+        /**
+         * El NUL no llega al CHECK: Postgres rechaza el byte 0x00 dentro de un
+         * texto antes de evaluar cualquier restricción ("invalid byte sequence
+         * for encoding UTF8"). Queda rechazado igual, pero por otro camino, y
+         * por eso este caso no comprueba el nombre de la restricción.
+         */
+        @Test
+        @DisplayName("P43b · y un NUL lo rechaza la codificación, antes del CHECK")
+        void aNulByteNeverGetsIn() {
+            assertThatThrownBy(() -> lunchDescribed("Almuerzo\u0000con NUL"))
+                    .isInstanceOf(DataAccessException.class);
+
+            assertThat(entryCount()).isZero();
+        }
+
+        @Test
+        @DisplayName("P44 · el motivo de una anulación se mide igual")
+        void theCancellationNoteLimits() {
+            assertThatNoException().isThrownBy(() -> cancelWithNote(lunch(), "a".repeat(200)));
+
+            assertThatThrownBy(() -> cancelWithNote(lunch(), "a".repeat(201)))
+                    .hasStackTraceContaining("transactions_cancellation_note_within_length");
+
+            assertThatThrownBy(() -> cancelWithNote(lunch(), "Duplicada\nAnulada"))
+                    .hasStackTraceContaining("transactions_cancellation_note_is_one_line");
+        }
+
+        @Test
+        @DisplayName("P45 · y el nombre de una cuenta, hasta sesenta y en una sola línea")
+        void theAccountNameLimits() {
+            assertThatNoException()
+                    .isThrownBy(() -> openAccount(newId(), "ASSET", "a".repeat(60)));
+
+            assertThatThrownBy(() -> openAccount(newId(), "ASSET", "b".repeat(61)))
+                    .hasStackTraceContaining("accounts_name_within_length");
+
+            assertThatThrownBy(() -> openAccount(newId(), "ASSET", "Banco\nFalso"))
+                    .hasStackTraceContaining("accounts_name_is_one_line");
+        }
+
+        /**
+         * Lo que hace que el límite de Java y el de Postgres sean el mismo
+         * límite: los dos cuentan code points. Si uno contara bytes, un nombre
+         * de veinte emojis pasaría en Java y la base lo rechazaría.
+         */
+        @Test
+        @DisplayName("P46 · contando un emoji como un carácter, igual que el dominio")
+        void lengthIsCountedInCodePoints() {
+            assertThatNoException().isThrownBy(
+                    () -> openAccount(newId(), "ASSET", "🏦".repeat(60)));
+
+            assertThatThrownBy(
+                    () -> openAccount(newId(), "ASSET", "🏦".repeat(61)))
+                    .hasStackTraceContaining("accounts_name_within_length");
+        }
+
+        private void lunchDescribed(String description) {
+            recordOn(newId(), SOME_DAY, description,
+                    new Line(CASH, -3_500_000), new Line(FOOD, 3_500_000));
+        }
+    }
+
     // --- Ayudas. SQL crudo a propósito: lo que se prueba es el esquema, así que
     // --- cualquier capa intermedia estorbaría.
 
@@ -564,6 +686,12 @@ class SchemaMigrationTest extends PostgresIntegrationTest {
     private void openAccount(String id, String type, String name) {
         jdbc.update("INSERT INTO accounts (id, type, name) "
                 + "VALUES (?::uuid, ?::account_type, ?)", id, type, name);
+    }
+
+    private void cancelWithNote(String id, String note) {
+        jdbc.update("UPDATE transactions SET cancelled_at = now(), "
+                + "cancellation_source = 'APP', cancellation_note = ? WHERE id = ?::uuid",
+                note, id);
     }
 
     private void cancel(String id, String at) {

@@ -167,5 +167,24 @@ class ContentComparisonTest {
             assertThat(account.answersTo("  BANCOLOMBIA ")).isTrue();
             assertThat(account.answersTo("Bancolombia Ahorros")).isFalse();
         }
+
+        /**
+         * Two different questions, and mixing them up loses a rename. "Does it
+         * answer to this name?" decides whether two accounts would be
+         * indistinguishable in a selector, and ignores case on purpose. "Is it
+         * called exactly this?" decides whether a rename has anything to do,
+         * and fixing the capitalisation of a name is something to do.
+         */
+        @Test
+        @DisplayName("G28 · and whether it is called exactly that, capitals included")
+        void isNamedExactly() {
+            Account account = Account.open(id, AccountType.ASSET, "Nequi");
+
+            assertThat(account.isNamed("Nequi")).isTrue();
+            assertThat(account.isNamed("  Nequi  ")).isTrue();
+            assertThat(account.isNamed("nequi")).isFalse();
+            assertThat(account.isNamed("NEQUI")).isFalse();
+            assertThat(account.isNamed("Nequi Ahorros")).isFalse();
+        }
     }
 }

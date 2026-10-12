@@ -106,6 +106,20 @@ public final class Account {
     }
 
     /**
+     * Whether this account is called exactly that, capitals included. Only the
+     * blanks around the candidate are ignored, because those never make it
+     * into a name anyway.
+     *
+     * <p>A different question from {@link #answersTo}, and mixing the two
+     * loses a rename: "nequi" and "Nequi" are the same name for deciding
+     * whether two accounts would be indistinguishable in a selector, and
+     * different names for deciding whether a rename has anything to do.
+     */
+    public boolean isNamed(String candidateName) {
+        return name.equals(requireUsableName(candidateName));
+    }
+
+    /**
      * Whether this is the same account somebody is describing again, used to
      * tell a retried "open this account" from a contradiction.
      *

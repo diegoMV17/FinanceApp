@@ -19,9 +19,12 @@ import org.springframework.transaction.annotation.Transactional;
  * {@code accounts} solo conserva el nombre de ahora, así que sin el anterior no
  * quedaría cómo se llamaba antes. Nada más se copia a la auditoría.
  *
- * <p>Pedir el nombre que ya tiene — con la misma regla con que el catálogo
- * compara nombres, sin distinguir mayúsculas ni espacios de los extremos — es
- * un reintento y no escribe nada.
+ * <p>Pedir el nombre que ya tiene, exacto salvo los espacios de los extremos,
+ * es un reintento y no escribe nada. Exacto quiere decir con sus mayúsculas:
+ * la regla con que el catálogo compara nombres las ignora porque sirve para
+ * otra cosa — decidir si dos cuentas serían indistinguibles en una lista — y
+ * usarla aquí haría que arreglar "nequi" a "Nequi" respondiera "ya aplicado"
+ * sin cambiar nada.
  *
  * <p>READ COMMITTED, como todas las escrituras: ver {@link RecordMovement}.
  */
@@ -53,7 +56,7 @@ public class RenameAccount {
         Chart chart = loader.load().chart();
 
         Account account = chart.require(command.id());
-        if (account.answersTo(command.newName())) {
+        if (account.isNamed(command.newName())) {
             return Outcome.alreadyApplied(account);
         }
 

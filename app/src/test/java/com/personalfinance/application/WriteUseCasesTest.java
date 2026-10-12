@@ -382,11 +382,36 @@ class WriteUseCasesTest extends PostgresIntegrationTest {
             assertThat(String.valueOf(audit.get("after"))).contains("Bancolombia Ahorros");
 
             Outcome<Account> again = renameAccount.execute(
-                    new RenameAccountCommand(bank, "  bancolombia ahorros  "));
+                    new RenameAccountCommand(bank, "  Bancolombia Ahorros  "));
 
             assertThat(again.status()).isEqualTo(ALREADY_APPLIED);
             assertThat(nameOf(bank)).isEqualTo("Bancolombia Ahorros");
             assertThat(auditFor(bank.value())).hasSize(2);
+        }
+
+        /**
+         * Arreglar las mayúsculas de un nombre es un cambio que la persona
+         * pidió y que se ve en pantalla. Comparar con la regla de nombres
+         * duplicados — que ignora mayúsculas, porque sirve para otra cosa — lo
+         * convertía en un "ya aplicado" y el nombre se quedaba como estaba.
+         */
+        @Test
+        @DisplayName("U9b · cambiar solo las mayúsculas sí es un cambio, y se aplica")
+        void renamingOnlyTheCapitals() {
+            AccountId nequi = open(AccountType.ASSET, "nequi");
+
+            Outcome<Account> renamed = renameAccount.execute(
+                    new RenameAccountCommand(nequi, "Nequi"));
+
+            assertThat(renamed.status()).isEqualTo(APPLIED);
+            assertThat(renamed.value().name()).isEqualTo("Nequi");
+            assertThat(nameOf(nequi)).isEqualTo("Nequi");
+
+            Map<String, Object> audit = auditFor(nequi.value()).get(1);
+            assertThat(audit.get("action")).isEqualTo("RENAME");
+            assertThat(String.valueOf(audit.get("before"))).contains("\"nequi\"");
+            assertThat(String.valueOf(audit.get("after"))).contains("\"Nequi\"");
+            assertThat(auditFor(nequi.value())).hasSize(2);
         }
     }
 

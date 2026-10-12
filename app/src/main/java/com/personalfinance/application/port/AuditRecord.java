@@ -1,0 +1,87 @@
+package com.personalfinance.application.port;
+
+import com.personalfinance.domain.ledger.AccountId;
+import com.personalfinance.domain.ledger.TransactionId;
+import com.personalfinance.domain.ledger.TransactionSource;
+import java.util.Map;
+import java.util.Objects;
+import java.util.UUID;
+
+/**
+ * Una línea de la bitácora.
+ *
+ * <p>{@code before} y {@code after} se llenan solo donde el dato se perdería de
+ * otra forma. Un renombrado guarda el nombre anterior y el nuevo, porque la
+ * tabla {@code accounts} solo conserva el último; una corrección guarda el id
+ * de su reemplazo. Montos y descripciones no se copian nunca: ya están en
+ * tablas que nadie puede modificar, y duplicarlos sería una segunda verdad que
+ * alguien tendría que recordar mantener.
+ *
+ * <p>Los valores son cadenas y no objetos cualesquiera: el JSON que llega a la
+ * base es predecible, pequeño y no arrastra la forma interna de nada.
+ */
+public record AuditRecord(
+        AuditedEntity entity,
+        UUID entityId,
+        AuditAction action,
+        TransactionSource source,
+        Map<String, String> before,
+        Map<String, String> after) {
+
+    public AuditRecord {
+        Objects.requireNonNull(entity, "entity");
+        Objects.requireNonNull(entityId, "entityId");
+        Objects.requireNonNull(action, "action");
+        Objects.requireNonNull(source, "source");
+        before = before == null ? Map.of() : Map.copyOf(before);
+        after = after == null ? Map.of() : Map.copyOf(after);
+    }
+
+    public static AuditRecord movementRecorded(TransactionId id) {
+        return ofTransaction(id, AuditAction.CREATE, Map.of(), Map.of());
+    }
+
+    public static AuditRecord movementCancelled(TransactionId id) {
+        return ofTransaction(id, AuditAction.CANCEL, Map.of(), Map.of());
+    }
+
+    /**
+     * La corrección se anota sobre la original, que es el id por el que alguien
+     * va a preguntar, y deja dicho en {@code after} cuál la reemplazó.
+     */
+    public static AuditRecord movementAmended(
+            TransactionId original, TransactionId replacement) {
+
+        return ofTransaction(original, AuditAction.AMEND,
+                Map.of(), Map.of("replacedBy", replacement.toString()));
+    }
+
+    public static AuditRecord accountOpened(AccountId id) {
+        return ofAccount(id, AuditAction.CREATE, Map.of(), Map.of());
+    }
+
+    public static AuditRecord accountArchived(AccountId id) {
+        return ofAccount(id, AuditAction.ARCHIVE, Map.of(), Map.of());
+    }
+
+    public static AuditRecord accountRenamed(AccountId id, String from, String to) {
+        return ofAccount(id, AuditAction.RENAME,
+                Map.of("name", from), Map.of("name", to));
+    }
+
+    private static AuditRecord ofTransaction(
+            TransactionId id, AuditAction action,
+            Map<String, String> before, Map<String, String> after) {
+
+        return new AuditRecord(AuditedEntity.TRANSACTION, id.value(), action,
+                TransactionSource.APP, before, after);
+    }
+
+    private static AuditRecord ofAccount(
+            AccountId id, AuditAction action,
+            Map<String, String> before, Map<String, String> after) {
+
+        return new AuditRecord(AuditedEntity.ACCOUNT, id.value(), action,
+                TransactionSource.APP, before, after);
+    }
+}

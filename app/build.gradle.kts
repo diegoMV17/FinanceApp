@@ -29,6 +29,11 @@ dependencies {
 
     implementation("org.springframework.boot:spring-boot-starter-data-jpa")
 
+    // Jackson, solo para armar el JSON de before/after de la auditoría. En
+    // Spring Boot 4 el starter trae Jackson 3 (paquete tools.jackson), que es
+    // inmutable y se configura con un builder.
+    implementation("org.springframework.boot:spring-boot-starter-json")
+
     // En Spring Boot 4 las autoconfiguraciones se repartieron en módulos por
     // tecnología: FlywayAutoConfiguration vive en spring-boot-flyway y ya no en
     // spring-boot-autoconfigure. Con solo flyway-core en el classpath, Flyway
@@ -41,6 +46,12 @@ dependencies {
     implementation("org.flywaydb:flyway-database-postgresql")
 
     runtimeOnly("org.postgresql:postgresql")
+
+    // La arquitectura, probada: application no puede importar infrastructure.
+    // Gradle ya impide que el dominio vea Spring porque son módulos distintos,
+    // pero application e infrastructure viven en el mismo módulo y ahí la única
+    // forma de que la regla no dependa de la memoria de nadie es un test.
+    testImplementation("com.tngtech.archunit:archunit-junit5:1.5.1")
 
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     testImplementation("org.springframework.boot:spring-boot-testcontainers")

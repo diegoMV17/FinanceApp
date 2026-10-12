@@ -20,7 +20,7 @@ import com.personalfinance.domain.ledger.TransactionSource;
 import com.personalfinance.domain.ledger.UnbalancedTransactionException;
 import com.personalfinance.domain.ledger.port.AccountStore;
 import com.personalfinance.domain.ledger.port.TransactionStore;
-import com.personalfinance.infrastructure.persistence.BookLoader;
+import com.personalfinance.application.BookLoader;
 import com.personalfinance.domain.shared.Money;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -32,8 +32,10 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 /**
  * La prueba que importa del paso 5b: un libro completo se guarda, se vuelve a
@@ -69,6 +71,11 @@ class BookRoundTripTest extends PostgresIntegrationTest {
     @Autowired
     private JdbcTemplate jdbc;
 
+    @Autowired
+    private PlatformTransactionManager transactionManager;
+
+    private TransactionTemplate readOnly;
+
     private Book written;
     private Account bancolombia;
     private Account cash;
@@ -81,6 +88,9 @@ class BookRoundTripTest extends PostgresIntegrationTest {
 
     @BeforeEach
     void writeABookWorthReloading() {
+        readOnly = new TransactionTemplate(transactionManager);
+        readOnly.setReadOnly(true);
+
         jdbc.execute("TRUNCATE entries, transactions, audit_log, accounts CASCADE");
 
         written = Book.empty();
@@ -116,7 +126,7 @@ class BookRoundTripTest extends PostgresIntegrationTest {
         @Test
         @DisplayName("R1 · los saldos de cada cuenta, uno por uno")
         void everyBalanceMatches() {
-            Book loaded = loader.load();
+            Book loaded = load();
 
             for (Account account : written.chart().all()) {
                 Account same = loaded.chart().require(account.id());
@@ -130,7 +140,7 @@ class BookRoundTripTest extends PostgresIntegrationTest {
         @Test
         @DisplayName("R2 · el dinero que de verdad es suyo")
         void theNumberThatMatters() {
-            Book loaded = loader.load();
+            Book loaded = load();
 
             assertThat(loaded.ledger().moneyReallyMine(TODAY))
                     .isEqualTo(written.ledger().moneyReallyMine(TODAY));
@@ -139,13 +149,13 @@ class BookRoundTripTest extends PostgresIntegrationTest {
         @Test
         @DisplayName("R3 · y el libro sigue cuadrando en cero")
         void theBookStillAddsUp() {
-            assertThat(loader.load().ledger().sumOfEveryEntry()).isEqualTo(Money.ZERO);
+            assertThat(load().ledger().sumOfEveryEntry()).isEqualTo(Money.ZERO);
         }
 
         @Test
         @DisplayName("R4 · con todos los movimientos y en el mismo orden")
         void everyMovementInOrder() {
-            Book loaded = loader.load();
+            Book loaded = load();
 
             assertThat(loaded.ledger().history())
                     .containsExactlyElementsOf(written.ledger().history());
@@ -156,7 +166,7 @@ class BookRoundTripTest extends PostgresIntegrationTest {
         void entriesKeepTheirOrder() {
             Transaction lunch = written.ledger().movementsOf(food).getFirst();
 
-            Transaction loaded = transactions.find(lunch.id(), loader.load().chart()).orElseThrow();
+            Transaction loaded = transactions.find(lunch.id(), load().chart()).orElseThrow();
 
             assertThat(loaded.entries()).containsExactlyElementsOf(lunch.entries());
         }
@@ -169,7 +179,7 @@ class BookRoundTripTest extends PostgresIntegrationTest {
         @Test
         @DisplayName("R6 · así que el saldo no se parte en dos")
         void theBalanceDoesNotSplit() {
-            Book loaded = loader.load();
+            Book loaded = load();
             Account loadedBank = loaded.chart().require(bancolombia.id());
 
             // Bancolombia aparece en seis movimientos distintos. Si cada apunte
@@ -191,7 +201,7 @@ class BookRoundTripTest extends PostgresIntegrationTest {
             Cancellation how = new Cancellation(WHEN, "La pagó mi hermano", TransactionSource.BOT);
             transactions.markCancelled(lunch.id(), how);
 
-            Book loaded = loader.load();
+            Book loaded = load();
             Transaction sameLunch =
                     transactions.find(lunch.id(), loaded.chart()).orElseThrow();
 
@@ -212,7 +222,7 @@ class BookRoundTripTest extends PostgresIntegrationTest {
                     written.ledger().amend(lunch.id(), correction, WHEN);
             transactions.amend(replacement, lunch.cancellation().orElseThrow());
 
-            Book loaded = loader.load();
+            Book loaded = load();
 
             assertThat(loaded.ledger().revisionsOf(lunch.id()))
                     .containsExactly(lunch, replacement);
@@ -227,7 +237,7 @@ class BookRoundTripTest extends PostgresIntegrationTest {
             written.chart().archive(oldWallet.id(), written.ledger(), WHEN);
             accounts.markArchived(oldWallet.id(), WHEN);
 
-            Account loaded = loader.load().chart().require(oldWallet.id());
+            Account loaded = load().chart().require(oldWallet.id());
 
             assertThat(loaded.isArchived()).isTrue();
             assertThat(loaded.archivedAt()).contains(WHEN);
@@ -242,7 +252,7 @@ class BookRoundTripTest extends PostgresIntegrationTest {
             written.chart().archive(retired.id(), written.ledger(), WHEN);
             accounts.markArchived(retired.id(), WHEN);
 
-            Book loaded = loader.load();
+            Book loaded = load();
             Account same = loaded.chart().require(retired.id());
 
             assertThat(same.isArchived()).isTrue();
@@ -255,7 +265,7 @@ class BookRoundTripTest extends PostgresIntegrationTest {
             written.chart().rename(cash.id(), "Billetera");
             accounts.rename(cash.id(), "Billetera");
 
-            assertThat(loader.load().chart().require(cash.id()).name()).isEqualTo("Billetera");
+            assertThat(load().chart().require(cash.id()).name()).isEqualTo("Billetera");
         }
     }
 
@@ -282,7 +292,7 @@ class BookRoundTripTest extends PostgresIntegrationTest {
             }
 
             assertThatExceptionOfType(UnbalancedTransactionException.class)
-                    .isThrownBy(() -> loader.load());
+                    .isThrownBy(() -> load());
         }
     }
 
@@ -304,7 +314,7 @@ class BookRoundTripTest extends PostgresIntegrationTest {
             assertThatExceptionOfType(DuplicateTransactionException.class)
                     .isThrownBy(() -> transactions.record(lunch));
 
-            Book loaded = loader.load();
+            Book loaded = load();
             assertThat(loaded.ledger().displayedBalanceOf(
                     loaded.chart().require(food.id()), TODAY)).isEqualTo(ofUnits(35_000));
             assertThat(loaded.ledger().history()).hasSameSizeAs(written.ledger().history());
@@ -321,7 +331,7 @@ class BookRoundTripTest extends PostgresIntegrationTest {
                     .isThrownBy(() -> transactions.markCancelled(lunch.id(),
                             new Cancellation(WHEN, "Otro motivo", TransactionSource.BOT)));
 
-            Transaction stored = transactions.find(lunch.id(), loader.load().chart()).orElseThrow();
+            Transaction stored = transactions.find(lunch.id(), load().chart()).orElseThrow();
             assertThat(stored.cancellation()).contains(first);
         }
 
@@ -334,7 +344,7 @@ class BookRoundTripTest extends PostgresIntegrationTest {
             assertThatThrownBy(() -> accounts.open(impostor))
                     .isInstanceOf(DataIntegrityViolationException.class);
 
-            Account stored = loader.load().chart().require(cash.id());
+            Account stored = load().chart().require(cash.id());
             assertThat(stored.type()).isEqualTo(AccountType.ASSET);
             assertThat(stored.name()).isEqualTo("Efectivo");
         }
@@ -349,7 +359,7 @@ class BookRoundTripTest extends PostgresIntegrationTest {
                     .isThrownBy(() -> accounts.markArchived(
                             oldWallet.id(), WHEN.plusSeconds(3_600)));
 
-            assertThat(loader.load().chart().require(oldWallet.id()).archivedAt())
+            assertThat(load().chart().require(oldWallet.id()).archivedAt())
                     .contains(WHEN);
         }
     }
@@ -377,7 +387,7 @@ class BookRoundTripTest extends PostgresIntegrationTest {
                     transactions.amend(replacement, lunch.cancellation().orElseThrow()))
                     .isInstanceOf(DataIntegrityViolationException.class);
 
-            Book loaded = loader.load();
+            Book loaded = load();
             assertThat(transactions.find(lunch.id(), loaded.chart()).orElseThrow().isCancelled())
                     .isFalse();
             assertThat(loaded.ledger().displayedBalanceOf(
@@ -386,6 +396,18 @@ class BookRoundTripTest extends PostgresIntegrationTest {
     }
 
     // --- Ayudas.
+
+    /**
+     * El libro, cargado dentro de una transacción de solo lectura.
+     *
+     * <p>{@link BookLoader} es {@code MANDATORY}: solo se carga dentro de la
+     * transacción de quien lo pide, que es la que fija el aislamiento. Esta
+     * clase corre con {@code NOT_SUPPORTED}, así que aquí hay que abrirla a
+     * mano.
+     */
+    private Book load() {
+        return readOnly.execute(status -> loader.load());
+    }
 
     /** Abre la cuenta en el libro en memoria y en la base, que es lo que se compara. */
     private Account open(AccountType type, String name) {

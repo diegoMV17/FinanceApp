@@ -510,6 +510,101 @@ class WriteEndpointsTest extends PostgresIntegrationTest {
         }
     }
 
+    @Nested
+    @DisplayName("al mandar algo que el libro no admite")
+    class WhenTheBookSaysNo {
+
+        /**
+         * Las tres reglas que antes salían como 500.
+         *
+         * <p>Las tres eran {@code IllegalArgumentException} en el dominio, y
+         * ese brazo del advice las trataba como «fallo inesperado del
+         * servidor». Son lo contrario: el libro diciendo que no, que es un 422
+         * con su propio código para que el cliente pueda distinguirlas sin
+         * leer el texto.
+         */
+        @Test
+        @DisplayName("H6 · una transferencia a la misma cuenta es 422, no 500")
+        void aTransferToItself() throws Exception {
+            MvcResult refused = send("/api/movements", """
+                    {"type":"TRANSFER","id":"%s","date":"%s","description":"Circular",
+                     "from":"%s","to":"%s","amountInCents":1000}"""
+                    .formatted(UUID.randomUUID(), TODAY, bank, bank));
+
+            assertThat(refused.getResponse().getStatus()).isEqualTo(422);
+            assertThat(read(refused).get("type").asString())
+                    .isEqualTo("urn:finance:error:same-account-transfer");
+        }
+
+        /**
+         * Un nombre de solo espacios: 400 en el borde, nunca 500.
+         *
+         * <p>Por HTTP esto no llega al dominio, y está bien que no llegue:
+         * {@code @NotBlank} lo para antes y un campo en blanco es una petición
+         * mal armada, o sea 400. La regla del dominio
+         * ({@code BlankAccountNameException}) es la red de detrás, para quien
+         * no entra por aquí — el bot y el parser del incremento 5 llaman a los
+         * casos de uso sin Bean Validation delante. Su mapeo a 422 está
+         * probado en {@code ApiErrorsTest}, que es donde vive la decisión.
+         */
+        @Test
+        @DisplayName("H6 · un nombre de cuenta en blanco es 400 en el borde, no 500")
+        void aBlankAccountName() throws Exception {
+            MvcResult refused = send("/api/accounts", """
+                    {"id":"%s","type":"ASSET","name":"   "}"""
+                    .formatted(UUID.randomUUID()));
+
+            assertThat(refused.getResponse().getStatus()).isEqualTo(400);
+            assertThat(read(refused).get("type").asString())
+                    .isEqualTo("urn:finance:error:invalid-request");
+        }
+
+        @Test
+        @DisplayName("H6 · y renombrar a espacios se rechaza igual")
+        void aBlankRename() throws Exception {
+            MvcResult refused = send("/api/accounts/" + bank + "/renames",
+                    """
+                    {"newName":"  "}""");
+
+            assertThat(refused.getResponse().getStatus()).isEqualTo(400);
+            assertThat(read(refused).get("type").asString())
+                    .isEqualTo("urn:finance:error:invalid-request");
+        }
+
+        @Test
+        @DisplayName("H6 · una fecha fuera del siglo del libro es 422")
+        void aDateOutsideTheRange() throws Exception {
+            for (String impossible : new String[] {"1999-12-31", "2100-01-01", "0001-01-01"}) {
+                MvcResult refused = send("/api/movements", """
+                        {"type":"EXPENSE","id":"%s","date":"%s","description":"Almuerzo",
+                         "paidFrom":"%s","category":"%s","amountInCents":1000}"""
+                        .formatted(UUID.randomUUID(), impossible, bank, food));
+
+                assertThat(refused.getResponse().getStatus())
+                        .as("fecha %s: %s", impossible,
+                                refused.getResponse().getContentAsString())
+                        .isEqualTo(422);
+                assertThat(read(refused).get("type").asString())
+                        .isEqualTo("urn:finance:error:date-out-of-range");
+            }
+        }
+
+        @Test
+        @DisplayName("H6 · y las dos puntas del rango sí entran")
+        void bothEndsOfTheRangeAreAccepted() throws Exception {
+            for (String good : new String[] {"2000-01-01", "2099-12-31"}) {
+                MvcResult accepted = send("/api/movements", """
+                        {"type":"EXPENSE","id":"%s","date":"%s","description":"Almuerzo",
+                         "paidFrom":"%s","category":"%s","amountInCents":1000}"""
+                        .formatted(UUID.randomUUID(), good, bank, food));
+
+                assertThat(accepted.getResponse().getStatus())
+                        .as("fecha %s: %s", good, accepted.getResponse().getContentAsString())
+                        .isEqualTo(201);
+            }
+        }
+    }
+
     private String expense(UUID id, long cents) {
         return """
                 {"type":"EXPENSE","id":"%s","date":"%s","description":"Almuerzo",

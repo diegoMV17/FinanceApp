@@ -3,10 +3,13 @@ package com.personalfinance.infrastructure.api.error;
 import com.personalfinance.application.BookBusyException;
 import com.personalfinance.domain.ledger.AccountAlreadyArchivedException;
 import com.personalfinance.domain.ledger.AccountStillHoldsMoneyException;
+import com.personalfinance.domain.ledger.BlankAccountNameException;
+import com.personalfinance.domain.ledger.DateOutOfRangeException;
 import com.personalfinance.domain.ledger.DuplicateAccountException;
 import com.personalfinance.domain.ledger.DuplicateAccountNameException;
 import com.personalfinance.domain.ledger.DuplicateTransactionException;
 import com.personalfinance.domain.ledger.LedgerException;
+import com.personalfinance.domain.ledger.SameAccountTransferException;
 import com.personalfinance.domain.ledger.TransactionAlreadyCancelledException;
 import com.personalfinance.domain.ledger.UnknownAccountException;
 import com.personalfinance.domain.ledger.UnknownTransactionException;
@@ -90,6 +93,15 @@ public final class ApiErrors {
         }
         if (BodyTooLargeException.class.isAssignableFrom(failure)) {
             return ApiError.CONTENT_TOO_LARGE;
+        }
+        if (SameAccountTransferException.class.isAssignableFrom(failure)) {
+            return ApiError.SAME_ACCOUNT_TRANSFER;
+        }
+        if (BlankAccountNameException.class.isAssignableFrom(failure)) {
+            return ApiError.ACCOUNT_NEEDS_NAME;
+        }
+        if (DateOutOfRangeException.class.isAssignableFrom(failure)) {
+            return ApiError.DATE_OUT_OF_RANGE;
         }
         // Siempre el último de los conocidos: es el padre de todos los de
         // arriba, y es lo que hace que una regla nueva del dominio responda

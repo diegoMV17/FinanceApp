@@ -5,10 +5,13 @@ import static org.assertj.core.api.Assertions.assertThat;
 import com.personalfinance.application.BookBusyException;
 import com.personalfinance.domain.ledger.AccountAlreadyArchivedException;
 import com.personalfinance.domain.ledger.AccountStillHoldsMoneyException;
+import com.personalfinance.domain.ledger.BlankAccountNameException;
+import com.personalfinance.domain.ledger.DateOutOfRangeException;
 import com.personalfinance.domain.ledger.DuplicateAccountException;
 import com.personalfinance.domain.ledger.DuplicateAccountNameException;
 import com.personalfinance.domain.ledger.DuplicateTransactionException;
 import com.personalfinance.domain.ledger.LedgerException;
+import com.personalfinance.domain.ledger.SameAccountTransferException;
 import com.personalfinance.domain.ledger.TransactionAlreadyCancelledException;
 import com.personalfinance.domain.ledger.UnknownAccountException;
 import com.personalfinance.domain.ledger.UnknownTransactionException;
@@ -92,17 +95,21 @@ class ApiErrorsTest {
      * <p>Es la tabla que el brazo de recogida de {@code LedgerException} se
      * tragaría entera si subiera un sitio en {@code forType}.
      */
-    private static final Map<Class<?>, ApiError> ANSWERS = Map.of(
-            UnknownAccountException.class, ApiError.NOT_FOUND,
-            UnknownTransactionException.class, ApiError.NOT_FOUND,
-            DuplicateTransactionException.class, ApiError.DUPLICATE_ID,
-            DuplicateAccountException.class, ApiError.DUPLICATE_ID,
-            DuplicateAccountNameException.class, ApiError.DUPLICATE_ACCOUNT_NAME,
-            TransactionAlreadyCancelledException.class, ApiError.ALREADY_CANCELLED,
-            AccountAlreadyArchivedException.class, ApiError.ALREADY_ARCHIVED,
-            AccountStillHoldsMoneyException.class, ApiError.ACCOUNT_STILL_HOLDS_MONEY,
-            BookBusyException.class, ApiError.BOOK_BUSY,
-            BodyTooLargeException.class, ApiError.CONTENT_TOO_LARGE);
+    private static final Map<Class<?>, ApiError> ANSWERS = Map.ofEntries(
+            Map.entry(UnknownAccountException.class, ApiError.NOT_FOUND),
+            Map.entry(UnknownTransactionException.class, ApiError.NOT_FOUND),
+            Map.entry(DuplicateTransactionException.class, ApiError.DUPLICATE_ID),
+            Map.entry(DuplicateAccountException.class, ApiError.DUPLICATE_ID),
+            Map.entry(DuplicateAccountNameException.class, ApiError.DUPLICATE_ACCOUNT_NAME),
+            Map.entry(TransactionAlreadyCancelledException.class, ApiError.ALREADY_CANCELLED),
+            Map.entry(AccountAlreadyArchivedException.class, ApiError.ALREADY_ARCHIVED),
+            Map.entry(AccountStillHoldsMoneyException.class,
+                    ApiError.ACCOUNT_STILL_HOLDS_MONEY),
+            Map.entry(SameAccountTransferException.class, ApiError.SAME_ACCOUNT_TRANSFER),
+            Map.entry(BlankAccountNameException.class, ApiError.ACCOUNT_NEEDS_NAME),
+            Map.entry(DateOutOfRangeException.class, ApiError.DATE_OUT_OF_RANGE),
+            Map.entry(BookBusyException.class, ApiError.BOOK_BUSY),
+            Map.entry(BodyTooLargeException.class, ApiError.CONTENT_TOO_LARGE));
 
     @Test
     @DisplayName("H2 · y el brazo de recogida no se traga a las que tienen nombre")

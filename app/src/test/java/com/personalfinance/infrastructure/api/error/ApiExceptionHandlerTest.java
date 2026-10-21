@@ -14,6 +14,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
+import org.springframework.beans.TypeMismatchException;
 
 /**
  * H5. El cuerpo de un error, mirado de cerca.
@@ -50,6 +51,27 @@ class ApiExceptionHandlerTest {
         assertThat(UUID.fromString(String.valueOf(problem.getProperties().get("errorId"))))
                 .as("el identificador sirve para buscar en el log")
                 .isNotNull();
+    }
+
+    @Test
+    @DisplayName("H5 · un id o una fecha mal formados en la ruta no son «el cuerpo»")
+    void aMalformedPathIsNotABody() {
+        // Antes los dos casos caian en MALFORMED_REQUEST, cuyo texto dice "el
+        // cuerpo de la peticion no se pudo leer". Para un GET sin cuerpo eso es
+        // simplemente falso, y manda a buscar el error donde no esta: lo que
+        // estaba mal era el UUID de la ruta o el asOf del query.
+        ResponseEntity<Object> answer = handler.handleExceptionInternal(
+                new TypeMismatchException("no-soy-un-uuid", UUID.class),
+                null,
+                new HttpHeaders(),
+                HttpStatus.BAD_REQUEST,
+                null);
+
+        assertThat(answer.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(answer.getBody())
+                .isInstanceOf(ProblemDetail.class)
+                .extracting(body -> ((ProblemDetail) body).getDetail())
+                .isEqualTo(ApiError.INVALID_PATH.detail());
     }
 
     @Test

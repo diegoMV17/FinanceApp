@@ -120,8 +120,15 @@ class ReadEndpointsTest extends PostgresIntegrationTest {
         }
 
         @Test
-        @DisplayName("H4 · una fecha imposible responde 400")
+        @DisplayName("H4 · una fecha imposible responde 400, y lo dice del query")
         void anImpossibleDateIs400() throws Exception {
+            // El texto importa: «el cuerpo no se pudo leer» en un GET sin
+            // cuerpo manda a buscar el error donde no está.
+            MvcResult impossible = ask("/api/summary?asOf=2026-13-45");
+            assertThat(impossible.getResponse().getStatus()).isEqualTo(400);
+            assertThat(read(impossible).get("type").asString())
+                    .isEqualTo("urn:finance:error:invalid-path");
+
             assertThat(ask("/api/summary?asOf=2026-13-45").getResponse().getStatus())
                     .isEqualTo(400);
             assertThat(ask("/api/summary?asOf=ayer").getResponse().getStatus())
@@ -221,9 +228,12 @@ class ReadEndpointsTest extends PostgresIntegrationTest {
         void aNonUuidIs400() throws Exception {
             // Es un 400 y no un 404 porque el problema no es que no exista:
             // es que eso no es un identificador.
-            assertThat(ask("/api/accounts/no-soy-un-uuid/movements")
-                            .getResponse().getStatus())
-                    .isEqualTo(400);
+            MvcResult notAnId = ask("/api/accounts/no-soy-un-uuid/movements");
+
+            assertThat(notAnId.getResponse().getStatus()).isEqualTo(400);
+            assertThat(read(notAnId).get("type").asString())
+                    .as("con su propio código: lo que falló fue la ruta, no el cuerpo")
+                    .isEqualTo("urn:finance:error:invalid-path");
         }
     }
 

@@ -10,6 +10,7 @@ import org.springframework.http.HttpStatusCode;
 import org.springframework.http.MediaType;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
+import org.springframework.beans.TypeMismatchException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -135,6 +136,14 @@ class ApiExceptionHandler extends ResponseEntityExceptionHandler {
     private static ApiError errorFor(Exception failure, HttpStatusCode status) {
         if (failure instanceof MethodArgumentNotValidException invalid) {
             return unsafeTextIn(invalid) ? ApiError.UNSAFE_TEXT : ApiError.INVALID_REQUEST;
+        }
+        // Un UUID que no es un UUID en la ruta, o un asOf que no es una fecha
+        // en el query. Spring los trae como TypeMismatchException (de la que
+        // MethodArgumentTypeMismatchException es la subclase que usa el
+        // controlador), y sin este brazo caían en MALFORMED_REQUEST, cuyo
+        // texto habla del cuerpo. En un GET no hay cuerpo del que hablar.
+        if (failure instanceof TypeMismatchException) {
+            return ApiError.INVALID_PATH;
         }
         return ApiErrors.forFrameworkFailure(failure, status);
     }

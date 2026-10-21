@@ -44,6 +44,31 @@ public enum ApiError {
             "La petición tiene campos inválidos o ausentes."),
 
     /**
+     * Un identificador o una fecha de la ruta o del query que no tiene la
+     * forma que debería.
+     *
+     * <p>Separado de {@link #MALFORMED_REQUEST} porque ese texto habla del
+     * <em>cuerpo</em>, y estos fallan en un {@code GET} que no lleva ninguno:
+     * decirle «el cuerpo no se pudo leer» a quien escribió mal un UUID en la
+     * URL lo manda a buscar el error donde no está.
+     */
+    INVALID_PATH(HttpStatus.BAD_REQUEST, "invalid-path",
+            "Un identificador o una fecha de la dirección no tiene el formato esperado."),
+
+    /**
+     * Lo que rechaza el cortafuegos de Spring Security antes de que exista
+     * nada más: un {@code TRACE}, un {@code %2e%2e} codificado, un parámetro
+     * de ruta con {@code ;}, una barra doble.
+     *
+     * <p>Tiene su propio código porque sin él esto respondía 401 «falta un
+     * token válido» incluso trayendo el token correcto, que es una pista falsa
+     * de las caras: manda a revisar el secreto cuando lo que estaba mal era la
+     * forma de la URL.
+     */
+    REJECTED_REQUEST(HttpStatus.BAD_REQUEST, "rejected-request",
+            "La dirección de la petición tiene una forma que no se admite."),
+
+    /**
      * Texto con caracteres invisibles que el dominio no ve: los de dirección
      * (U+202E y compañía) y los separadores U+2028 y U+2029, que
      * {@code Character.isISOControl} no cuenta como de control.
@@ -77,6 +102,15 @@ public enum ApiError {
 
     ACCOUNT_STILL_HOLDS_MONEY(HttpStatus.CONFLICT, "account-still-holds-money",
             "Esa cuenta todavía tiene saldo."),
+
+    SAME_ACCOUNT_TRANSFER(HttpStatus.UNPROCESSABLE_CONTENT, "same-account-transfer",
+            "Una transferencia necesita dos cuentas distintas."),
+
+    ACCOUNT_NEEDS_NAME(HttpStatus.UNPROCESSABLE_CONTENT, "account-needs-name",
+            "Una cuenta necesita un nombre."),
+
+    DATE_OUT_OF_RANGE(HttpStatus.UNPROCESSABLE_CONTENT, "date-out-of-range",
+            "Esa fecha está fuera del rango que admite el libro."),
 
     /**
      * El brazo de recogida de {@code LedgerException}. Una regla del dominio

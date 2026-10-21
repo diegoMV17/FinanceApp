@@ -58,7 +58,7 @@ class RehydrationTest {
         @Test
         @DisplayName("F3 · still refuses a blank name")
         void blankNameStillRefused() {
-            assertThatExceptionOfType(IllegalArgumentException.class)
+            assertThatExceptionOfType(BlankAccountNameException.class)
                     .isThrownBy(() ->
                             Account.rehydrated(AccountId.generate(), AccountType.ASSET, " ", null));
         }

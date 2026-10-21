@@ -29,6 +29,21 @@ public final class Transaction {
     /** Room for a sentence, not for a document pasted in by accident. */
     public static final int MAX_DESCRIPTION_LENGTH = 200;
 
+    /**
+     * The century this book covers. A movement outside it is a typo or a
+     * device whose clock is wrong, and both are cheaper to refuse than to
+     * explain later.
+     *
+     * <p>Public because the edge and the schema both need the same two dates:
+     * the request DTOs bound the field against these constants instead of
+     * repeating the literals, and the CHECK in the V5 says it owns no rule of
+     * its own, it copies this one.
+     */
+    public static final LocalDate EARLIEST_DATE = LocalDate.of(2000, 1, 1);
+
+    /** The other end of {@link #EARLIEST_DATE}. */
+    public static final LocalDate LATEST_DATE = LocalDate.of(2099, 12, 31);
+
     private final TransactionId id;
     private final LocalDate date;
     private final String description;
@@ -47,7 +62,7 @@ public final class Transaction {
             TransactionId replaces) {
 
         this.id = Objects.requireNonNull(id, "id");
-        this.date = Objects.requireNonNull(date, "date");
+        this.date = requireDateInRange(date);
         this.source = Objects.requireNonNull(source, "source");
         this.description = Text.within("description", description, MAX_DESCRIPTION_LENGTH);
         this.entries = List.copyOf(requireBalancedEntries(entries));
@@ -180,6 +195,21 @@ public final class Transaction {
 
     public List<Entry> entries() {
         return entries;
+    }
+
+    /**
+     * The date, inside the century this book covers.
+     *
+     * <p>In the constructor, so {@code rehydrated} runs it too: a row somebody
+     * edited by hand has to fail on load, the same way an unbalanced one
+     * already does.
+     */
+    private static LocalDate requireDateInRange(LocalDate date) {
+        Objects.requireNonNull(date, "date");
+        if (date.isBefore(EARLIEST_DATE) || date.isAfter(LATEST_DATE)) {
+            throw new DateOutOfRangeException(date, EARLIEST_DATE, LATEST_DATE);
+        }
+        return date;
     }
 
     private static List<Entry> requireBalancedEntries(List<Entry> candidates) {

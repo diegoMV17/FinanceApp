@@ -4,7 +4,6 @@ import static com.personalfinance.domain.shared.Money.ofCents;
 import static com.personalfinance.domain.shared.Money.ofUnits;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
-import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
 import static org.assertj.core.api.Assertions.assertThatNoException;
 
 import com.personalfinance.domain.shared.Money;
@@ -38,6 +37,77 @@ class InputLimitsTest {
 
     private final Account cash = TestAccounts.cash();
     private final Account food = TestAccounts.food();
+
+    @Nested
+    @DisplayName("on a date")
+    class Dates {
+
+        /**
+         * A movement happened between 2000 and 2099, and anything outside that
+         * is a typo or a machine with a broken clock.
+         *
+         * <p>It is not a cosmetic limit either. {@code LocalDate} happily holds
+         * the year 999999999, and a single row like that would sit at the end
+         * of every balance "as of" query for the rest of the book's life — and
+         * nothing here is ever deleted. The range is checked in the
+         * constructor, so {@code rehydrated} checks it too: a row somebody
+         * edited by hand has to fail on load.
+         */
+        @Test
+        @DisplayName("G20 · the two ends of the range are in")
+        void bothEndsAreAccepted() {
+            assertThatNoException().isThrownBy(() ->
+                    movementOn(Transaction.EARLIEST_DATE));
+            assertThatNoException().isThrownBy(() ->
+                    movementOn(Transaction.LATEST_DATE));
+        }
+
+        @Test
+        @DisplayName("G21 · a day before the first, and a day after the last, are out")
+        void oneDayPastEitherEndIsRefused() {
+            assertThatExceptionOfType(DateOutOfRangeException.class)
+                    .isThrownBy(() -> movementOn(Transaction.EARLIEST_DATE.minusDays(1)))
+                    .satisfies(thrown -> assertThat(thrown.date())
+                            .isEqualTo(Transaction.EARLIEST_DATE.minusDays(1)));
+
+            assertThatExceptionOfType(DateOutOfRangeException.class)
+                    .isThrownBy(() -> movementOn(Transaction.LATEST_DATE.plusDays(1)));
+        }
+
+        @Test
+        @DisplayName("G22 · and the years LocalDate allows but a book does not")
+        void absurdYearsAreRefused() {
+            assertThatExceptionOfType(DateOutOfRangeException.class)
+                    .isThrownBy(() -> movementOn(LocalDate.of(1970, 1, 1)));
+
+            assertThatExceptionOfType(DateOutOfRangeException.class)
+                    .isThrownBy(() -> movementOn(LocalDate.of(999_999_999, 12, 31)));
+        }
+
+        @Test
+        @DisplayName("G23 · a stored row with an impossible date fails on load")
+        void rehydrationIsCheckedToo() {
+            assertThatExceptionOfType(DateOutOfRangeException.class)
+                    .isThrownBy(() -> Transaction.rehydrated(
+                            TransactionId.generate(),
+                            LocalDate.of(1899, 12, 31),
+                            "Lo que alguien editó a mano",
+                            TransactionSource.APP,
+                            List.of(Entry.of(cash, ofUnits(10)),
+                                    Entry.of(food, ofUnits(-10))),
+                            null,
+                            null));
+        }
+
+        private Transaction movementOn(LocalDate date) {
+            return Transaction.record(
+                    TransactionId.generate(),
+                    date,
+                    "Almuerzo",
+                    TransactionSource.APP,
+                    List.of(Entry.of(cash, ofUnits(-10)), Entry.of(food, ofUnits(10))));
+        }
+    }
 
     @Nested
     @DisplayName("on an amount")
@@ -300,7 +370,7 @@ class InputLimitsTest {
             assertThat(Account.open(AccountType.ASSET, "  Bancolombia  ").name())
                     .isEqualTo("Bancolombia");
 
-            assertThatIllegalArgumentException()
+            assertThatExceptionOfType(BlankAccountNameException.class)
                     .isThrownBy(() -> Account.open(AccountType.ASSET, "   "));
         }
 

@@ -2,7 +2,6 @@ package com.personalfinance.domain.ledger;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
-import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
 
 import java.time.Instant;
 import org.junit.jupiter.api.DisplayName;
@@ -74,7 +73,7 @@ class ChartTest {
     @Test
     @DisplayName("E11 · refuses a blank name")
     void refusesBlankNames() {
-        assertThatIllegalArgumentException()
+        assertThatExceptionOfType(BlankAccountNameException.class)
                 .isThrownBy(() -> chart.open(AccountType.ASSET, "   "));
     }
 

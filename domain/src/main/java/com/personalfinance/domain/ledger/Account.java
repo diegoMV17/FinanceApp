@@ -136,7 +136,7 @@ public final class Account {
         Objects.requireNonNull(candidate, "name");
         String trimmed = Text.within("name", candidate, MAX_NAME_LENGTH);
         if (trimmed.isEmpty()) {
-            throw new IllegalArgumentException("An account needs a name");
+            throw new BlankAccountNameException();
         }
         return trimmed;
     }

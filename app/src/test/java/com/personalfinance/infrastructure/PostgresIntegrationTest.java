@@ -22,9 +22,19 @@ import org.testcontainers.junit.jupiter.Testcontainers;
  * fallar donde no haya Docker, para que {@code gradle test} siga sirviendo. Ojo:
  * eso también significa que sin Docker abierto el build sale verde sin haber
  * probado nada de esta capa.
+ *
+ * <p>El token de la API se fija aquí porque {@code application.yml} lo pide sin
+ * valor por omisión y sin él no arranca ningún contexto, ni el de los tests que
+ * no tocan HTTP. Es un valor fijo y público a propósito: así los tests de la API
+ * saben con qué autenticarse y CI no necesita un secreto para correr. Que esto
+ * esté escrito en el repositorio es exactamente la razón por la que el de
+ * producción viene de {@code API_TOKEN} y nunca de un archivo versionado.
  */
-@SpringBootTest
+@SpringBootTest(properties = "finance.api.token=" + PostgresIntegrationTest.TEST_API_TOKEN)
 @Import(PostgresContainer.class)
 @Testcontainers(disabledWithoutDocker = true)
 public abstract class PostgresIntegrationTest {
+
+    /** El token de los tests. 43 caracteres, los 32 bytes que exige la regla. */
+    public static final String TEST_API_TOKEN = "tEsT0nly3xQ7wZ2pL9vN4kR8mY6bH1jF5dS3gA0eU8i";
 }

@@ -63,4 +63,30 @@ class ArchitectureTest {
                         + "Gradle ya lo impone, esto lo deja dicho")
                 .check(classes);
     }
+
+    @Test
+    @DisplayName("A3 · la API no conoce la persistencia")
+    void theApiDoesNotDependOnPersistence() {
+        noClasses()
+                .that().resideInAPackage("com.personalfinance.infrastructure.api..")
+                .should().dependOnClassesThat()
+                .resideInAPackage("com.personalfinance.infrastructure.persistence..")
+                .because("la API habla con los casos de uso, no con la base: una Row o un "
+                        + "repositorio asomando por HTTP sería el esquema convertido en "
+                        + "contrato público, imposible de cambiar sin romper a los clientes")
+                .check(classes);
+    }
+
+    @Test
+    @DisplayName("A4 · y nadie conoce la API")
+    void nobodyDependsOnTheApi() {
+        noClasses()
+                .that().resideOutsideOfPackage("com.personalfinance.infrastructure.api..")
+                .should().dependOnClassesThat()
+                .resideInAPackage("com.personalfinance.infrastructure.api..")
+                .because("la API es la hoja del grafo: traduce HTTP a comandos y nada más. "
+                        + "Si el dominio o un caso de uso importara un DTO, la forma del "
+                        + "JSON pasaría a ser una regla de negocio")
+                .check(classes);
+    }
 }

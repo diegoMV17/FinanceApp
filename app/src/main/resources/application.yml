@@ -34,6 +34,34 @@ spring:
     # dejaría la base en un estado que nadie sabría reproducir.
     validate-on-migrate: true
 
+  # El borde HTTP, estricto a propósito: lo que entra por aquí es entrada no
+  # confiable y se rechaza antes de llegar al dominio, no después.
+  jackson:
+    deserialization:
+      # Un campo que nadie declaró es un cliente desactualizado o alguien
+      # tanteando. En los dos casos la respuesta útil es un 400, no ignorarlo
+      # en silencio y guardar algo distinto de lo que el cliente cree que mandó.
+      fail-on-unknown-properties: true
+    factory:
+      constraints:
+        read:
+          # Los topes del propio parser de Jackson 3, que son la segunda red
+          # detrás del filtro que rechaza un cuerpo grande antes de leerlo. Que
+          # estén aquí significa que una ruta futura que se salte el filtro
+          # tampoco puede ser ahogada con un JSON de un giga ni con uno anidado
+          # un millón de veces. 64 KiB es mucho más de lo que ocupa el
+          # movimiento más largo de este libro.
+          max-document-length: 65536
+          max-nesting-depth: 16
+          max-string-length: 4096
+          max-number-length: 32
+
+  mvc:
+    problemdetails:
+      # RFC 9457 también para lo que no pasa por el @RestControllerAdvice, como
+      # un 405 o un 415: un solo formato de error para toda la API.
+      enabled: true
+
 # Cuánto espera una escritura su turno antes de rendirse con un 503.
 #
 # El valor por defecto (5 s) vive en BookLockProperties, no aquí: una sola
@@ -43,6 +71,33 @@ spring:
 # finance:
 #   book-lock:
 #     timeout: 5s
+
+# Escuchar solo en loopback mientras nadie diga lo contrario.
+#
+# El cifrado lo pondrá Tailscale cuando esto viva en Oracle, pero un bind a
+# 0.0.0.0 por descuido publica la API en toda la red de la máquina, y eso no lo
+# arregla la autenticación: lo arregla no escuchar ahí. La variable existe para
+# el día del despliegue, con el loopback como valor por omisión.
+server:
+  address: ${SERVER_ADDRESS:127.0.0.1}
+  port: ${SERVER_PORT:8080}
+  error:
+    # La página de error de Spring trae la ruta, la excepción y a veces la
+    # traza. Todo lo que sigue es "no cuentes nada", explicitado en vez de
+    # confiado a los valores por omisión de la versión que toque.
+    whitelabel:
+      enabled: false
+    include-message: never
+    include-binding-errors: never
+    include-stacktrace: never
+    include-exception: false
+
+finance:
+  api:
+    # Sin valor por omisión, igual que la clave de la base: si falta API_TOKEN,
+    # la aplicación no arranca. El tamaño y la forma los comprueba
+    # ApiTokenProperties, que es quien falla el arranque y con qué mensaje.
+    token: ${API_TOKEN}
 
 logging:
   level:

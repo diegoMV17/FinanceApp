@@ -10,7 +10,11 @@ import jakarta.servlet.ServletInputStream;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletRequestWrapper;
 import jakarta.servlet.http.HttpServletResponse;
+import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStreamReader;
+import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 /**
@@ -56,10 +60,29 @@ public final class BodySizeLimitFilter extends OncePerRequestFilter {
         chain.doFilter(new LimitedBodyRequest(request, maxBytes), response);
     }
 
-    /** La petición, con su cuerpo acotado mientras se lee. */
+    /**
+     * La petición, con su cuerpo acotado mientras se lee.
+     *
+     * <p>Un solo contador por petición, y las dos puertas del cuerpo pasando
+     * por él. Las dos cosas son la misma precaución vista de dos maneras:
+     *
+     * <ul>
+     *   <li>Un contador nuevo en cada {@code getInputStream()} haría que el
+     *       tope se salte sumando: se lee justo el tope, se vuelve a pedir el
+     *       flujo, y el contador empieza de cero sobre un cuerpo que sigue
+     *       donde lo dejó.
+     *   <li>{@code getReader()} es la otra puerta. Hoy no la usa nadie —
+     *       {@code @RequestBody} entra por el flujo —, pero un tope que solo
+     *       cuenta una de las dos es un tope hasta que alguien escriba el
+     *       endpoint que usa la otra, y ese día nadie se va a acordar de esto.
+     * </ul>
+     */
     private static final class LimitedBodyRequest extends HttpServletRequestWrapper {
 
         private final long maxBytes;
+
+        private CountingStream body;
+        private BufferedReader reader;
 
         private LimitedBodyRequest(HttpServletRequest request, long maxBytes) {
             super(request);
@@ -68,7 +91,43 @@ public final class BodySizeLimitFilter extends OncePerRequestFilter {
 
         @Override
         public ServletInputStream getInputStream() throws IOException {
-            return new CountingStream(super.getInputStream(), maxBytes);
+            return body();
+        }
+
+        @Override
+        public BufferedReader getReader() throws IOException {
+            if (reader == null) {
+                reader = new BufferedReader(new InputStreamReader(body(), charset()));
+            }
+            return reader;
+        }
+
+        private CountingStream body() throws IOException {
+            if (body == null) {
+                body = new CountingStream(super.getInputStream(), maxBytes);
+            }
+            return body;
+        }
+
+        /**
+         * La codificación que diga la petición, y UTF-8 si no dice ninguna
+         * que exista.
+         *
+         * <p>El juego de caracteres sale del {@code Content-Type}, o sea de
+         * quien llama: un nombre inventado haría estallar
+         * {@code Charset.forName} con una excepción sin capturar dentro del
+         * filtro, y eso es un 500 donde toca un 400.
+         */
+        private Charset charset() {
+            String encoding = getCharacterEncoding();
+            if (encoding == null) {
+                return StandardCharsets.UTF_8;
+            }
+            try {
+                return Charset.forName(encoding);
+            } catch (IllegalArgumentException unsupported) {
+                return StandardCharsets.UTF_8;
+            }
         }
     }
 

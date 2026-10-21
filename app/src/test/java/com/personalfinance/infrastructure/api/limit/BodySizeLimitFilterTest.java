@@ -9,6 +9,7 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import java.io.IOException;
+import java.io.Writer;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import org.junit.jupiter.api.DisplayName;
@@ -103,26 +104,47 @@ class BodySizeLimitFilterTest {
     void aChunkedBodyIsAlsoCut() {
         // Un cuerpo troceado llega sin Content-Length: el único sitio donde se
         // puede acotar es mientras se lee.
-        MockHttpServletRequest chunked = new MockHttpServletRequest() {
-            @Override
-            public long getContentLengthLong() {
-                return -1;
-            }
-
-            @Override
-            public int getContentLength() {
-                return -1;
-            }
-        };
-        chunked.setMethod("POST");
-        chunked.setContentType(MediaType.APPLICATION_JSON_VALUE);
-        chunked.setContent("a".repeat(CAP * 4).getBytes(StandardCharsets.UTF_8));
-
         FilterChain reader = (request, response) -> request.getInputStream().readAllBytes();
 
         assertThatExceptionOfType(BodyTooLargeException.class)
-                .isThrownBy(() ->
-                        filter.doFilter(chunked, new MockHttpServletResponse(), reader));
+                .isThrownBy(() -> filter.doFilter(
+                        chunkedOf("a".repeat(CAP * 4)), new MockHttpServletResponse(), reader));
+    }
+
+    @Test
+    @DisplayName("S5 · un cuerpo leído con getReader() también se corta")
+    void aBodyReadThroughTheReaderIsAlsoCut() {
+        // Hoy ningún endpoint lee así: @RequestBody pasa por getInputStream().
+        // Pero el día que alguien escriba uno que use el lector, el tope tiene
+        // que seguir puesto. Un envoltorio que solo cuenta una de las dos
+        // puertas no es un tope, es un tope hasta que alguien use la otra, y
+        // nadie va a acordarse de esto al escribir ese endpoint.
+        FilterChain readsWithTheReader = (request, response) ->
+                request.getReader().transferTo(Writer.nullWriter());
+
+        assertThatExceptionOfType(BodyTooLargeException.class)
+                .isThrownBy(() -> filter.doFilter(
+                        chunkedOf("a".repeat(CAP + 1)),
+                        new MockHttpServletResponse(),
+                        readsWithTheReader));
+    }
+
+    @Test
+    @DisplayName("S5 · pedir el flujo otra vez no regala un contador nuevo")
+    void askingForTheStreamAgainDoesNotResetTheCount() {
+        // Lo leído se cuenta por petición, no por llamada a getInputStream().
+        // Con un contador nuevo cada vez, el cuerpo entra a trozos de CAP
+        // bytes y ninguno se pasa: el tope se salta sumando.
+        FilterChain readsInTwoGoes = (request, response) -> {
+            request.getInputStream().readNBytes(CAP);
+            request.getInputStream().readNBytes(1);
+        };
+
+        assertThatExceptionOfType(BodyTooLargeException.class)
+                .isThrownBy(() -> filter.doFilter(
+                        chunkedOf("a".repeat(CAP + 1)),
+                        new MockHttpServletResponse(),
+                        readsInTwoGoes));
     }
 
     @Test
@@ -159,6 +181,28 @@ class BodySizeLimitFilterTest {
         filter.doFilter(archive, new MockHttpServletResponse(), chain);
 
         assertThat(chain.getRequest()).isNotNull();
+    }
+
+    /**
+     * Un cuerpo troceado: llega sin {@code Content-Length}, así que el único
+     * sitio donde se puede acotar es mientras se lee.
+     */
+    private static HttpServletRequest chunkedOf(String body) {
+        MockHttpServletRequest chunked = new MockHttpServletRequest() {
+            @Override
+            public long getContentLengthLong() {
+                return -1;
+            }
+
+            @Override
+            public int getContentLength() {
+                return -1;
+            }
+        };
+        chunked.setMethod("POST");
+        chunked.setContentType(MediaType.APPLICATION_JSON_VALUE);
+        chunked.setContent(body.getBytes(StandardCharsets.UTF_8));
+        return chunked;
     }
 
     private static HttpServletRequest requestOf(String body) {

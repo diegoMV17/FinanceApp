@@ -73,6 +73,13 @@ dependencies {
     testImplementation("com.tngtech.archunit:archunit-junit5:1.5.1")
 
     testImplementation("org.springframework.boot:spring-boot-starter-test")
+
+    // MockMvc no viene en spring-boot-starter-test. En Boot 4 se mudó a su
+    // propio módulo y @AutoConfigureMockMvc ya no está en
+    // spring-boot-test-autoconfigure (ese jar tiene 37 entradas y ninguna lo
+    // menciona): sin este starter, la anotación no existe ni para importarla.
+    // Es la misma leccion de spring-boot-flyway, en los tests.
+    testImplementation("org.springframework.boot:spring-boot-starter-webmvc-test")
     testImplementation("org.springframework.security:spring-security-test")
     testImplementation("org.springframework.boot:spring-boot-testcontainers")
     testImplementation("org.testcontainers:junit-jupiter")

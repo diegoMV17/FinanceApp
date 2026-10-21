@@ -27,6 +27,15 @@ spring:
         jdbc:
           time_zone: UTC
 
+  autoconfigure:
+    exclude:
+      # Sin esto, Boot crea un usuario en memoria y escribe su clave generada
+      # en el log al arrancar, aunque la cadena de filtros no la use nunca: un
+      # SecurityFilterChain propio no la desactiva, porque su condición mira
+      # beans de autenticación y no la cadena. Una clave en el log es un
+      # secreto en el log.
+      - org.springframework.boot.security.autoconfigure.UserDetailsServiceAutoConfiguration
+
   flyway:
     enabled: true
     locations: classpath:db/migration
@@ -37,11 +46,20 @@ spring:
   # El borde HTTP, estricto a propósito: lo que entra por aquí es entrada no
   # confiable y se rechaza antes de llegar al dominio, no después.
   jackson:
+    # Jackson 3 escribe las fechas en ISO sin módulo aparte, pero el Instant se
+    # rinde a la zona del mapper. UTC fijo, igual que Hibernate: el mismo hecho
+    # no puede quedar con dos horas según quién lo serialice.
+    time-zone: UTC
     deserialization:
       # Un campo que nadie declaró es un cliente desactualizado o alguien
       # tanteando. En los dos casos la respuesta útil es un 400, no ignorarlo
       # en silencio y guardar algo distinto de lo que el cliente cree que mandó.
       fail-on-unknown-properties: true
+      # Y ACCEPT_FLOAT_AS_INT viene en true: un monto de "1234.56" centavos se
+      # truncaría a 1234 sin un solo aviso. En una app de plata eso no es una
+      # molestia de formato, es plata que desaparece, y la decisión dice que
+      # los montos son enteros de centavos y jamás decimales.
+      accept-float-as-int: false
     factory:
       constraints:
         read:
@@ -56,7 +74,15 @@ spring:
           max-string-length: 4096
           max-number-length: 32
 
+  # Las dos banderas que imprimen cabeceras y cuerpos. NUNCA en true: la
+  # cabecera Authorization lleva el token y el cuerpo lleva montos,
+  # descripciones y nombres de cuentas. Quedan escritas en false para que
+  # cambiarlas sea una decisión visible y no un descuido.
+  http:
+    log-request-details: false
+
   mvc:
+    log-request-details: false
     problemdetails:
       # RFC 9457 también para lo que no pasa por el @RestControllerAdvice, como
       # un 405 o un 415: un solo formato de error para toda la API.
@@ -81,6 +107,12 @@ spring:
 server:
   address: ${SERVER_ADDRESS:127.0.0.1}
   port: ${SERVER_PORT:8080}
+  tomcat:
+    # Un poco por encima del tope de cuerpo. Al rechazar sin leer, Tomcat
+    # todavía tiene que tragarse el resto para poder responder; si no alcanza,
+    # el cliente ve una conexión cortada en vez del 413 que le explica qué
+    # hizo mal.
+    max-swallow-size: 128KB
   error:
     # La página de error de Spring trae la ruta, la excepción y a veces la
     # traza. Todo lo que sigue es "no cuentes nada", explicitado en vez de

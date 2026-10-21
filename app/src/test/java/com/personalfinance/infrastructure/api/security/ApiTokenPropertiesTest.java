@@ -71,6 +71,24 @@ class ApiTokenPropertiesTest {
         }
 
         @Test
+        @DisplayName("S1 · rechaza un marcador que nadie resolvió")
+        void rejectsAnUnresolvedPlaceholder() {
+            // Esto salió de arrancar la aplicación de verdad sin la variable:
+            // Spring no falla, pasa la cadena literal "${API_TOKEN}". Son doce
+            // bytes, asi que hoy lo para el minimo de 32 por pura casualidad.
+            // Con una variable de nombre mas largo, la aplicacion arrancaria
+            // con el nombre del marcador como token, que esta escrito en el
+            // repositorio.
+            assertThatExceptionOfType(IllegalArgumentException.class)
+                    .isThrownBy(() -> new ApiTokenProperties("${API_TOKEN}"));
+
+            assertThatExceptionOfType(IllegalArgumentException.class)
+                    .isThrownBy(() -> new ApiTokenProperties(
+                            "${FINANCE_API_BEARER_TOKEN_VALUE}"))
+                    .withMessageContaining("sin resolver");
+        }
+
+        @Test
         @DisplayName("S1 · rechaza espacios y caracteres de control")
         void rejectsWhitespaceAndControlCharacters() {
             // El caso real: un secreto leído de un archivo se trae el salto de

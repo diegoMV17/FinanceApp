@@ -21,6 +21,16 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  * <p>Se mide en bytes y no en caracteres: la decisión habla de 32 bytes de
  * azar, y dieciséis eñes son dieciséis caracteres pero treinta y dos bytes.
  *
+ * <p>Un marcador sin resolver también se rechaza, y esto <strong>no</strong> es
+ * paranoia: Spring no falla cuando {@code ${API_TOKEN}} no existe en el
+ * entorno, le pasa a este constructor la cadena literal {@code "${API_TOKEN}"}.
+ * Son doce bytes, así que hoy lo para el mínimo de treinta y dos — por
+ * accidente. El día que alguien renombre la variable a algo más largo que eso,
+ * la aplicación arrancaría con el nombre del marcador como token: un secreto de
+ * doce caracteres que está escrito en este repositorio y que adivina cualquiera
+ * que haya leído el {@code application.yml}. Mejor que la protección sea
+ * deliberada.
+ *
  * <p>Los espacios y los caracteres de control se rechazan en vez de recortarse.
  * Es el caso real de un secreto leído de un archivo, que se trae el salto de
  * línea: recortarlo en silencio dejaría funcionando un token distinto del que
@@ -48,6 +58,11 @@ public record ApiTokenProperties(String token) {
             throw new IllegalArgumentException(
                     "finance.api.token no puede traer espacios ni caracteres de control; "
                             + "revise si el secreto llegó con un salto de línea al final");
+        }
+        if (token.startsWith("${") && token.endsWith("}")) {
+            throw new IllegalArgumentException(
+                    "finance.api.token quedó sin resolver: defina la variable de entorno "
+                            + "que nombra application.yml");
         }
         if (token.getBytes(StandardCharsets.UTF_8).length < MIN_TOKEN_BYTES) {
             throw new IllegalArgumentException(

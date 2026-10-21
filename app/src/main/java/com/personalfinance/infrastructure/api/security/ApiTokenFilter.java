@@ -55,6 +55,9 @@ final class ApiTokenFilter extends OncePerRequestFilter {
 
     private static final String PRINCIPAL = "owner";
 
+    /** El cubo de quien no trae dirección. */
+    private static final String UNKNOWN_ADDRESS = "desconocida";
+
     /**
      * Donde se guarda el contexto para que sobreviva al despacho a
      * {@code /error}.
@@ -90,7 +93,7 @@ final class ApiTokenFilter extends OncePerRequestFilter {
             HttpServletRequest request, HttpServletResponse response, FilterChain chain)
             throws ServletException, IOException {
 
-        String address = request.getRemoteAddr();
+        String address = addressOf(request);
 
         // El bloqueo se mira antes del token: a quien está insistiendo no se le
         // comprueba nada, se le dice que espere.
@@ -110,6 +113,21 @@ final class ApiTokenFilter extends OncePerRequestFilter {
         attempts.recordSuccess(address);
         authenticate(request, response);
         chain.doFilter(request, response);
+    }
+
+    /**
+     * De dónde viene, con un nombre de reserva si el contenedor no lo dice.
+     *
+     * <p>Tomcat siempre la trae, pero el mapa de {@link FailedAttempts} es un
+     * {@code ConcurrentHashMap} y esos no admiten una clave nula: un
+     * {@code null} aquí sería un {@code NullPointerException} dentro del filtro
+     * de autenticación, o sea un 500 en el sitio donde toca un 401. Las que no
+     * se identifican comparten cubo, que para contar intentos fallidos es
+     * exactamente lo que hace falta.
+     */
+    private static String addressOf(HttpServletRequest request) {
+        String address = request.getRemoteAddr();
+        return address == null || address.isBlank() ? UNKNOWN_ADDRESS : address;
     }
 
     private static void authenticate(

@@ -7,6 +7,8 @@ import static org.assertj.core.api.Assertions.assertThatNoException;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.springframework.boot.context.properties.bind.Binder;
+import org.springframework.boot.context.properties.source.MapConfigurationPropertySource;
 
 /**
  * S1 y S2. El token de la API, antes de que exista una petición.
@@ -82,6 +84,49 @@ class ApiTokenPropertiesTest {
                     .isThrownBy(() -> new ApiTokenProperties(VALID.replace('k', '\t')));
             assertThatExceptionOfType(IllegalArgumentException.class)
                     .isThrownBy(() -> new ApiTokenProperties(VALID.replace('k', '\u0000')));
+        }
+    }
+
+    @Nested
+    @DisplayName("al ligarse a la configuración")
+    class WhenBound {
+
+        @Test
+        @DisplayName("S1 · no tiene valor por omisión: sin API_TOKEN no arranca")
+        void thereIsNoDefault() {
+            // Esta es la mitad que un test del constructor no cubre: que nadie
+            // haya puesto un @DefaultValue. Si lo hubiera, un servidor al que
+            // le faltara la variable arrancaría con una clave que está
+            // publicada en este repositorio, y la API quedaría abierta para
+            // cualquiera que haya leido el código.
+            Binder empty = new Binder(new MapConfigurationPropertySource());
+
+            assertThatExceptionOfType(Exception.class)
+                    .isThrownBy(() ->
+                            empty.bindOrCreate("finance.api", ApiTokenProperties.class));
+        }
+
+        @Test
+        @DisplayName("S1 · y un token corto en el yml tampoco deja arrancar")
+        void ashortTokenInTheYamlAlsoFails() {
+            MapConfigurationPropertySource written = new MapConfigurationPropertySource();
+            written.put("finance.api.token", "corto");
+
+            assertThatExceptionOfType(Exception.class)
+                    .isThrownBy(() -> new Binder(written)
+                            .bindOrCreate("finance.api", ApiTokenProperties.class));
+        }
+
+        @Test
+        @DisplayName("S1 · uno bueno sí se liga")
+        void agoodOneBinds() {
+            MapConfigurationPropertySource written = new MapConfigurationPropertySource();
+            written.put("finance.api.token", VALID);
+
+            ApiTokenProperties bound = new Binder(written)
+                    .bindOrCreate("finance.api", ApiTokenProperties.class);
+
+            assertThat(bound.token()).isEqualTo(VALID);
         }
     }
 

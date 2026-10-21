@@ -254,6 +254,23 @@ class ApiTokenFilterTest {
         }
 
         @Test
+        @DisplayName("S7 · una petición sin dirección no revienta")
+        void arequestWithoutAnAddressDoesNotBlowUp() throws Exception {
+            // El mapa de intentos es un ConcurrentHashMap y no admite claves
+            // nulas: sin un cubo de reserva, esto sería un 500 justo en el
+            // filtro de autenticación, que es el peor sitio donde tener uno.
+            MockHttpServletRequest nameless =
+                    new MockHttpServletRequest("GET", "/api/balances");
+            nameless.setRemoteAddr(null);
+            nameless.addHeader(HttpHeaders.AUTHORIZATION, "Bearer malo");
+            MockHttpServletResponse response = new MockHttpServletResponse();
+
+            filter.doFilter(nameless, response, new MockFilterChain());
+
+            assertThat(response.getStatus()).isEqualTo(HttpStatus.UNAUTHORIZED.value());
+        }
+
+        @Test
         @DisplayName("S7 · cada dirección tiene su propia cuenta")
         void eachAddressHasItsOwnCount() throws Exception {
             for (int i = 0; i < MAX_ATTEMPTS; i++) {

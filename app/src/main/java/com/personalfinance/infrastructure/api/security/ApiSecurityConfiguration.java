@@ -9,6 +9,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.Ordered;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.web.configuration.WebSecurityCustomizer;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.annotation.web.configurers.RequestCacheConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -93,6 +94,38 @@ class ApiSecurityConfiguration {
         registration.addUrlPatterns("/*");
         registration.setOrder(BODY_LIMIT_ORDER);
         return registration;
+    }
+
+    /**
+     * Lo que el cortafuegos rechaza, contado como el resto de la API.
+     *
+     * <p>El cortafuegos de Spring Security corre <em>antes</em> que la cadena:
+     * un {@code TRACE}, un {@code %2e%2e} codificado, un punto y coma en la
+     * ruta o una barra doble se rechazan ahí, antes de que la petición tenga
+     * identidad y mucho antes de que exista el {@code @RestControllerAdvice}.
+     *
+     * <p>Por omisión eso responde un 400 con el cuerpo vacío y sin
+     * {@code Content-Type}: era el único error de esta API que se escapaba de
+     * la lista cerrada de {@link ApiError}, y lo único que el cliente recibía
+     * era un número. Quien ve un 400 pelado donde todo lo demás contesta
+     * {@code problem+json} busca el fallo en su propio cuerpo, no en la forma
+     * de la dirección.
+     *
+     * <p>Va por {@code WebSecurityCustomizer} y no como un {@code @Bean} de
+     * {@code RequestRejectedHandler}, que es lo que uno esperaría: la
+     * configuración de Spring Security no autoinyecta ese tipo en ningún sitio
+     * (se verificó contra el jar), así que un bean suelto se quedaría ahí sin
+     * que nadie lo llamara y el único síntoma sería que este test se pusiera
+     * rojo el día que a alguien se le ocurriera escribirlo.
+     *
+     * <p>El escritor no repite nada de lo que llegó. Un error que devuelve la
+     * dirección que lo causó es un error que la refleja, y lo que venga dentro
+     * de ella vuelve a la pantalla de quien la mandó.
+     */
+    @Bean
+    WebSecurityCustomizer firewallRejectionsAnswerLikeTheRest(ApiProblemWriter problems) {
+        return web -> web.requestRejectedHandler((request, response, rejected) ->
+                problems.write(response, ApiError.REJECTED_REQUEST));
     }
 
     /**

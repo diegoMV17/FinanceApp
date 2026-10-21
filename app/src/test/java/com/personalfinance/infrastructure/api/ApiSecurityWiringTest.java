@@ -3,8 +3,10 @@ package com.personalfinance.infrastructure.api;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.request;
 
 import com.personalfinance.infrastructure.PostgresIntegrationTest;
+import com.personalfinance.infrastructure.api.error.ApiError;
 import jakarta.servlet.Filter;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.List;
@@ -15,6 +17,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.ApplicationContext;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockHttpServletRequest;
@@ -193,6 +196,78 @@ class ApiSecurityWiringTest extends PostgresIntegrationTest {
                     .doesNotContain("org.springframework")
                     .doesNotContain("Exception")
                     .doesNotContain("no-existe-esta-ruta");
+        }
+    }
+
+    @Nested
+    @DisplayName("lo que rechaza el cortafuegos")
+    class WhatTheFirewallRefuses {
+
+        /**
+         * El cortafuegos de Spring Security corre antes que todo, incluido el
+         * filtro del token, y lo que rechaza ni llega a tener identidad.
+         *
+         * <p>El valor por omisión de la 7.1.1 responde 400, pero con el cuerpo
+         * <strong>vacío</strong> y sin {@code Content-Type}: era el único error
+         * de esta API que se escapaba de la lista cerrada de {@link ApiError}, y
+         * lo único que el cliente recibía era un número. Un cliente que ve un
+         * 400 pelado donde el resto de la API contesta {@code problem+json}
+         * busca el fallo en su propio cuerpo, no en la forma de la dirección.
+         *
+         * <p>Los tests mandan el token bueno a propósito: así queda claro que
+         * esto no es un problema de autenticación y que un 401 aquí sería
+         * mentira.
+         */
+        @Test
+        @DisplayName("S13 · un método que no admite es 400 con problem+json")
+        void aRefusedMethodIs400() throws Exception {
+            MvcResult rejected = mvc.perform(request(HttpMethod.TRACE, "/api/summary")
+                            .header(HttpHeaders.AUTHORIZATION, "Bearer " + TEST_API_TOKEN))
+                    .andReturn();
+
+            assertThat(rejected.getResponse().getStatus())
+                    .as("el token era correcto: un 401 aquí sería mentira")
+                    .isEqualTo(HttpStatus.BAD_REQUEST.value());
+            assertThat(rejected.getResponse().getContentType())
+                    .startsWith(MediaType.APPLICATION_PROBLEM_JSON_VALUE);
+            assertThat(rejected.getResponse().getContentAsString())
+                    .contains("urn:finance:error:rejected-request");
+        }
+
+        @Test
+        @DisplayName("S13 · y una dirección con punto y coma también")
+        void aSemicolonInThePathIs400() throws Exception {
+            MvcResult rejected = mvc.perform(get("/api/summary;jsessionid=abc")
+                            .header(HttpHeaders.AUTHORIZATION, "Bearer " + TEST_API_TOKEN))
+                    .andReturn();
+
+            assertThat(rejected.getResponse().getStatus())
+                    .isEqualTo(HttpStatus.BAD_REQUEST.value());
+            assertThat(rejected.getResponse().getContentAsString())
+                    .contains("urn:finance:error:rejected-request");
+        }
+
+        @Test
+        @DisplayName("S13 · el cuerpo no repite nada de lo que llegó")
+        void theBodyEchoesNothing() throws Exception {
+            MvcResult rejected = mvc.perform(get("/api/summary;jsessionid=elsecreto")
+                            .header(HttpHeaders.AUTHORIZATION, "Bearer " + TEST_API_TOKEN))
+                    .andReturn();
+
+            String body = rejected.getResponse().getContentAsString();
+
+            // Un error que repite la entrada es un error que la refleja: el
+            // cliente la vuelve a ver, y con ella lo que haya metido dentro.
+            assertThat(body)
+                    .doesNotContain("elsecreto")
+                    .doesNotContain("jsessionid")
+                    .doesNotContain("summary")
+                    .doesNotContain(TEST_API_TOKEN)
+                    .doesNotContain("Exception")
+                    .doesNotContain("org.springframework");
+            assertThat(body).doesNotContainIgnoringCase("html");
+            assertThat(rejected.getResponse().getHeader("X-Content-Type-Options"))
+                    .isEqualTo("nosniff");
         }
     }
 

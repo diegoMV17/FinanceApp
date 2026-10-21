@@ -6,6 +6,8 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 
 import com.personalfinance.infrastructure.PostgresIntegrationTest;
 import jakarta.servlet.Filter;
+import jakarta.servlet.http.HttpServletRequest;
+import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -15,8 +17,14 @@ import org.springframework.context.ApplicationContext;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.mock.web.MockHttpServletRequest;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.authorization.AuthorizationManager;
+import org.springframework.security.authorization.AuthorizationResult;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.access.intercept.AuthorizationFilter;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
@@ -68,6 +76,49 @@ class ApiSecurityWiringTest extends PostgresIntegrationTest {
                             + "del tamaño va envuelto en un FilterRegistrationBean")
                     .noneMatch(filter -> filter.getClass().getName()
                             .startsWith("com.personalfinance.infrastructure.api"));
+        }
+
+        @Test
+        @DisplayName("S10 · la regla de autorización niega por su cuenta, sin el filtro del token")
+        void theAuthorizationRuleDeniesOnItsOwn() {
+            // Deny by default son dos redes, y hasta ahora solo se probaba una.
+            // Lo encontró una prueba de mutación: cambiar
+            // anyRequest().authenticated() por permitAll() no ponía rojo a
+            // nadie, porque el filtro del token contesta 401 antes y tapa a la
+            // segunda red entera. Tapada no es lo mismo que puesta: el filtro
+            // se salta el despacho a /error y el asíncrono por omisión, y ahí
+            // la única que queda es esta regla.
+            //
+            // Así que se le pregunta a la regla directamente, que es la forma
+            // de verla sin el filtro delante.
+            AuthorizationManager<HttpServletRequest> rule = context
+                    .getBean(SecurityFilterChain.class)
+                    .getFilters()
+                    .stream()
+                    .filter(AuthorizationFilter.class::isInstance)
+                    .map(AuthorizationFilter.class::cast)
+                    .findFirst()
+                    .map(AuthorizationFilter::getAuthorizationManager)
+                    .orElseThrow(() ->
+                            new AssertionError("la cadena no tiene AuthorizationFilter"));
+
+            MockHttpServletRequest request =
+                    new MockHttpServletRequest("GET", "/api/summary");
+
+            AuthorizationResult withoutAuthentication = rule.authorize(() -> null, request);
+            assertThat(withoutAuthentication).isNotNull();
+            assertThat(withoutAuthentication.isGranted())
+                    .as("sin autenticación, la regla sola tiene que negar")
+                    .isFalse();
+
+            AuthorizationResult asOwner = rule.authorize(
+                    () -> UsernamePasswordAuthenticationToken.authenticated(
+                            "owner", null, List.of(new SimpleGrantedAuthority("ROLE_OWNER"))),
+                    request);
+            assertThat(asOwner).isNotNull();
+            assertThat(asOwner.isGranted())
+                    .as("y con el token del libro, dejar pasar")
+                    .isTrue();
         }
 
         @Test

@@ -3,12 +3,22 @@ package com.personalfinance.infrastructure.api.error;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.personalfinance.application.BookBusyException;
+import com.personalfinance.domain.ledger.AccountAlreadyArchivedException;
+import com.personalfinance.domain.ledger.AccountStillHoldsMoneyException;
+import com.personalfinance.domain.ledger.DuplicateAccountException;
+import com.personalfinance.domain.ledger.DuplicateAccountNameException;
+import com.personalfinance.domain.ledger.DuplicateTransactionException;
 import com.personalfinance.domain.ledger.LedgerException;
+import com.personalfinance.domain.ledger.TransactionAlreadyCancelledException;
+import com.personalfinance.domain.ledger.UnknownAccountException;
+import com.personalfinance.domain.ledger.UnknownTransactionException;
+import com.personalfinance.infrastructure.api.limit.BodyTooLargeException;
 import com.tngtech.archunit.core.domain.JavaClass;
 import com.tngtech.archunit.core.importer.ClassFileImporter;
 import com.tngtech.archunit.core.importer.ImportOption;
 import java.time.Duration;
 import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
@@ -74,6 +84,41 @@ class ApiErrorsTest {
         assertThat(ApiErrors.forFailure(invented)).isEqualTo(ApiError.RULE_VIOLATED);
         assertThat(ApiError.RULE_VIOLATED.status())
                 .isEqualTo(HttpStatus.UNPROCESSABLE_CONTENT);
+    }
+
+    /**
+     * Cada queja con nombre propio y lo que le toca responder.
+     *
+     * <p>Es la tabla que el brazo de recogida de {@code LedgerException} se
+     * tragaría entera si subiera un sitio en {@code forType}.
+     */
+    private static final Map<Class<?>, ApiError> ANSWERS = Map.of(
+            UnknownAccountException.class, ApiError.NOT_FOUND,
+            UnknownTransactionException.class, ApiError.NOT_FOUND,
+            DuplicateTransactionException.class, ApiError.DUPLICATE_ID,
+            DuplicateAccountException.class, ApiError.DUPLICATE_ID,
+            DuplicateAccountNameException.class, ApiError.DUPLICATE_ACCOUNT_NAME,
+            TransactionAlreadyCancelledException.class, ApiError.ALREADY_CANCELLED,
+            AccountAlreadyArchivedException.class, ApiError.ALREADY_ARCHIVED,
+            AccountStillHoldsMoneyException.class, ApiError.ACCOUNT_STILL_HOLDS_MONEY,
+            BookBusyException.class, ApiError.BOOK_BUSY,
+            BodyTooLargeException.class, ApiError.CONTENT_TOO_LARGE);
+
+    @Test
+    @DisplayName("H2 · y el brazo de recogida no se traga a las que tienen nombre")
+    void theCatchAllDoesNotSwallowTheNamedOnes() {
+        // El javadoc de forType dice que el orden de los brazos importa; esto
+        // es lo único que lo exige. Lo encontró una prueba de mutación: subir
+        // el brazo de LedgerException al principio convierte cada 404 y cada
+        // 409 en un 422 y no ponía rojo a nadie, porque lo que se comprobaba
+        // era que toda queja tuviera una respuesta 4xx distinta de 500, y un
+        // 422 cumple las dos cosas. Un 404 que se vuelve 422 le dice al
+        // cliente «el libro dice no» de una cuenta que no existe, y eso manda
+        // a buscar el error donde no está.
+        ANSWERS.forEach((refusal, expected) ->
+                assertThat(ApiErrors.forType(refusal))
+                        .as("%s", refusal.getSimpleName())
+                        .isEqualTo(expected));
     }
 
     @Test

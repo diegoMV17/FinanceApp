@@ -67,7 +67,7 @@ class BodySizeLimitFilterTest {
         assertThat(response.getStatus()).isEqualTo(HttpStatus.CONTENT_TOO_LARGE.value());
         assertThat(response.getContentType())
                 .startsWith(MediaType.APPLICATION_PROBLEM_JSON_VALUE);
-        assertThat(response.getContentAsString()).contains("payload-too-large");
+        assertThat(response.getContentAsString()).contains("content-too-large");
     }
 
     @Test

@@ -60,7 +60,7 @@ public enum ApiError {
     NOT_FOUND(HttpStatus.NOT_FOUND, "not-found",
             "No existe lo que se pidió."),
 
-    PAYLOAD_TOO_LARGE(HttpStatus.CONTENT_TOO_LARGE, "payload-too-large",
+    CONTENT_TOO_LARGE(HttpStatus.CONTENT_TOO_LARGE, "content-too-large",
             "El cuerpo de la petición es demasiado grande."),
 
     DUPLICATE_ID(HttpStatus.CONFLICT, "duplicate-id",

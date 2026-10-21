@@ -50,7 +50,7 @@ public final class BodySizeLimitFilter extends OncePerRequestFilter {
             throws ServletException, IOException {
 
         if (request.getContentLengthLong() > maxBytes) {
-            problems.write(response, ApiError.PAYLOAD_TOO_LARGE);
+            problems.write(response, ApiError.CONTENT_TOO_LARGE);
             return;
         }
         chain.doFilter(new LimitedBodyRequest(request, maxBytes), response);

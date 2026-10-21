@@ -89,6 +89,50 @@ class JsonStrictnessTest extends PostgresIntegrationTest {
             assertThat(countMovements()).isZero();
         }
 
+        /**
+         * Una clave repetida en el mismo objeto.
+         *
+         * <p>JSON no prohíbe repetirla y Jackson, por omisión, se queda con la
+         * última y no dice nada. En una API de plata eso es exactamente el
+         * desacuerdo que no se puede permitir: el cliente cree que mandó 100
+         * centavos, el libro guarda 900.000, y las dos partes tienen razón
+         * según cuál de las dos claves se lea. Peor aún, es la forma clásica
+         * de colar un valor por delante de algo que lo inspeccione a medias.
+         *
+         * <p>Lo para {@code StreamReadFeature.STRICT_DUPLICATE_DETECTION} en
+         * el parser, así que no hace falta que ningún DTO se acuerde.
+         */
+        @Test
+        @DisplayName("S11 · una clave repetida responde 400 en vez de ganar la última")
+        void aRepeatedKeyIsRefused() throws Exception {
+            UUID id = UUID.randomUUID();
+            MvcResult refused = send("/api/movements", """
+                    {"type":"EXPENSE","id":"%s","date":"%s","description":"Almuerzo",
+                     "paidFrom":"%s","category":"%s",
+                     "amountInCents":100,"amountInCents":900000}"""
+                    .formatted(id, TODAY, bank, food));
+
+            assertThat(refused.getResponse().getStatus()).isEqualTo(400);
+            assertThat(countMovements())
+                    .as("ni el primer monto ni el segundo: no se guarda nada")
+                    .isZero();
+        }
+
+        @Test
+        @DisplayName("S11 · y repetir el tipo tampoco elige la clase a instanciar")
+        void aRepeatedTypeIsRefused() throws Exception {
+            // El discriminador es lo que decide qué clase construye Jackson.
+            // Repetirlo es pedirle que elija, y la respuesta es que no.
+            MvcResult refused = send("/api/movements", """
+                    {"type":"EXPENSE","type":"TRANSFER","id":"%s","date":"%s",
+                     "description":"Almuerzo","paidFrom":"%s","category":"%s",
+                     "amountInCents":1000}"""
+                    .formatted(UUID.randomUUID(), TODAY, bank, food));
+
+            assertThat(refused.getResponse().getStatus()).isEqualTo(400);
+            assertThat(countMovements()).isZero();
+        }
+
         @Test
         @DisplayName("S11 · el cliente no puede fijar el origen")
         void theClientCannotSetTheSource() throws Exception {

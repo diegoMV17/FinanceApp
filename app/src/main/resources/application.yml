@@ -60,6 +60,15 @@ spring:
       # molestia de formato, es plata que desaparece, y la decisión dice que
       # los montos son enteros de centavos y jamás decimales.
       accept-float-as-int: false
+    # Los interruptores del lector de tokens, antes de que exista ningun DTO.
+    read:
+      # Una clave repetida en el mismo objeto. JSON no lo prohibe y Jackson, por
+      # omision, se queda con la ultima y no dice nada: el cliente cree que
+      # mando 100 centavos, el libro guarda 900.000, y las dos partes tienen
+      # razon segun cual de las dos claves se lea. Es ademas la forma clasica de
+      # colar un valor por delante de algo que lo inspeccione a medias. Aqui
+      # arriba, en el parser, para que no haga falta que ningun DTO se acuerde.
+      strict-duplicate-detection: true
     factory:
       constraints:
         read:

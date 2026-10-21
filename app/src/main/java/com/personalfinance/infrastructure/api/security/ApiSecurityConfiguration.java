@@ -75,13 +75,6 @@ class ApiSecurityConfiguration {
         return new FailedAttempts(limits, clock);
     }
 
-    @Bean
-    ApiTokenFilter apiTokenFilter(
-            TokenDigest digest, FailedAttempts attempts, ApiProblemWriter problems) {
-
-        return new ApiTokenFilter(digest, attempts, problems);
-    }
-
     /**
      * El tope de cuerpo, registrado como filtro del contenedor y no de Spring
      * Security, para que corra antes que toda la cadena.
@@ -102,9 +95,25 @@ class ApiSecurityConfiguration {
         return registration;
     }
 
+    /**
+     * La cadena, con el filtro del token construido aquí dentro.
+     *
+     * <p>Y no como {@code @Bean}, que es lo natural y es un error: un bean de
+     * tipo {@code Filter} lo registra Boot <em>también</em> como filtro del
+     * contenedor, por su cuenta y fuera de esta cadena. Hoy esa segunda copia
+     * no hace daño porque queda detrás y {@code OncePerRequestFilter} la deja
+     * pasar de largo, pero el daño que podría hacer es serio: una copia
+     * corriendo fuera de la cadena pondría el contexto de seguridad sin que
+     * nadie lo limpie después, y eso se filtra al siguiente que use ese hilo.
+     * Que no sea un bean es la única forma de que no dependa de la aritmética
+     * de los órdenes de registro.
+     */
     @Bean
     SecurityFilterChain apiSecurity(
-            HttpSecurity http, ApiTokenFilter tokenFilter, ApiProblemWriter problems)
+            HttpSecurity http,
+            TokenDigest digest,
+            FailedAttempts attempts,
+            ApiProblemWriter problems)
             throws Exception {
 
         return http
@@ -130,7 +139,9 @@ class ApiSecurityConfiguration {
                                 problems.write(response, ApiError.UNAUTHORIZED))
                         .accessDeniedHandler((request, response, denied) ->
                                 problems.write(response, ApiError.FORBIDDEN)))
-                .addFilterBefore(tokenFilter, AuthorizationFilter.class)
+                .addFilterBefore(
+                        new ApiTokenFilter(digest, attempts, problems),
+                        AuthorizationFilter.class)
                 .build();
     }
 }

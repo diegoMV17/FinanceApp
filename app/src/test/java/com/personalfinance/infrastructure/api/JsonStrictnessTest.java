@@ -273,6 +273,11 @@ class JsonStrictnessTest extends PostgresIntegrationTest {
             assertThat(json.readTree(refused.getResponse().getContentAsString())
                             .get("type").asString())
                     .isEqualTo("urn:finance:error:content-too-large");
+            // El 413 lo escribe un filtro del contenedor, por fuera de la
+            // cadena de Spring Security: las cabeceras de seguridad que la
+            // cadena pone sola, aqui las tiene que poner el escritor.
+            assertThat(refused.getResponse().getHeader("X-Content-Type-Options"))
+                    .isEqualTo("nosniff");
         }
 
         @Test

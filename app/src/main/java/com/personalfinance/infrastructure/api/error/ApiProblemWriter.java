@@ -66,6 +66,14 @@ public final class ApiProblemWriter {
         response.setContentType(MediaType.APPLICATION_PROBLEM_JSON_VALUE);
         response.setCharacterEncoding("UTF-8");
 
+        // Explicito porque este cuerpo se escribe en dos sitios distintos. Los
+        // 401 y 429 salen de dentro de la cadena de Spring Security, que ya
+        // pone esta cabecera; el 413 lo escribe un filtro del contenedor que
+        // corre por fuera, y ahi no la pone nadie. Una respuesta de error sin
+        // nosniff es una que el navegador puede decidir interpretar como otra
+        // cosa.
+        response.setHeader("X-Content-Type-Options", "nosniff");
+
         if (retryAfter != null) {
             response.setHeader(
                     HttpHeaders.RETRY_AFTER,

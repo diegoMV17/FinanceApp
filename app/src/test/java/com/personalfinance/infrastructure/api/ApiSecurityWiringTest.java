@@ -5,6 +5,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 
 import com.personalfinance.infrastructure.PostgresIntegrationTest;
+import jakarta.servlet.Filter;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -49,6 +50,24 @@ class ApiSecurityWiringTest extends PostgresIntegrationTest {
             assertThat(context.getBeansOfType(SecurityFilterChain.class))
                     .as("sin cadena, Spring Security no filtra nada")
                     .hasSize(1);
+        }
+
+        @Test
+        @DisplayName("S10 · ningún filtro propio queda registrado dos veces")
+        void theTokenFilterIsNotRegisteredTwice() {
+            // Un bean de tipo Filter lo registra Boot también como filtro del
+            // contenedor, por su cuenta y fuera de la cadena de Spring
+            // Security. Esa copia de fuera pondría el contexto de seguridad sin
+            // que nadie lo limpie, y eso se filtra al siguiente que use el
+            // hilo. Que no haya ningún bean de ese tipo es la forma
+            // estructural de evitarlo, en vez de confiar en qué orden de
+            // registro le toca.
+            assertThat(context.getBeansOfType(Filter.class).values())
+                    .as("ningún filtro de la API es un bean suelto; "
+                            + "el del token se construye dentro de la cadena y el "
+                            + "del tamaño va envuelto en un FilterRegistrationBean")
+                    .noneMatch(filter -> filter.getClass().getName()
+                            .startsWith("com.personalfinance.infrastructure.api"));
         }
 
         @Test
@@ -107,6 +126,8 @@ class ApiSecurityWiringTest extends PostgresIntegrationTest {
             assertThat(body).doesNotContainIgnoringCase("html");
             assertThat(result.getResponse().getHeader(HttpHeaders.WWW_AUTHENTICATE))
                     .isEqualTo("Bearer");
+            assertThat(result.getResponse().getHeader("X-Content-Type-Options"))
+                    .isEqualTo("nosniff");
         }
 
         @Test

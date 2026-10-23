@@ -94,6 +94,9 @@ public enum ApiError {
     DUPLICATE_ACCOUNT_NAME(HttpStatus.CONFLICT, "duplicate-account-name",
             "Ya hay una cuenta abierta de ese tipo con ese nombre."),
 
+    DUPLICATE_PERSON_NAME(HttpStatus.CONFLICT, "duplicate-person-name",
+            "Ya hay una persona abierta con ese nombre."),
+
     ALREADY_CANCELLED(HttpStatus.CONFLICT, "already-cancelled",
             "Ese movimiento ya estaba anulado de otra forma."),
 
@@ -103,11 +106,49 @@ public enum ApiError {
     ACCOUNT_STILL_HOLDS_MONEY(HttpStatus.CONFLICT, "account-still-holds-money",
             "Esa cuenta todavía tiene saldo."),
 
+    PERSON_ALREADY_ARCHIVED(HttpStatus.CONFLICT, "person-already-archived",
+            "Esa persona ya estaba archivada."),
+
+    /**
+     * Archivar a alguien con cuentas vivas esconde una deuda en vez de
+     * saldarla. Es 409 y no 422 por lo mismo que la cuenta con saldo: choca con
+     * algo que ya está, y el cliente sabe qué hacer — archivar primero lo que
+     * es de esa persona.
+     */
+    PERSON_STILL_HAS_OPEN_ACCOUNTS(HttpStatus.CONFLICT, "person-still-has-open-accounts",
+            "Esa persona todavía tiene cuentas abiertas."),
+
     SAME_ACCOUNT_TRANSFER(HttpStatus.UNPROCESSABLE_CONTENT, "same-account-transfer",
             "Una transferencia necesita dos cuentas distintas."),
 
     ACCOUNT_NEEDS_NAME(HttpStatus.UNPROCESSABLE_CONTENT, "account-needs-name",
             "Una cuenta necesita un nombre."),
+
+    PERSON_NEEDS_NAME(HttpStatus.UNPROCESSABLE_CONTENT, "person-needs-name",
+            "Una persona necesita un nombre."),
+
+    /**
+     * Solo los tres tipos de cuenta que <em>son</em> alguien pueden ser de una
+     * persona. Un banco no es una persona y una categoría menos: dejar que
+     * «Alimentación» fuera de Juan metería un gasto propio dentro de la
+     * posición con él, que es justo el número que la aplicación existe para
+     * mantener separado.
+     */
+    ACCOUNT_IS_NOBODY(HttpStatus.UNPROCESSABLE_CONTENT, "account-cannot-belong-to-a-person",
+            "Ese tipo de cuenta no puede ser de una persona."),
+
+    ARCHIVED_PERSON(HttpStatus.UNPROCESSABLE_CONTENT, "archived-person",
+            "Esa persona está archivada y no toma cuentas nuevas."),
+
+    /**
+     * Antes caía en {@link #RULE_VIOLATED}, porque una cuenta archivada solo se
+     * tropezaba al registrar un movimiento y el 422 genérico bastaba. Con el
+     * incremento 2 se tropieza también al vincular, que es una petición cuyo
+     * único error posible es este o el de arriba: decir cuál de los dos ahorra
+     * el viaje de adivinarlo.
+     */
+    ARCHIVED_ACCOUNT(HttpStatus.UNPROCESSABLE_CONTENT, "archived-account",
+            "Esa cuenta está archivada."),
 
     DATE_OUT_OF_RANGE(HttpStatus.UNPROCESSABLE_CONTENT, "date-out-of-range",
             "Esa fecha está fuera del rango que admite el libro."),

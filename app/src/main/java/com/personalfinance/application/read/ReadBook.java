@@ -6,6 +6,8 @@ import com.personalfinance.domain.ledger.AccountId;
 import com.personalfinance.domain.ledger.AccountType;
 import com.personalfinance.domain.ledger.Book;
 import com.personalfinance.domain.ledger.Ledger;
+import com.personalfinance.domain.ledger.Person;
+import com.personalfinance.domain.ledger.PersonId;
 import com.personalfinance.domain.ledger.TransactionId;
 import com.personalfinance.domain.shared.Money;
 import java.time.LocalDate;
@@ -62,6 +64,36 @@ public class ReadBook {
                 .map(account -> AccountBalance.of(
                         account, book.ledger().displayedBalanceOf(account, asOf)))
                 .toList();
+    }
+
+    /**
+     * HU19, HU21. Cómo está la cuenta con cada persona, a esa fecha.
+     *
+     * <p>Las archivadas también, con su fecha, por lo mismo que las cuentas: un
+     * reporte de marzo tiene que seguir nombrando a quien dejó de deberle plata
+     * en abril.
+     */
+    @Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)
+    public List<PersonView> people(LocalDate asOf) {
+        Book book = loader.load();
+
+        return book.directory().all().stream()
+                .map(person -> PersonView.of(person, book.chart(), book.ledger(), asOf))
+                .toList();
+    }
+
+    /**
+     * HU19. La misma respuesta, para una sola persona.
+     *
+     * @throws com.personalfinance.domain.ledger.UnknownPersonException
+     *         si el directorio no tiene esa persona
+     */
+    @Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)
+    public PersonView person(PersonId id, LocalDate asOf) {
+        Book book = loader.load();
+        Person person = book.directory().require(id);
+
+        return PersonView.of(person, book.chart(), book.ledger(), asOf);
     }
 
     /** HU21, HU24. Los movimientos que siguen contando sobre una cuenta, el más viejo primero. */

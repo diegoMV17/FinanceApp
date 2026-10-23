@@ -2,16 +2,25 @@ package com.personalfinance.infrastructure.api.error;
 
 import com.personalfinance.application.BookBusyException;
 import com.personalfinance.domain.ledger.AccountAlreadyArchivedException;
+import com.personalfinance.domain.ledger.AccountCannotBelongToAPersonException;
 import com.personalfinance.domain.ledger.AccountStillHoldsMoneyException;
+import com.personalfinance.domain.ledger.ArchivedAccountException;
+import com.personalfinance.domain.ledger.ArchivedPersonException;
 import com.personalfinance.domain.ledger.BlankAccountNameException;
+import com.personalfinance.domain.ledger.BlankPersonNameException;
 import com.personalfinance.domain.ledger.DateOutOfRangeException;
 import com.personalfinance.domain.ledger.DuplicateAccountException;
 import com.personalfinance.domain.ledger.DuplicateAccountNameException;
+import com.personalfinance.domain.ledger.DuplicatePersonException;
+import com.personalfinance.domain.ledger.DuplicatePersonNameException;
 import com.personalfinance.domain.ledger.DuplicateTransactionException;
 import com.personalfinance.domain.ledger.LedgerException;
+import com.personalfinance.domain.ledger.PersonAlreadyArchivedException;
+import com.personalfinance.domain.ledger.PersonStillHasOpenAccountsException;
 import com.personalfinance.domain.ledger.SameAccountTransferException;
 import com.personalfinance.domain.ledger.TransactionAlreadyCancelledException;
 import com.personalfinance.domain.ledger.UnknownAccountException;
+import com.personalfinance.domain.ledger.UnknownPersonException;
 import com.personalfinance.domain.ledger.UnknownTransactionException;
 import com.personalfinance.infrastructure.api.limit.BodyTooLargeException;
 import org.springframework.http.HttpStatus;
@@ -30,8 +39,9 @@ import org.springframework.http.HttpStatusCode;
  * <ul>
  *   <li><strong>404</strong>: se pidió algo que no existe.
  *   <li><strong>409</strong>: choca con algo que ya está. Aquí caen los
- *       conflictos de idempotencia — el mismo id con otro contenido — y los
- *       nombres repetidos.
+ *       conflictos de idempotencia — el mismo id con otro contenido —, los
+ *       nombres repetidos y lo que todavía está abierto cuando se quiere
+ *       archivar.
  *   <li><strong>422</strong>: se entendió perfectamente y el libro dice que no.
  *       Un asiento desbalanceado, una cuenta archivada, un monto fuera de
  *       rango. El cliente no mandó nada mal formado; mandó algo que las reglas
@@ -69,15 +79,20 @@ public final class ApiErrors {
      */
     static ApiError forType(Class<?> failure) {
         if (UnknownAccountException.class.isAssignableFrom(failure)
-                || UnknownTransactionException.class.isAssignableFrom(failure)) {
+                || UnknownTransactionException.class.isAssignableFrom(failure)
+                || UnknownPersonException.class.isAssignableFrom(failure)) {
             return ApiError.NOT_FOUND;
         }
         if (DuplicateTransactionException.class.isAssignableFrom(failure)
-                || DuplicateAccountException.class.isAssignableFrom(failure)) {
+                || DuplicateAccountException.class.isAssignableFrom(failure)
+                || DuplicatePersonException.class.isAssignableFrom(failure)) {
             return ApiError.DUPLICATE_ID;
         }
         if (DuplicateAccountNameException.class.isAssignableFrom(failure)) {
             return ApiError.DUPLICATE_ACCOUNT_NAME;
+        }
+        if (DuplicatePersonNameException.class.isAssignableFrom(failure)) {
+            return ApiError.DUPLICATE_PERSON_NAME;
         }
         if (TransactionAlreadyCancelledException.class.isAssignableFrom(failure)) {
             return ApiError.ALREADY_CANCELLED;
@@ -87,6 +102,12 @@ public final class ApiErrors {
         }
         if (AccountStillHoldsMoneyException.class.isAssignableFrom(failure)) {
             return ApiError.ACCOUNT_STILL_HOLDS_MONEY;
+        }
+        if (PersonAlreadyArchivedException.class.isAssignableFrom(failure)) {
+            return ApiError.PERSON_ALREADY_ARCHIVED;
+        }
+        if (PersonStillHasOpenAccountsException.class.isAssignableFrom(failure)) {
+            return ApiError.PERSON_STILL_HAS_OPEN_ACCOUNTS;
         }
         if (BookBusyException.class.isAssignableFrom(failure)) {
             return ApiError.BOOK_BUSY;
@@ -99,6 +120,18 @@ public final class ApiErrors {
         }
         if (BlankAccountNameException.class.isAssignableFrom(failure)) {
             return ApiError.ACCOUNT_NEEDS_NAME;
+        }
+        if (BlankPersonNameException.class.isAssignableFrom(failure)) {
+            return ApiError.PERSON_NEEDS_NAME;
+        }
+        if (AccountCannotBelongToAPersonException.class.isAssignableFrom(failure)) {
+            return ApiError.ACCOUNT_IS_NOBODY;
+        }
+        if (ArchivedPersonException.class.isAssignableFrom(failure)) {
+            return ApiError.ARCHIVED_PERSON;
+        }
+        if (ArchivedAccountException.class.isAssignableFrom(failure)) {
+            return ApiError.ARCHIVED_ACCOUNT;
         }
         if (DateOutOfRangeException.class.isAssignableFrom(failure)) {
             return ApiError.DATE_OUT_OF_RANGE;

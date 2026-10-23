@@ -56,7 +56,7 @@ class WriteEndpointsTest extends PostgresIntegrationTest {
 
     @BeforeEach
     void startFromAnEmptyBook() throws Exception {
-        jdbc.execute("TRUNCATE entries, transactions, audit_log, accounts CASCADE");
+        jdbc.execute("TRUNCATE entries, transactions, audit_log, accounts, people CASCADE");
 
         bank = openAccount("ASSET", "Bancolombia");
         food = openAccount("EXPENSE", "Alimentación");
@@ -226,12 +226,6 @@ class WriteEndpointsTest extends PostgresIntegrationTest {
             assertThat(refused.getResponse().getStatus()).isEqualTo(409);
             assertThat(read(refused).get("type").asString())
                     .isEqualTo("urn:finance:error:account-still-holds-money");
-        }
-
-        private MvcResult archive(String path) throws Exception {
-            return mvc.perform(post(path)
-                            .header(HttpHeaders.AUTHORIZATION, "Bearer " + TEST_API_TOKEN))
-                    .andReturn();
         }
     }
 
@@ -605,6 +599,223 @@ class WriteEndpointsTest extends PostgresIntegrationTest {
         }
     }
 
+    /**
+     * H7. Las cuatro escrituras del incremento 2.
+     *
+     * <p>Las tres primeras tienen la misma forma que las demás; vincular es la
+     * que se sale, y por eso es la que más casos lleva: no hay id que el cliente
+     * invente, así que lo que decide «ya estaba» son las dos puntas, y mandar
+     * otra persona no es un choque sino un traslado.
+     */
+    @Nested
+    @DisplayName("con las personas")
+    class WhenWritingPeople {
+
+        @Test
+        @DisplayName("H7 · escribir una persona la primera vez responde 201")
+        void theFirstTimeIs201() throws Exception {
+            UUID id = UUID.randomUUID();
+
+            MvcResult created = send("/api/people", """
+                    {"id":"%s","name":"  Juan  "}""".formatted(id));
+
+            assertThat(created.getResponse().getStatus()).isEqualTo(201);
+            JsonNode body = read(created);
+            assertThat(body.get("id").asString()).isEqualTo(id.toString());
+            assertThat(body.get("name").asString()).isEqualTo("Juan");
+            assertThat(body.get("archivedAt").isNull()).isTrue();
+        }
+
+        @Test
+        @DisplayName("H7 · repetirla igual responde 200 con el mismo cuerpo")
+        void repeatingItIs200() throws Exception {
+            String request = """
+                    {"id":"%s","name":"Juan"}""".formatted(UUID.randomUUID());
+
+            MvcResult first = send("/api/people", request);
+            MvcResult again = send("/api/people", request);
+
+            assertThat(first.getResponse().getStatus()).isEqualTo(201);
+            assertThat(again.getResponse().getStatus()).isEqualTo(200);
+            assertThat(again.getResponse().getContentAsString())
+                    .isEqualTo(first.getResponse().getContentAsString());
+        }
+
+        @Test
+        @DisplayName("H7 · el mismo id con otro nombre responde 409")
+        void theSameIdWithOtherContentIs409() throws Exception {
+            UUID id = UUID.randomUUID();
+            send("/api/people", """
+                    {"id":"%s","name":"Juan"}""".formatted(id));
+
+            MvcResult conflict = send("/api/people", """
+                    {"id":"%s","name":"Pedro"}""".formatted(id));
+
+            assertThat(conflict.getResponse().getStatus()).isEqualTo(409);
+            assertThat(read(conflict).get("type").asString())
+                    .isEqualTo("urn:finance:error:duplicate-id");
+        }
+
+        @Test
+        @DisplayName("H7 · un nombre ya usado responde 409")
+        void aTakenNameIs409() throws Exception {
+            addPerson("Juan");
+
+            MvcResult conflict = send("/api/people", """
+                    {"id":"%s","name":"  juan "}""".formatted(UUID.randomUUID()));
+
+            assertThat(conflict.getResponse().getStatus()).isEqualTo(409);
+            assertThat(read(conflict).get("type").asString())
+                    .isEqualTo("urn:finance:error:duplicate-person-name");
+        }
+
+        @Test
+        @DisplayName("H7 · un nombre con un carácter invisible se rechaza con 400")
+        void anInvisibleCharacterIsRefused() throws Exception {
+            MvcResult refused = send("/api/people", """
+                    {"id":"%s","name":"Juan\\u202E"}""".formatted(UUID.randomUUID()));
+
+            assertThat(refused.getResponse().getStatus()).isEqualTo(400);
+            assertThat(read(refused).get("type").asString())
+                    .isEqualTo("urn:finance:error:unsafe-text");
+        }
+
+        @Test
+        @DisplayName("H7 · renombrar responde 201, y el mismo nombre responde 200")
+        void renaming() throws Exception {
+            UUID juan = addPerson("Juan");
+
+            MvcResult renamed = send("/api/people/" + juan + "/renames", """
+                    {"newName":"Juan Pérez"}""");
+            MvcResult again = send("/api/people/" + juan + "/renames", """
+                    {"newName":"  Juan Pérez  "}""");
+
+            assertThat(renamed.getResponse().getStatus()).isEqualTo(201);
+            assertThat(read(renamed).get("name").asString()).isEqualTo("Juan Pérez");
+            assertThat(again.getResponse().getStatus()).isEqualTo(200);
+        }
+
+        @Test
+        @DisplayName("H7 · renombrar a alguien que no existe responde 404")
+        void renamingNobodyIs404() throws Exception {
+            MvcResult missing = send("/api/people/" + UUID.randomUUID() + "/renames", """
+                    {"newName":"Juan"}""");
+
+            assertThat(missing.getResponse().getStatus()).isEqualTo(404);
+            assertThat(read(missing).get("type").asString())
+                    .isEqualTo("urn:finance:error:not-found");
+        }
+
+        @Test
+        @DisplayName("H7 · vincular responde 201 con la cuenta, y repetirlo 200 con lo mismo")
+        void linking() throws Exception {
+            UUID juan = addPerson("Juan");
+            UUID owed = openAccount("RECEIVABLE", "Juan");
+            String request = """
+                    {"account":"%s"}""".formatted(owed);
+
+            MvcResult linked = send("/api/people/" + juan + "/accounts", request);
+            MvcResult again = send("/api/people/" + juan + "/accounts", request);
+
+            assertThat(linked.getResponse().getStatus()).isEqualTo(201);
+            assertThat(read(linked).get("id").asString()).isEqualTo(owed.toString());
+            assertThat(read(linked).get("type").asString()).isEqualTo("RECEIVABLE");
+            assertThat(again.getResponse().getStatus()).isEqualTo(200);
+            assertThat(again.getResponse().getContentAsString())
+                    .isEqualTo(linked.getResponse().getContentAsString());
+        }
+
+        /**
+         * Lo que para un cliente parece un PATCH sobre la cuenta es, aquí, la
+         * misma petición mandada a la otra persona. Y responde 201 porque sí
+         * escribió: el hecho «esta cuenta pasó a ser de Pedro» es nuevo.
+         */
+        @Test
+        @DisplayName("H7 · moverla a otra persona responde 201")
+        void movingTheLinkIs201() throws Exception {
+            UUID juan = addPerson("Juan");
+            UUID pedro = addPerson("Pedro");
+            UUID owed = openAccount("RECEIVABLE", "El del taller");
+            send("/api/people/" + juan + "/accounts", """
+                    {"account":"%s"}""".formatted(owed));
+
+            MvcResult moved = send("/api/people/" + pedro + "/accounts", """
+                    {"account":"%s"}""".formatted(owed));
+
+            assertThat(moved.getResponse().getStatus()).isEqualTo(201);
+        }
+
+        @Test
+        @DisplayName("H7 · vincular una categoría responde 422")
+        void linkingACategoryIs422() throws Exception {
+            UUID juan = addPerson("Juan");
+
+            MvcResult refused = send("/api/people/" + juan + "/accounts", """
+                    {"account":"%s"}""".formatted(food));
+
+            assertThat(refused.getResponse().getStatus()).isEqualTo(422);
+            assertThat(read(refused).get("type").asString())
+                    .isEqualTo("urn:finance:error:account-cannot-belong-to-a-person");
+        }
+
+        @Test
+        @DisplayName("H7 · vincular sin decir la cuenta responde 400")
+        void linkingWithoutAnAccountIs400() throws Exception {
+            UUID juan = addPerson("Juan");
+
+            MvcResult refused = send("/api/people/" + juan + "/accounts", "{}");
+
+            assertThat(refused.getResponse().getStatus()).isEqualTo(400);
+            assertThat(read(refused).get("type").asString())
+                    .isEqualTo("urn:finance:error:invalid-request");
+        }
+
+        @Test
+        @DisplayName("H7 · archivar con una cuenta abierta responde 409")
+        void archivingWithOpenAccountsIs409() throws Exception {
+            UUID juan = addPerson("Juan");
+            UUID owed = openAccount("RECEIVABLE", "Juan");
+            send("/api/people/" + juan + "/accounts", """
+                    {"account":"%s"}""".formatted(owed));
+
+            MvcResult refused = archive("/api/people/" + juan + "/archivals");
+
+            assertThat(refused.getResponse().getStatus()).isEqualTo(409);
+            assertThat(read(refused).get("type").asString())
+                    .isEqualTo("urn:finance:error:person-still-has-open-accounts");
+        }
+
+        @Test
+        @DisplayName("H7 · y una vez cerrado todo lo suyo se archiva, con su fecha")
+        void archivingWhenNothingIsLeftOpen() throws Exception {
+            UUID juan = addPerson("Juan");
+            UUID owed = openAccount("RECEIVABLE", "Juan");
+            send("/api/people/" + juan + "/accounts", """
+                    {"account":"%s"}""".formatted(owed));
+            archive("/api/accounts/" + owed + "/archivals");
+
+            MvcResult archived = archive("/api/people/" + juan + "/archivals");
+            MvcResult again = archive("/api/people/" + juan + "/archivals");
+
+            assertThat(archived.getResponse().getStatus()).isEqualTo(201);
+            assertThat(read(archived).get("archivedAt").isNull()).isFalse();
+            assertThat(again.getResponse().getStatus()).isEqualTo(200);
+            assertThat(again.getResponse().getContentAsString())
+                    .isEqualTo(archived.getResponse().getContentAsString());
+        }
+    }
+
+    private UUID addPerson(String name) throws Exception {
+        UUID id = UUID.randomUUID();
+        MvcResult written = send("/api/people", """
+                {"id":"%s","name":"%s"}""".formatted(id, name));
+
+        assertThat(written.getResponse().getStatus())
+                .as("escribiendo a %s: %s", name, written.getResponse().getContentAsString())
+                .isEqualTo(201);
+        return id;
+    }
+
     private String expense(UUID id, long cents) {
         return """
                 {"type":"EXPENSE","id":"%s","date":"%s","description":"Almuerzo",
@@ -629,6 +840,13 @@ class WriteEndpointsTest extends PostgresIntegrationTest {
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + TEST_API_TOKEN)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body))
+                .andReturn();
+    }
+
+    /** Un POST sin cuerpo, que es lo que son los dos archivados. */
+    private MvcResult archive(String path) throws Exception {
+        return mvc.perform(post(path)
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + TEST_API_TOKEN))
                 .andReturn();
     }
 

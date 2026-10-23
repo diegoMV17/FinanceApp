@@ -28,9 +28,25 @@ class BookTest {
     }
 
     @Test
-    @DisplayName("F13 · is never half a book")
-    void refusesHalfOfItself() {
-        assertThatNullPointerException().isThrownBy(() -> new Book(new Chart(), null));
-        assertThatNullPointerException().isThrownBy(() -> new Book(null, new Ledger()));
+    @DisplayName("F12b · and the directory of people comes with it")
+    void bringsItsDirectory() {
+        Book book = Book.empty();
+
+        Person juan = book.directory().open("Juan");
+        Account owed = book.chart().open(AccountType.RECEIVABLE, "Juan");
+        book.chart().linkToPerson(owed.id(), juan);
+
+        assertThat(book.chart().allOf(juan)).containsExactly(owed);
+    }
+
+    @Test
+    @DisplayName("F13 · is never part of a book")
+    void refusesPartOfItself() {
+        assertThatNullPointerException()
+                .isThrownBy(() -> new Book(new Chart(), null, new Directory()));
+        assertThatNullPointerException()
+                .isThrownBy(() -> new Book(null, new Ledger(), new Directory()));
+        assertThatNullPointerException()
+                .isThrownBy(() -> new Book(new Chart(), new Ledger(), null));
     }
 }

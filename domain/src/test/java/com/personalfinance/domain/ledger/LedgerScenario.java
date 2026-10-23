@@ -42,6 +42,7 @@ final class LedgerScenario {
     }
 
     final Chart chart = new Chart();
+    final Directory directory = new Directory();
 
     final Account bancolombia = chart.open(AccountType.ASSET, "Bancolombia");
     final Account nequi = chart.open(AccountType.ASSET, "Nequi");
@@ -55,6 +56,25 @@ final class LedgerScenario {
 
     final List<Account> allAccounts = List.of(
             bancolombia, nequi, cash, food, salary, juan, brother, momsFund, openingBalances);
+
+    /**
+     * Puts a person behind every account that is somebody, and hands them back.
+     *
+     * <p>Linking <em>all three</em> is what makes the property exact: these are
+     * the only RECEIVABLE, PAYABLE and THIRD_PARTY_FUND accounts in the
+     * scenario, so nothing of anybody can sit outside the people view.
+     */
+    List<Person> everybodyLinked() {
+        Person juanHimself = directory.open("Juan");
+        Person theBrother = directory.open("Hermano");
+        Person mother = directory.open("Mamá");
+
+        chart.linkToPerson(juan.id(), juanHimself);
+        chart.linkToPerson(brother.id(), theBrother);
+        chart.linkToPerson(momsFund.id(), mother);
+
+        return List.of(juanHimself, theBrother, mother);
+    }
 
     Transaction transactionFor(Step step) {
         LocalDate on = START.plusDays(step.dayOffset());

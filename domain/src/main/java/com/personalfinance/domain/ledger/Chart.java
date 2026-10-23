@@ -56,6 +56,18 @@ public final class Chart {
         return account;
     }
 
+    /**
+     * HU19. Says that this account is one of somebody's.
+     *
+     * <p>It goes through here and not through the account because the chart is
+     * the only thing that hands out accounts, and therefore the only thing that
+     * may change one. The person has to be an instance the {@link Directory}
+     * handed out; a copy would split that person in two.
+     */
+    public void linkToPerson(AccountId id, Person person) {
+        require(id).linkTo(person);
+    }
+
     public void rename(AccountId id, String newName) {
         Account account = require(id);
         if (!account.answersTo(newName)) {
@@ -106,6 +118,19 @@ public final class Chart {
         return accounts.values().stream()
                 .filter(account -> account.type() == type)
                 .toList();
+    }
+
+    /** Everything of one person, archived included. The three sides of HU19. */
+    public List<Account> allOf(Person person) {
+        Objects.requireNonNull(person, "person");
+        return accounts.values().stream()
+                .filter(account -> account.belongsTo(person))
+                .toList();
+    }
+
+    /** What is still open in one person's name; it is what decides if they can be archived. */
+    public List<Account> selectableOf(Person person) {
+        return allOf(person).stream().filter(account -> !account.isArchived()).toList();
     }
 
     /** What the person can still pick when recording a new movement (HU12). */

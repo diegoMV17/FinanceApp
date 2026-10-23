@@ -396,11 +396,83 @@ class InputLimitsTest {
             assertThatExceptionOfType(TextTooLongException.class)
                     .isThrownBy(() -> Account.rehydrated(
                             AccountId.generate(), AccountType.ASSET,
-                            "a".repeat(Account.MAX_NAME_LENGTH + 1), null));
+                            "a".repeat(Account.MAX_NAME_LENGTH + 1), null, null));
 
             assertThatExceptionOfType(ControlCharactersException.class)
                     .isThrownBy(() -> Account.rehydrated(
-                            AccountId.generate(), AccountType.ASSET, "Banco\u0000Falso", null));
+                            AccountId.generate(), AccountType.ASSET,
+                            "Banco\u0000Falso", null, null));
+        }
+    }
+
+    /**
+     * The fourth piece of free text, added with people. The name of a person
+     * reaches the same screens, logs and chat messages as the name of an
+     * account, and it is held to the same measure: trimmed, bounded in code
+     * points, and no control character anywhere in what arrived.
+     */
+    @Nested
+    @DisplayName("on the name of a person")
+    class PersonNames {
+
+        @Test
+        @DisplayName("G31 · sixty characters are kept and sixty-one are refused")
+        void theLimit() {
+            String longest = "a".repeat(Person.MAX_NAME_LENGTH);
+
+            assertThat(Person.open(longest).name()).isEqualTo(longest);
+
+            assertThatExceptionOfType(TextTooLongException.class)
+                    .isThrownBy(() -> Person.open(longest + "a"))
+                    .satisfies(thrown -> assertThat(thrown.field()).isEqualTo("name"));
+        }
+
+        @Test
+        @DisplayName("G32 · an emoji counts as one character here too")
+        void codePointsAreWhatCount() {
+            String emojis = "🙂".repeat(Person.MAX_NAME_LENGTH);
+
+            assertThat(Person.open(emojis).name()).isEqualTo(emojis);
+
+            assertThatExceptionOfType(TextTooLongException.class)
+                    .isThrownBy(() -> Person.open(emojis + "🙂"));
+        }
+
+        @Test
+        @DisplayName("G33 · control characters are refused, inside and at either end")
+        void controlCharactersAreRefused() {
+            assertThatExceptionOfType(ControlCharactersException.class)
+                    .isThrownBy(() -> Person.open("Juan\nPérez"));
+
+            assertThatExceptionOfType(ControlCharactersException.class)
+                    .isThrownBy(() -> Person.open("Juan\n"));
+
+            assertThatExceptionOfType(ControlCharactersException.class)
+                    .isThrownBy(() -> Person.open("\u0000Juan"));
+        }
+
+        @Test
+        @DisplayName("G34 · renaming is held to the same limits, and a stored row fails on load")
+        void renamingAndLoading() {
+            Directory directory = new Directory();
+            Person juan = directory.open("Juan");
+
+            assertThatExceptionOfType(TextTooLongException.class)
+                    .isThrownBy(() -> directory.rename(
+                            juan.id(), "a".repeat(Person.MAX_NAME_LENGTH + 1)));
+
+            assertThatExceptionOfType(ControlCharactersException.class)
+                    .isThrownBy(() -> directory.rename(juan.id(), "Juan\nPérez"));
+
+            assertThat(juan.name()).isEqualTo("Juan");
+
+            assertThatExceptionOfType(TextTooLongException.class)
+                    .isThrownBy(() -> Person.rehydrated(
+                            PersonId.generate(), "a".repeat(Person.MAX_NAME_LENGTH + 1), null));
+
+            assertThatExceptionOfType(ControlCharactersException.class)
+                    .isThrownBy(() -> Person.rehydrated(
+                            PersonId.generate(), "Juan\u0000Pérez", null));
         }
     }
 }

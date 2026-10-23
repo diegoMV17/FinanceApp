@@ -339,7 +339,7 @@ class BookRoundTripTest extends PostgresIntegrationTest {
         @DisplayName("R15 · abrir dos veces la misma cuenta falla y no la reescribe")
         void openingTwiceDoesNotRewrite() {
             Account impostor = Account.rehydrated(
-                    cash.id(), AccountType.EXPENSE, "Otra cosa", null);
+                    cash.id(), AccountType.EXPENSE, "Otra cosa", null, null);
 
             assertThatThrownBy(() -> accounts.open(impostor))
                     .isInstanceOf(DataIntegrityViolationException.class);

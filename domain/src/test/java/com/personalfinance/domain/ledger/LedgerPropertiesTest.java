@@ -8,6 +8,7 @@ import com.personalfinance.domain.shared.Money;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.function.Function;
 import java.util.function.IntPredicate;
 import net.jqwik.api.Arbitraries;
 import net.jqwik.api.Arbitrary;
@@ -159,6 +160,43 @@ class LedgerPropertiesTest {
 
         assertThat(after).isEqualTo(before);
         assertThat(ledger.sumOfEveryEntry()).isEqualTo(Money.ZERO);
+    }
+
+    /**
+     * HU19. Nobody's money falls between the people.
+     *
+     * <p>Once every account that is somebody has a person behind it, adding one
+     * side up across all of them has to give exactly what the ledger says for
+     * that kind of account. If it ever does not, some of it is sitting in a
+     * position nobody reads — which is the one way this view could lie while
+     * every single balance stayed right.
+     */
+    @Property
+    void nothingOfTheirsFallsOutsideTheirPosition(
+            @ForAll("anyHistory") List<Step> history,
+            @ForAll("anyDayOffset") int dayOffset) {
+
+        LedgerScenario scenario = new LedgerScenario();
+        List<Person> everybody = scenario.everybodyLinked();
+        Ledger ledger = scenario.ledgerFrom(history);
+        LocalDate asOf = scenario.dayAfterStart(dayOffset);
+
+        List<PersonPosition> positions = everybody.stream()
+                .map(person -> PersonPosition.of(person, scenario.chart, ledger, asOf))
+                .toList();
+
+        assertThat(sumOf(positions, PersonPosition::owedToYou))
+                .isEqualTo(ledger.totalFor(AccountType.RECEIVABLE, asOf));
+        assertThat(sumOf(positions, PersonPosition::youOwe))
+                .isEqualTo(ledger.totalFor(AccountType.PAYABLE, asOf));
+        assertThat(sumOf(positions, PersonPosition::theirFund))
+                .isEqualTo(ledger.totalFor(AccountType.THIRD_PARTY_FUND, asOf));
+    }
+
+    private static Money sumOf(
+            List<PersonPosition> positions, Function<PersonPosition, Money> side) {
+
+        return Money.sum(positions.stream().map(side).toList());
     }
 
     private static boolean mayBeArchived(Account account, Ledger ledger) {

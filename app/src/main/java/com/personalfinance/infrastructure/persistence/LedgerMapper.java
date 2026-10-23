@@ -37,7 +37,7 @@ final class LedgerMapper {
 
     static Account accountFrom(AccountRow row) {
         return Account.rehydrated(
-                new AccountId(row.getId()), row.type(), row.name(), row.archivedAt());
+                new AccountId(row.getId()), row.type(), row.name(), row.archivedAt(), null);
     }
 
     static TransactionRow rowOf(Transaction transaction) {

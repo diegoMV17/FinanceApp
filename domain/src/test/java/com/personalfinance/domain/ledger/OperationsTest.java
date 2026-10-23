@@ -3,7 +3,6 @@ package com.personalfinance.domain.ledger;
 import static com.personalfinance.domain.shared.Money.ofUnits;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
-import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
 
 import com.personalfinance.domain.shared.Money;
 import java.time.LocalDate;
@@ -226,9 +225,15 @@ class OperationsTest {
         @Test
         @DisplayName("B13 · a transfer to the same account")
         void transferToItself() {
-            assertThatIllegalArgumentException()
+            // A LedgerException, not an IllegalArgumentException. Everything
+            // the book refuses has to arrive at the edge as a refusal of the
+            // book; an IllegalArgumentException reads as "the caller broke the
+            // contract" and the API turns that into a 500 — the server taking
+            // the blame for a movement that simply makes no sense.
+            assertThatExceptionOfType(SameAccountTransferException.class)
                     .isThrownBy(() -> Operations.transfer(TransactionId.generate(),
-                            TODAY, "Circular", nequi, nequi, ofUnits(10_000)));
+                            TODAY, "Circular", nequi, nequi, ofUnits(10_000)))
+                    .satisfies(thrown -> assertThat(thrown.account()).isEqualTo(nequi));
         }
     }
 }

@@ -83,7 +83,7 @@ public final class Operations {
         requireType(from, ASSET);
         requireType(to, ASSET);
         if (from.equals(to)) {
-            throw new IllegalArgumentException("A transfer needs two different accounts");
+            throw new SameAccountTransferException(from);
         }
 
         return Transaction.record(id, date, description, TransactionSource.APP, List.of(

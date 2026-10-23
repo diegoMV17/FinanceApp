@@ -29,6 +29,25 @@ dependencies {
 
     implementation("org.springframework.boot:spring-boot-starter-data-jpa")
 
+    // La puerta HTTP. En Spring Boot 4 las autoconfiguraciones viven en módulos
+    // por tecnología (la lección de spring-boot-flyway), así que el starter es
+    // lo que garantiza que llegue la autoconfiguración y no solo la librería:
+    // con la librería sola, nadie levanta el servidor y no hay log que lo diga.
+    implementation("org.springframework.boot:spring-boot-starter-web")
+
+    // Validación en el borde. Los límites de verdad siguen viviendo en los
+    // constructores del dominio; esto rechaza antes lo que el dominio no puede
+    // ver (un UUID mal formado, un tipo desconocido, un campo obligatorio que
+    // falta) y referencia las constantes del dominio en vez de repetir números.
+    implementation("org.springframework.boot:spring-boot-starter-validation")
+
+    // Spring Security, por una razón concreta: con anyRequest().authenticated()
+    // el "todo exige token" es estructural. Un filtro propio sobre /* también
+    // funcionaría, pero dependería de que nadie registre mañana una ruta por
+    // fuera, y esa es exactamente la clase de regla que no debe depender de la
+    // memoria de nadie.
+    implementation("org.springframework.boot:spring-boot-starter-security")
+
     // Jackson, solo para armar el JSON de before/after de la auditoría. En
     // Spring Boot 4 el starter trae Jackson 3 (paquete tools.jackson), que es
     // inmutable y se configura con un builder.
@@ -54,6 +73,14 @@ dependencies {
     testImplementation("com.tngtech.archunit:archunit-junit5:1.5.1")
 
     testImplementation("org.springframework.boot:spring-boot-starter-test")
+
+    // MockMvc no viene en spring-boot-starter-test. En Boot 4 se mudó a su
+    // propio módulo y @AutoConfigureMockMvc ya no está en
+    // spring-boot-test-autoconfigure (ese jar tiene 37 entradas y ninguna lo
+    // menciona): sin este starter, la anotación no existe ni para importarla.
+    // Es la misma leccion de spring-boot-flyway, en los tests.
+    testImplementation("org.springframework.boot:spring-boot-starter-webmvc-test")
+    testImplementation("org.springframework.security:spring-security-test")
     testImplementation("org.springframework.boot:spring-boot-testcontainers")
     testImplementation("org.testcontainers:junit-jupiter")
     testImplementation("org.testcontainers:postgresql")

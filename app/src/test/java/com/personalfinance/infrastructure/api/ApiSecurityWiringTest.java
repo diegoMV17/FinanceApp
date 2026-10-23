@@ -1,0 +1,291 @@
+package com.personalfinance.infrastructure.api;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.request;
+
+import com.personalfinance.infrastructure.PostgresIntegrationTest;
+import com.personalfinance.infrastructure.api.error.ApiError;
+import jakarta.servlet.Filter;
+import jakarta.servlet.http.HttpServletRequest;
+import java.util.List;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.context.ApplicationContext;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.mock.web.MockHttpServletRequest;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.authorization.AuthorizationManager;
+import org.springframework.security.authorization.AuthorizationResult;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.access.intercept.AuthorizationFilter;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.MvcResult;
+
+/**
+ * S10. Que la puerta esté puesta de verdad.
+ *
+ * <p>Los tests de {@code ApiTokenFilterTest} prueban que el filtro decide bien;
+ * este prueba algo distinto y que ningún test unitario puede probar: que el
+ * filtro está <em>conectado</em>, que la cadena de Spring Security existe, y que
+ * una ruta que nadie escribió tampoco se puede visitar sin token.
+ *
+ * <p>Lo importante es que las rutas que se piden aquí <strong>no existen</strong>.
+ * Si lo que protege la API fuera una lista de rutas, estas se colarían. Lo que
+ * la protege es {@code anyRequest().authenticated()}, así que una ruta
+ * inexistente responde 401 y no 404: sin token no se puede ni averiguar qué hay.
+ */
+@AutoConfigureMockMvc
+@DisplayName("La puerta de la API")
+class ApiSecurityWiringTest extends PostgresIntegrationTest {
+
+    @Autowired private MockMvc mvc;
+    @Autowired private ApplicationContext context;
+
+    @Nested
+    @DisplayName("al arrancar")
+    class WhenStarting {
+
+        @Test
+        @DisplayName("S10 · la cadena de seguridad existe")
+        void theSecurityChainExists() {
+            assertThat(context.getBeansOfType(SecurityFilterChain.class))
+                    .as("sin cadena, Spring Security no filtra nada")
+                    .hasSize(1);
+        }
+
+        @Test
+        @DisplayName("S10 · ningún filtro propio queda registrado dos veces")
+        void theTokenFilterIsNotRegisteredTwice() {
+            // Un bean de tipo Filter lo registra Boot también como filtro del
+            // contenedor, por su cuenta y fuera de la cadena de Spring
+            // Security. Esa copia de fuera pondría el contexto de seguridad sin
+            // que nadie lo limpie, y eso se filtra al siguiente que use el
+            // hilo. Que no haya ningún bean de ese tipo es la forma
+            // estructural de evitarlo, en vez de confiar en qué orden de
+            // registro le toca.
+            assertThat(context.getBeansOfType(Filter.class).values())
+                    .as("ningún filtro de la API es un bean suelto; "
+                            + "el del token se construye dentro de la cadena y el "
+                            + "del tamaño va envuelto en un FilterRegistrationBean")
+                    .noneMatch(filter -> filter.getClass().getName()
+                            .startsWith("com.personalfinance.infrastructure.api"));
+        }
+
+        @Test
+        @DisplayName("S10 · la regla de autorización niega por su cuenta, sin el filtro del token")
+        void theAuthorizationRuleDeniesOnItsOwn() {
+            // Deny by default son dos redes, y hasta ahora solo se probaba una.
+            // Lo encontró una prueba de mutación: cambiar
+            // anyRequest().authenticated() por permitAll() no ponía rojo a
+            // nadie, porque el filtro del token contesta 401 antes y tapa a la
+            // segunda red entera. Tapada no es lo mismo que puesta: el filtro
+            // se salta el despacho a /error y el asíncrono por omisión, y ahí
+            // la única que queda es esta regla.
+            //
+            // Así que se le pregunta a la regla directamente, que es la forma
+            // de verla sin el filtro delante.
+            AuthorizationManager<HttpServletRequest> rule = context
+                    .getBean(SecurityFilterChain.class)
+                    .getFilters()
+                    .stream()
+                    .filter(AuthorizationFilter.class::isInstance)
+                    .map(AuthorizationFilter.class::cast)
+                    .findFirst()
+                    .map(AuthorizationFilter::getAuthorizationManager)
+                    .orElseThrow(() ->
+                            new AssertionError("la cadena no tiene AuthorizationFilter"));
+
+            MockHttpServletRequest request =
+                    new MockHttpServletRequest("GET", "/api/summary");
+
+            AuthorizationResult withoutAuthentication = rule.authorize(() -> null, request);
+            assertThat(withoutAuthentication).isNotNull();
+            assertThat(withoutAuthentication.isGranted())
+                    .as("sin autenticación, la regla sola tiene que negar")
+                    .isFalse();
+
+            AuthorizationResult asOwner = rule.authorize(
+                    () -> UsernamePasswordAuthenticationToken.authenticated(
+                            "owner", null, List.of(new SimpleGrantedAuthority("ROLE_OWNER"))),
+                    request);
+            assertThat(asOwner).isNotNull();
+            assertThat(asOwner.isGranted())
+                    .as("y con el token del libro, dejar pasar")
+                    .isTrue();
+        }
+
+        @Test
+        @DisplayName("S10 · y no hay ningún usuario en memoria")
+        void thereIsNoInMemoryUser() {
+            // Si UserDetailsServiceAutoConfiguration se cuela, Boot crea un
+            // usuario y escribe su clave generada en el log al arrancar. Una
+            // clave en el log es un secreto en el log, y el CLAUDE.md dice que
+            // eso no pasa. La exclusión está en application.yml; esto es lo que
+            // avisa si alguien la quita.
+            assertThat(context.getBeansOfType(UserDetailsService.class))
+                    .as("nadie debería haber creado un usuario que no pedimos")
+                    .isEmpty();
+        }
+    }
+
+    @Nested
+    @DisplayName("sin token")
+    class WithoutAToken {
+
+        @Test
+        @DisplayName("S10 · una ruta que no existe responde 401, no 404")
+        void anUnknownRouteIsStill401() throws Exception {
+            MvcResult result = mvc.perform(get("/api/no-existe-esta-ruta"))
+                    .andReturn();
+
+            assertThat(result.getResponse().getStatus())
+                    .as("deny by default: ni se averigua qué hay detrás")
+                    .isEqualTo(HttpStatus.UNAUTHORIZED.value());
+        }
+
+        @Test
+        @DisplayName("S10 · y la raíz tampoco")
+        void andNeitherDoesTheRoot() throws Exception {
+            assertThat(mvc.perform(get("/")).andReturn().getResponse().getStatus())
+                    .isEqualTo(HttpStatus.UNAUTHORIZED.value());
+            assertThat(mvc.perform(get("/actuator/health"))
+                            .andReturn().getResponse().getStatus())
+                    .isEqualTo(HttpStatus.UNAUTHORIZED.value());
+            assertThat(mvc.perform(post("/cualquier-cosa"))
+                            .andReturn().getResponse().getStatus())
+                    .isEqualTo(HttpStatus.UNAUTHORIZED.value());
+        }
+
+        @Test
+        @DisplayName("S10 · el 401 es problem+json y no una página de Tomcat")
+        void the401IsProblemJson() throws Exception {
+            MvcResult result = mvc.perform(get("/api/no-existe-esta-ruta")).andReturn();
+
+            assertThat(result.getResponse().getContentType())
+                    .as("un HTML aquí sería el formato de error del contenedor")
+                    .startsWith(MediaType.APPLICATION_PROBLEM_JSON_VALUE);
+
+            String body = result.getResponse().getContentAsString();
+            assertThat(body).contains("urn:finance:error:unauthorized");
+            assertThat(body).doesNotContainIgnoringCase("html");
+            assertThat(result.getResponse().getHeader(HttpHeaders.WWW_AUTHENTICATE))
+                    .isEqualTo("Bearer");
+            assertThat(result.getResponse().getHeader("X-Content-Type-Options"))
+                    .isEqualTo("nosniff");
+        }
+
+        @Test
+        @DisplayName("S10 · y no cuenta nada de lo que pasó dentro")
+        void andItSaysNothingAboutTheInside() throws Exception {
+            String body = mvc.perform(get("/api/no-existe-esta-ruta"))
+                    .andReturn().getResponse().getContentAsString();
+
+            assertThat(body)
+                    .doesNotContain(TEST_API_TOKEN)
+                    .doesNotContain("com.personalfinance")
+                    .doesNotContain("org.springframework")
+                    .doesNotContain("Exception")
+                    .doesNotContain("no-existe-esta-ruta");
+        }
+    }
+
+    @Nested
+    @DisplayName("lo que rechaza el cortafuegos")
+    class WhatTheFirewallRefuses {
+
+        /**
+         * El cortafuegos de Spring Security corre antes que todo, incluido el
+         * filtro del token, y lo que rechaza ni llega a tener identidad.
+         *
+         * <p>El valor por omisión de la 7.1.1 responde 400, pero con el cuerpo
+         * <strong>vacío</strong> y sin {@code Content-Type}: era el único error
+         * de esta API que se escapaba de la lista cerrada de {@link ApiError}, y
+         * lo único que el cliente recibía era un número. Un cliente que ve un
+         * 400 pelado donde el resto de la API contesta {@code problem+json}
+         * busca el fallo en su propio cuerpo, no en la forma de la dirección.
+         *
+         * <p>Los tests mandan el token bueno a propósito: así queda claro que
+         * esto no es un problema de autenticación y que un 401 aquí sería
+         * mentira.
+         */
+        @Test
+        @DisplayName("S13 · un método que no admite es 400 con problem+json")
+        void aRefusedMethodIs400() throws Exception {
+            MvcResult rejected = mvc.perform(request(HttpMethod.TRACE, "/api/summary")
+                            .header(HttpHeaders.AUTHORIZATION, "Bearer " + TEST_API_TOKEN))
+                    .andReturn();
+
+            assertThat(rejected.getResponse().getStatus())
+                    .as("el token era correcto: un 401 aquí sería mentira")
+                    .isEqualTo(HttpStatus.BAD_REQUEST.value());
+            assertThat(rejected.getResponse().getContentType())
+                    .startsWith(MediaType.APPLICATION_PROBLEM_JSON_VALUE);
+            assertThat(rejected.getResponse().getContentAsString())
+                    .contains("urn:finance:error:rejected-request");
+        }
+
+        @Test
+        @DisplayName("S13 · y una dirección con punto y coma también")
+        void aSemicolonInThePathIs400() throws Exception {
+            MvcResult rejected = mvc.perform(get("/api/summary;jsessionid=abc")
+                            .header(HttpHeaders.AUTHORIZATION, "Bearer " + TEST_API_TOKEN))
+                    .andReturn();
+
+            assertThat(rejected.getResponse().getStatus())
+                    .isEqualTo(HttpStatus.BAD_REQUEST.value());
+            assertThat(rejected.getResponse().getContentAsString())
+                    .contains("urn:finance:error:rejected-request");
+        }
+
+        @Test
+        @DisplayName("S13 · el cuerpo no repite nada de lo que llegó")
+        void theBodyEchoesNothing() throws Exception {
+            MvcResult rejected = mvc.perform(get("/api/summary;jsessionid=elsecreto")
+                            .header(HttpHeaders.AUTHORIZATION, "Bearer " + TEST_API_TOKEN))
+                    .andReturn();
+
+            String body = rejected.getResponse().getContentAsString();
+
+            // Un error que repite la entrada es un error que la refleja: el
+            // cliente la vuelve a ver, y con ella lo que haya metido dentro.
+            assertThat(body)
+                    .doesNotContain("elsecreto")
+                    .doesNotContain("jsessionid")
+                    .doesNotContain("summary")
+                    .doesNotContain(TEST_API_TOKEN)
+                    .doesNotContain("Exception")
+                    .doesNotContain("org.springframework");
+            assertThat(body).doesNotContainIgnoringCase("html");
+            assertThat(rejected.getResponse().getHeader("X-Content-Type-Options"))
+                    .isEqualTo("nosniff");
+        }
+    }
+
+    @Nested
+    @DisplayName("con el token")
+    class WithTheToken {
+
+        @Test
+        @DisplayName("S10 · una ruta que no existe ya responde 404")
+        void anUnknownRouteBecomes404() throws Exception {
+            MvcResult result = mvc.perform(get("/api/no-existe-esta-ruta")
+                            .header(HttpHeaders.AUTHORIZATION, "Bearer " + TEST_API_TOKEN))
+                    .andReturn();
+
+            // Que cambie de 401 a 404 es la prueba de que el token se aceptó:
+            // el filtro dejó pasar y lo que falta ahora es el controlador.
+            assertThat(result.getResponse().getStatus())
+                    .isEqualTo(HttpStatus.NOT_FOUND.value());
+        }
+    }
+}

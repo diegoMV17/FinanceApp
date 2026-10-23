@@ -27,12 +27,75 @@ spring:
         jdbc:
           time_zone: UTC
 
+  autoconfigure:
+    exclude:
+      # Sin esto, Boot crea un usuario en memoria y escribe su clave generada
+      # en el log al arrancar, aunque la cadena de filtros no la use nunca: un
+      # SecurityFilterChain propio no la desactiva, porque su condición mira
+      # beans de autenticación y no la cadena. Una clave en el log es un
+      # secreto en el log.
+      - org.springframework.boot.security.autoconfigure.UserDetailsServiceAutoConfiguration
+
   flyway:
     enabled: true
     locations: classpath:db/migration
     # El esquema tiene triggers y una vista; una migración fuera de orden
     # dejaría la base en un estado que nadie sabría reproducir.
     validate-on-migrate: true
+
+  # El borde HTTP, estricto a propósito: lo que entra por aquí es entrada no
+  # confiable y se rechaza antes de llegar al dominio, no después.
+  jackson:
+    # Jackson 3 escribe las fechas en ISO sin módulo aparte, pero el Instant se
+    # rinde a la zona del mapper. UTC fijo, igual que Hibernate: el mismo hecho
+    # no puede quedar con dos horas según quién lo serialice.
+    time-zone: UTC
+    deserialization:
+      # Un campo que nadie declaró es un cliente desactualizado o alguien
+      # tanteando. En los dos casos la respuesta útil es un 400, no ignorarlo
+      # en silencio y guardar algo distinto de lo que el cliente cree que mandó.
+      fail-on-unknown-properties: true
+      # Y ACCEPT_FLOAT_AS_INT viene en true: un monto de "1234.56" centavos se
+      # truncaría a 1234 sin un solo aviso. En una app de plata eso no es una
+      # molestia de formato, es plata que desaparece, y la decisión dice que
+      # los montos son enteros de centavos y jamás decimales.
+      accept-float-as-int: false
+    # Los interruptores del lector de tokens, antes de que exista ningun DTO.
+    read:
+      # Una clave repetida en el mismo objeto. JSON no lo prohibe y Jackson, por
+      # omision, se queda con la ultima y no dice nada: el cliente cree que
+      # mando 100 centavos, el libro guarda 900.000, y las dos partes tienen
+      # razon segun cual de las dos claves se lea. Es ademas la forma clasica de
+      # colar un valor por delante de algo que lo inspeccione a medias. Aqui
+      # arriba, en el parser, para que no haga falta que ningun DTO se acuerde.
+      strict-duplicate-detection: true
+    factory:
+      constraints:
+        read:
+          # Los topes del propio parser de Jackson 3, que son la segunda red
+          # detrás del filtro que rechaza un cuerpo grande antes de leerlo. Que
+          # estén aquí significa que una ruta futura que se salte el filtro
+          # tampoco puede ser ahogada con un JSON de un giga ni con uno anidado
+          # un millón de veces. 64 KiB es mucho más de lo que ocupa el
+          # movimiento más largo de este libro.
+          max-document-length: 65536
+          max-nesting-depth: 16
+          max-string-length: 4096
+          max-number-length: 32
+
+  # Las dos banderas que imprimen cabeceras y cuerpos. NUNCA en true: la
+  # cabecera Authorization lleva el token y el cuerpo lleva montos,
+  # descripciones y nombres de cuentas. Quedan escritas en false para que
+  # cambiarlas sea una decisión visible y no un descuido.
+  http:
+    log-request-details: false
+
+  mvc:
+    log-request-details: false
+    problemdetails:
+      # RFC 9457 también para lo que no pasa por el @RestControllerAdvice, como
+      # un 405 o un 415: un solo formato de error para toda la API.
+      enabled: true
 
 # Cuánto espera una escritura su turno antes de rendirse con un 503.
 #
@@ -43,6 +106,39 @@ spring:
 # finance:
 #   book-lock:
 #     timeout: 5s
+
+# Escuchar solo en loopback mientras nadie diga lo contrario.
+#
+# El cifrado lo pondrá Tailscale cuando esto viva en Oracle, pero un bind a
+# 0.0.0.0 por descuido publica la API en toda la red de la máquina, y eso no lo
+# arregla la autenticación: lo arregla no escuchar ahí. La variable existe para
+# el día del despliegue, con el loopback como valor por omisión.
+server:
+  address: ${SERVER_ADDRESS:127.0.0.1}
+  port: ${SERVER_PORT:8080}
+  tomcat:
+    # Un poco por encima del tope de cuerpo. Al rechazar sin leer, Tomcat
+    # todavía tiene que tragarse el resto para poder responder; si no alcanza,
+    # el cliente ve una conexión cortada en vez del 413 que le explica qué
+    # hizo mal.
+    max-swallow-size: 128KB
+  error:
+    # La página de error de Spring trae la ruta, la excepción y a veces la
+    # traza. Todo lo que sigue es "no cuentes nada", explicitado en vez de
+    # confiado a los valores por omisión de la versión que toque.
+    whitelabel:
+      enabled: false
+    include-message: never
+    include-binding-errors: never
+    include-stacktrace: never
+    include-exception: false
+
+finance:
+  api:
+    # Sin valor por omisión, igual que la clave de la base: si falta API_TOKEN,
+    # la aplicación no arranca. El tamaño y la forma los comprueba
+    # ApiTokenProperties, que es quien falla el arranque y con qué mensaje.
+    token: ${API_TOKEN}
 
 logging:
   level:

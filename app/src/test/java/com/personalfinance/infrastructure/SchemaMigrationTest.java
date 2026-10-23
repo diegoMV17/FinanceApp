@@ -644,6 +644,35 @@ class SchemaMigrationTest extends PostgresIntegrationTest {
                     .hasStackTraceContaining("accounts_name_within_length");
         }
 
+        /**
+         * El siglo que cubre el libro, replicado aquí.
+         *
+         * <p>Dueña de la regla: {@code Transaction.EARLIEST_DATE} y
+         * {@code LATEST_DATE} (dominio). Una fila con el año 999999999 se
+         * quedaría al final de todas las consultas «a fecha» para siempre, y
+         * como aquí nada se borra, solo se podría anular.
+         */
+        @Test
+        @DisplayName("P47 · una fecha fuera del siglo del libro no entra")
+        void theDateRange() {
+            assertThatNoException().isThrownBy(() -> lunchOn("2000-01-01"));
+            assertThatNoException().isThrownBy(() -> lunchOn("2099-12-31"));
+
+            assertThatThrownBy(() -> lunchOn("1999-12-31"))
+                    .hasStackTraceContaining("transactions_date_within_range");
+
+            assertThatThrownBy(() -> lunchOn("2100-01-01"))
+                    .hasStackTraceContaining("transactions_date_within_range");
+
+            assertThatThrownBy(() -> lunchOn("0001-01-01"))
+                    .hasStackTraceContaining("transactions_date_within_range");
+        }
+
+        private void lunchOn(String occurredOn) {
+            recordOn(newId(), occurredOn, "Almuerzo",
+                    new Line(CASH, -3_500_000), new Line(FOOD, 3_500_000));
+        }
+
         private void lunchDescribed(String description) {
             recordOn(newId(), SOME_DAY, description,
                     new Line(CASH, -3_500_000), new Line(FOOD, 3_500_000));

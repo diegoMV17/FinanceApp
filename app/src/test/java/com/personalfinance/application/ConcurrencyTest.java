@@ -6,17 +6,24 @@ import static com.personalfinance.domain.shared.Money.ofUnits;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.personalfinance.application.command.ArchiveAccountCommand;
+import com.personalfinance.application.command.ArchivePersonCommand;
 import com.personalfinance.application.command.ExpenseCommand;
+import com.personalfinance.application.command.LinkAccountToPersonCommand;
 import com.personalfinance.application.command.MovementCommand;
 import com.personalfinance.application.command.OpenAccountCommand;
+import com.personalfinance.application.command.OpenPersonCommand;
 import com.personalfinance.application.command.OpeningBalanceCommand;
 import com.personalfinance.application.read.ReadBook;
 import com.personalfinance.application.usecase.ArchiveAccount;
+import com.personalfinance.application.usecase.ArchivePerson;
+import com.personalfinance.application.usecase.LinkAccountToPerson;
 import com.personalfinance.application.usecase.OpenAccount;
+import com.personalfinance.application.usecase.OpenPerson;
 import com.personalfinance.application.usecase.RecordMovement;
 import com.personalfinance.domain.ledger.AccountId;
 import com.personalfinance.domain.ledger.AccountType;
 import com.personalfinance.domain.ledger.LedgerException;
+import com.personalfinance.domain.ledger.PersonId;
 import com.personalfinance.domain.ledger.TransactionId;
 import com.personalfinance.domain.shared.Money;
 import com.personalfinance.infrastructure.PostgresIntegrationTest;
@@ -71,6 +78,15 @@ class ConcurrencyTest extends PostgresIntegrationTest {
     private OpenAccount openAccount;
 
     @Autowired
+    private OpenPerson openPerson;
+
+    @Autowired
+    private ArchivePerson archivePerson;
+
+    @Autowired
+    private LinkAccountToPerson linkAccountToPerson;
+
+    @Autowired
     private ReadBook readBook;
 
     @Autowired
@@ -82,7 +98,7 @@ class ConcurrencyTest extends PostgresIntegrationTest {
 
     @BeforeEach
     void startFromAnEmptyBook() {
-        jdbc.execute("TRUNCATE entries, transactions, audit_log, accounts CASCADE");
+        jdbc.execute("TRUNCATE entries, transactions, audit_log, accounts, people CASCADE");
 
         cash = open(AccountType.ASSET, "Efectivo");
         food = open(AccountType.EXPENSE, "Alimentación");
@@ -170,6 +186,37 @@ class ConcurrencyTest extends PostgresIntegrationTest {
         assertThat(counts).allSatisfy(done ->
                 assertThat(done).as("algo tiene que haber pasado en los dos hilos")
                         .isPositive());
+    }
+
+    /**
+     * El mismo caso que C2, un nivel más arriba. Archivar a una persona exige
+     * que cada cuenta suya esté archivada, y esa pregunta cruza filas: sin
+     * turno, Juan termina archivado con una cuenta viva colgando, y archivar no
+     * se deshace.
+     *
+     * <p>El vínculo en carrera es el que se mueve a Juan, no el que se le
+     * quita, porque quitarlo no existe. La cuenta vinculada está abierta, así
+     * que si el vínculo gana, el archivado tiene que perder.
+     */
+    @Test
+    @DisplayName("C8 · archivar una persona y vincularle una cuenta: gana uno, veinte veces")
+    void archivingAPersonRacesAgainstLinking() throws Exception {
+        for (int round = 0; round < ROUNDS; round++) {
+            PersonId juan = addPerson("Juan " + round);
+            AccountId owed = open(AccountType.RECEIVABLE, "Deuda " + round);
+
+            List<Boolean> won = runTogether(List.of(
+                    attempt(() -> archivePerson.execute(new ArchivePersonCommand(juan))),
+                    attempt(() -> linkAccountToPerson.execute(
+                            new LinkAccountToPersonCommand(owed, juan)))));
+
+            assertThat(won)
+                    .as("ronda %d: uno de los dos tenía que perder", round)
+                    .containsExactlyInAnyOrder(true, false);
+            assertThat(archivedPeopleWithOpenAccounts())
+                    .as("ronda %d: nadie archivado puede tener cuentas abiertas", round)
+                    .isZero();
+        }
     }
 
     private int writeUntil(CountDownLatch stop) {
@@ -262,6 +309,22 @@ class ConcurrencyTest extends PostgresIntegrationTest {
                 .findFirst()
                 .orElseThrow()
                 .balance();
+    }
+
+    private PersonId addPerson(String name) {
+        PersonId id = PersonId.generate();
+        openPerson.execute(new OpenPersonCommand(id, name));
+        return id;
+    }
+
+    private long archivedPeopleWithOpenAccounts() {
+        return jdbc.queryForObject("""
+                SELECT count(*)
+                  FROM people p
+                  JOIN accounts a ON a.person_id = p.id
+                 WHERE p.archived_at IS NOT NULL
+                   AND a.archived_at IS NULL
+                """, Long.class);
     }
 
     private long archivedAccountsHoldingMoney() {

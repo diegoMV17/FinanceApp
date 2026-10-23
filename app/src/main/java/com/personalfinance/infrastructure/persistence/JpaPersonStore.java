@@ -32,7 +32,7 @@ class JpaPersonStore implements PersonStore {
 
     @Override
     @Transactional
-    public void add(Person person) {
+    public void open(Person person) {
         people.saveAndFlush(LedgerMapper.rowOf(person));
     }
 

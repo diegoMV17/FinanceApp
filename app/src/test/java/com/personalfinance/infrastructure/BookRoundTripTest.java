@@ -512,7 +512,7 @@ class BookRoundTripTest extends PostgresIntegrationTest {
         void writingTwiceDoesNotRewrite() {
             Person impostor = Person.rehydrated(juanHimself.id(), "Otra persona", null);
 
-            assertThatThrownBy(() -> people.add(impostor))
+            assertThatThrownBy(() -> people.open(impostor))
                     .isInstanceOf(DataIntegrityViolationException.class);
 
             assertThat(load().directory().require(juanHimself.id()).name()).isEqualTo("Juan");
@@ -542,7 +542,7 @@ class BookRoundTripTest extends PostgresIntegrationTest {
 
     private Person addPerson(String name) {
         Person person = written.directory().open(name);
-        people.add(person);
+        people.open(person);
         return person;
     }
 

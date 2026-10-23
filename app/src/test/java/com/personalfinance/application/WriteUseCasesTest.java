@@ -9,24 +9,33 @@ import static org.assertj.core.api.Assertions.tuple;
 
 import com.personalfinance.application.command.AmendTransactionCommand;
 import com.personalfinance.application.command.ArchiveAccountCommand;
+import com.personalfinance.application.command.ArchivePersonCommand;
 import com.personalfinance.application.command.BorrowCommand;
 import com.personalfinance.application.command.CancelTransactionCommand;
 import com.personalfinance.application.command.ExpenseCommand;
+import com.personalfinance.application.command.LinkAccountToPersonCommand;
 import com.personalfinance.application.command.MovementCommand;
 import com.personalfinance.application.command.OpenAccountCommand;
+import com.personalfinance.application.command.OpenPersonCommand;
 import com.personalfinance.application.command.OpeningBalanceCommand;
 import com.personalfinance.application.command.ReceiveThirdPartyMoneyCommand;
 import com.personalfinance.application.command.RenameAccountCommand;
+import com.personalfinance.application.command.RenamePersonCommand;
 import com.personalfinance.application.port.BookLock;
 import com.personalfinance.application.read.BookSummary;
 import com.personalfinance.application.read.ReadBook;
 import com.personalfinance.application.usecase.AmendTransaction;
 import com.personalfinance.application.usecase.ArchiveAccount;
+import com.personalfinance.application.usecase.ArchivePerson;
 import com.personalfinance.application.usecase.CancelTransaction;
+import com.personalfinance.application.usecase.LinkAccountToPerson;
 import com.personalfinance.application.usecase.OpenAccount;
+import com.personalfinance.application.usecase.OpenPerson;
 import com.personalfinance.application.usecase.RecordMovement;
 import com.personalfinance.application.usecase.RenameAccount;
+import com.personalfinance.application.usecase.RenamePerson;
 import com.personalfinance.domain.ledger.Account;
+import com.personalfinance.domain.ledger.AccountCannotBelongToAPersonException;
 import com.personalfinance.domain.ledger.AccountId;
 import com.personalfinance.domain.ledger.AccountStillHoldsMoneyException;
 import com.personalfinance.domain.ledger.AccountType;
@@ -35,7 +44,12 @@ import com.personalfinance.domain.ledger.Cancellation;
 import com.personalfinance.domain.ledger.ControlCharactersException;
 import com.personalfinance.domain.ledger.DuplicateAccountException;
 import com.personalfinance.domain.ledger.DuplicateAccountNameException;
+import com.personalfinance.domain.ledger.DuplicatePersonException;
+import com.personalfinance.domain.ledger.DuplicatePersonNameException;
 import com.personalfinance.domain.ledger.DuplicateTransactionException;
+import com.personalfinance.domain.ledger.Person;
+import com.personalfinance.domain.ledger.PersonId;
+import com.personalfinance.domain.ledger.PersonStillHasOpenAccountsException;
 import com.personalfinance.domain.ledger.TextTooLongException;
 import com.personalfinance.domain.ledger.Transaction;
 import com.personalfinance.domain.ledger.TransactionAlreadyCancelledException;
@@ -96,6 +110,18 @@ class WriteUseCasesTest extends PostgresIntegrationTest {
     private RenameAccount renameAccount;
 
     @Autowired
+    private OpenPerson openPerson;
+
+    @Autowired
+    private RenamePerson renamePerson;
+
+    @Autowired
+    private ArchivePerson archivePerson;
+
+    @Autowired
+    private LinkAccountToPerson linkAccountToPerson;
+
+    @Autowired
     private ReadBook readBook;
 
     @Autowired
@@ -116,7 +142,7 @@ class WriteUseCasesTest extends PostgresIntegrationTest {
 
     @BeforeEach
     void startFromAnEmptyBook() {
-        jdbc.execute("TRUNCATE entries, transactions, audit_log, accounts CASCADE");
+        jdbc.execute("TRUNCATE entries, transactions, audit_log, accounts, people CASCADE");
 
         bank = open(AccountType.ASSET, "Bancolombia");
         cash = open(AccountType.ASSET, "Efectivo");
@@ -415,6 +441,207 @@ class WriteUseCasesTest extends PostgresIntegrationTest {
         }
     }
 
+    /**
+     * El incremento 2. Lo que se prueba aquí es lo de esta capa: que un
+     * reintento no escriba, que mover el vínculo deje en la bitácora de quién
+     * era antes, y que una regla del dominio no deje rastro al fallar.
+     */
+    @Nested
+    @DisplayName("con las personas")
+    class People {
+
+        @Test
+        @DisplayName("U15 · abrir una la aplica y deja una línea de bitácora")
+        void opensAndAudits() {
+            PersonId id = PersonId.generate();
+
+            Outcome<Person> outcome = openPerson.execute(new OpenPersonCommand(id, "  Juan  "));
+
+            assertThat(outcome.status()).isEqualTo(APPLIED);
+            assertThat(outcome.value().name()).isEqualTo("Juan");
+            assertThat(nameOfPerson(id)).isEqualTo("Juan");
+            assertThat(auditFor(id.value()))
+                    .extracting("entity", "action", "source")
+                    .containsExactly(tuple("person", "CREATE", "APP"));
+        }
+
+        @Test
+        @DisplayName("U16 · el mismo id con el mismo nombre es un reintento, sin bitácora")
+        void openingTwiceWritesOnce() {
+            PersonId id = PersonId.generate();
+            openPerson.execute(new OpenPersonCommand(id, "Juan"));
+            long auditBefore = auditCount();
+
+            Outcome<Person> again = openPerson.execute(new OpenPersonCommand(id, " juan "));
+
+            assertThat(again.status()).isEqualTo(ALREADY_APPLIED);
+            assertThat(auditCount()).isEqualTo(auditBefore);
+            assertThat(peopleCount()).isEqualTo(1);
+        }
+
+        @Test
+        @DisplayName("U17 · el mismo id con otro nombre es una contradicción")
+        void sameIdOtherContentConflicts() {
+            PersonId id = PersonId.generate();
+            openPerson.execute(new OpenPersonCommand(id, "Juan"));
+
+            assertThatExceptionOfType(DuplicatePersonException.class)
+                    .isThrownBy(() -> openPerson.execute(new OpenPersonCommand(id, "Pedro")));
+
+            assertThat(nameOfPerson(id)).isEqualTo("Juan");
+        }
+
+        @Test
+        @DisplayName("U18 · y dos personas abiertas no se llaman igual")
+        void noDuplicateNames() {
+            openPerson.execute(new OpenPersonCommand(PersonId.generate(), "Juan"));
+
+            assertThatExceptionOfType(DuplicatePersonNameException.class)
+                    .isThrownBy(() -> openPerson.execute(
+                            new OpenPersonCommand(PersonId.generate(), "  juan ")));
+
+            assertThat(peopleCount()).isEqualTo(1);
+        }
+
+        @Test
+        @DisplayName("U19 · renombrar deja el nombre anterior en la bitácora")
+        void renamingKeepsTheOldName() {
+            PersonId id = addPerson("Juan");
+
+            Outcome<Person> renamed = renamePerson.execute(
+                    new RenamePersonCommand(id, "Juan Pérez"));
+
+            assertThat(renamed.status()).isEqualTo(APPLIED);
+            assertThat(nameOfPerson(id)).isEqualTo("Juan Pérez");
+            assertThat(auditFor(id.value()))
+                    .extracting("action", "before", "after")
+                    .containsExactly(
+                            tuple("CREATE", null, null),
+                            tuple("RENAME", "{\"name\": \"Juan\"}",
+                                    "{\"name\": \"Juan Pérez\"}"));
+        }
+
+        @Test
+        @DisplayName("U20 · pedir el nombre exacto que ya tiene no escribe nada")
+        void renamingToTheSameNameWritesNothing() {
+            PersonId id = addPerson("Juan");
+            long auditBefore = auditCount();
+
+            Outcome<Person> again = renamePerson.execute(
+                    new RenamePersonCommand(id, "  Juan  "));
+
+            assertThat(again.status()).isEqualTo(ALREADY_APPLIED);
+            assertThat(auditCount()).isEqualTo(auditBefore);
+        }
+
+        @Test
+        @DisplayName("U21 · vincular una cuenta la deja de esa persona, y lo anota")
+        void linksAndAudits() {
+            PersonId juan = addPerson("Juan");
+            AccountId owedByJuan = open(AccountType.RECEIVABLE, "Juan");
+
+            Outcome<Account> linked = linkAccountToPerson.execute(
+                    new LinkAccountToPersonCommand(owedByJuan, juan));
+
+            assertThat(linked.status()).isEqualTo(APPLIED);
+            assertThat(personOf(owedByJuan)).isEqualTo(juan.value().toString());
+            assertThat(auditFor(owedByJuan.value()))
+                    .extracting("entity", "action", "before", "after")
+                    .containsExactly(
+                            tuple("account", "CREATE", null, null),
+                            tuple("account", "LINK", null,
+                                    "{\"person\": \"%s\"}".formatted(juan)));
+        }
+
+        @Test
+        @DisplayName("U22 · vincularla a quien ya es suya es un reintento, sin bitácora")
+        void linkingTwiceWritesOnce() {
+            PersonId juan = addPerson("Juan");
+            AccountId owedByJuan = open(AccountType.RECEIVABLE, "Juan");
+            linkAccountToPerson.execute(new LinkAccountToPersonCommand(owedByJuan, juan));
+            long auditBefore = auditCount();
+
+            Outcome<Account> again = linkAccountToPerson.execute(
+                    new LinkAccountToPersonCommand(owedByJuan, juan));
+
+            assertThat(again.status()).isEqualTo(ALREADY_APPLIED);
+            assertThat(auditCount()).isEqualTo(auditBefore);
+        }
+
+        /**
+         * Mover el vínculo no es una contradicción: es la forma de corregir un
+         * dedazo sin archivar la cuenta. Lo que no se puede perder es de quién
+         * era, porque la tabla solo conserva de quién es ahora.
+         */
+        @Test
+        @DisplayName("U23 · moverla a otra persona se aplica y deja dicho de quién era")
+        void movingTheLinkKeepsWhoseItWas() {
+            PersonId juan = addPerson("Juan");
+            PersonId pedro = addPerson("Pedro");
+            AccountId owed = open(AccountType.RECEIVABLE, "El del taller");
+            linkAccountToPerson.execute(new LinkAccountToPersonCommand(owed, juan));
+
+            Outcome<Account> moved = linkAccountToPerson.execute(
+                    new LinkAccountToPersonCommand(owed, pedro));
+
+            assertThat(moved.status()).isEqualTo(APPLIED);
+            assertThat(personOf(owed)).isEqualTo(pedro.value().toString());
+            assertThat(auditFor(owed.value()))
+                    .extracting("action", "before", "after")
+                    .containsExactly(
+                            tuple("CREATE", null, null),
+                            tuple("LINK", null, "{\"person\": \"%s\"}".formatted(juan)),
+                            tuple("LINK", "{\"person\": \"%s\"}".formatted(juan),
+                                    "{\"person\": \"%s\"}".formatted(pedro)));
+        }
+
+        @Test
+        @DisplayName("U24 · vincular una categoría falla y no deja rastro")
+        void aCategoryIsNobody() {
+            PersonId juan = addPerson("Juan");
+            long auditBefore = auditCount();
+
+            assertThatExceptionOfType(AccountCannotBelongToAPersonException.class)
+                    .isThrownBy(() -> linkAccountToPerson.execute(
+                            new LinkAccountToPersonCommand(food, juan)));
+
+            assertThat(personOf(food)).isNull();
+            assertThat(auditCount()).isEqualTo(auditBefore);
+        }
+
+        @Test
+        @DisplayName("U25 · archivar exige que sus cuentas estén archivadas")
+        void archivingNeedsEverythingClosed() {
+            PersonId juan = addPerson("Juan");
+            AccountId owedByJuan = open(AccountType.RECEIVABLE, "Juan");
+            linkAccountToPerson.execute(new LinkAccountToPersonCommand(owedByJuan, juan));
+
+            assertThatExceptionOfType(PersonStillHasOpenAccountsException.class)
+                    .isThrownBy(() -> archivePerson.execute(new ArchivePersonCommand(juan)));
+
+            assertThat(archivedAtOfPerson(juan)).isNull();
+        }
+
+        @Test
+        @DisplayName("U26 · y una vez archivada, archivarla otra vez es un reintento")
+        void archivingTwiceWritesOnce() {
+            PersonId juan = addPerson("Juan");
+            AccountId owedByJuan = open(AccountType.RECEIVABLE, "Juan");
+            linkAccountToPerson.execute(new LinkAccountToPersonCommand(owedByJuan, juan));
+            archiveAccount.execute(new ArchiveAccountCommand(owedByJuan));
+
+            Outcome<Person> archived = archivePerson.execute(new ArchivePersonCommand(juan));
+            long auditBefore = auditCount();
+            Outcome<Person> again = archivePerson.execute(new ArchivePersonCommand(juan));
+
+            assertThat(archived.status()).isEqualTo(APPLIED);
+            assertThat(again.status()).isEqualTo(ALREADY_APPLIED);
+            assertThat(again.value().archivedAt()).isEqualTo(archived.value().archivedAt());
+            assertThat(archivedAtOfPerson(juan)).isNotNull();
+            assertThat(auditCount()).isEqualTo(auditBefore);
+        }
+    }
+
     @Nested
     @DisplayName("al leer")
     class Reading {
@@ -522,5 +749,30 @@ class WriteUseCasesTest extends PostgresIntegrationTest {
     private Object archivedAt(AccountId id) {
         return jdbc.queryForObject(
                 "SELECT archived_at FROM accounts WHERE id = ?", Object.class, id.value());
+    }
+
+    private PersonId addPerson(String name) {
+        PersonId id = PersonId.generate();
+        openPerson.execute(new OpenPersonCommand(id, name));
+        return id;
+    }
+
+    private String nameOfPerson(PersonId id) {
+        return jdbc.queryForObject(
+                "SELECT name FROM people WHERE id = ?", String.class, id.value());
+    }
+
+    private Object archivedAtOfPerson(PersonId id) {
+        return jdbc.queryForObject(
+                "SELECT archived_at FROM people WHERE id = ?", Object.class, id.value());
+    }
+
+    private String personOf(AccountId id) {
+        return jdbc.queryForObject(
+                "SELECT person_id::text FROM accounts WHERE id = ?", String.class, id.value());
+    }
+
+    private long peopleCount() {
+        return jdbc.queryForObject("SELECT count(*) FROM people", Long.class);
     }
 }

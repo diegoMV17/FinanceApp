@@ -25,7 +25,7 @@ public interface PersonStore {
      * @throws com.personalfinance.domain.ledger.DuplicatePersonException
      *         if that id is already stored
      */
-    void add(Person person);
+    void open(Person person);
 
     void rename(PersonId id, String newName);
 

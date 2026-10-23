@@ -13,12 +13,15 @@ import com.personalfinance.domain.ledger.Book;
 import com.personalfinance.domain.ledger.Cancellation;
 import com.personalfinance.domain.ledger.DuplicateTransactionException;
 import com.personalfinance.domain.ledger.Operations;
+import com.personalfinance.domain.ledger.Person;
+import com.personalfinance.domain.ledger.PersonPosition;
 import com.personalfinance.domain.ledger.Transaction;
 import com.personalfinance.domain.ledger.TransactionAlreadyCancelledException;
 import com.personalfinance.domain.ledger.TransactionId;
 import com.personalfinance.domain.ledger.TransactionSource;
 import com.personalfinance.domain.ledger.UnbalancedTransactionException;
 import com.personalfinance.domain.ledger.port.AccountStore;
+import com.personalfinance.domain.ledger.port.PersonStore;
 import com.personalfinance.domain.ledger.port.TransactionStore;
 import com.personalfinance.application.BookLoader;
 import com.personalfinance.domain.shared.Money;
@@ -66,6 +69,9 @@ class BookRoundTripTest extends PostgresIntegrationTest {
     private TransactionStore transactions;
 
     @Autowired
+    private PersonStore people;
+
+    @Autowired
     private BookLoader loader;
 
     @Autowired
@@ -85,13 +91,16 @@ class BookRoundTripTest extends PostgresIntegrationTest {
     private Account brother;
     private Account momsFund;
     private Account equity;
+    private Person juanHimself;
+    private Person theBrother;
+    private Person mother;
 
     @BeforeEach
     void writeABookWorthReloading() {
         readOnly = new TransactionTemplate(transactionManager);
         readOnly.setReadOnly(true);
 
-        jdbc.execute("TRUNCATE entries, transactions, audit_log, accounts CASCADE");
+        jdbc.execute("TRUNCATE entries, transactions, audit_log, accounts, people CASCADE");
 
         written = Book.empty();
         bancolombia = open(AccountType.ASSET, "Bancolombia");
@@ -102,6 +111,13 @@ class BookRoundTripTest extends PostgresIntegrationTest {
         brother = open(AccountType.PAYABLE, "Hermano");
         momsFund = open(AccountType.THIRD_PARTY_FUND, "Mamá");
         equity = open(AccountType.EQUITY, "Saldos iniciales");
+
+        juanHimself = addPerson("Juan");
+        theBrother = addPerson("Hermano");
+        mother = addPerson("Mamá");
+        link(juan, juanHimself);
+        link(brother, theBrother);
+        link(momsFund, mother);
 
         record(Operations.openingBalance(TransactionId.generate(),
                 JANUARY, bancolombia, equity, ofUnits(800_000)));
@@ -395,6 +411,114 @@ class BookRoundTripTest extends PostgresIntegrationTest {
         }
     }
 
+    /**
+     * Las personas, que son el incremento 2. Lo que puede salir mal aquí es
+     * peor que un saldo equivocado: una cuenta que vuelve sin su persona deja
+     * una deuda viva fuera de la posición de alguien, con todos los saldos
+     * correctos y nadie quejándose.
+     */
+    @Nested
+    @DisplayName("recuerda de quién es cada cuenta")
+    class PeopleComeBack {
+
+        @Test
+        @DisplayName("R18 · y la resuelve contra una sola instancia por persona")
+        void onePersonInstance() {
+            Book loaded = load();
+
+            Person loadedJuan = loaded.directory().require(juanHimself.id());
+            Account loadedAccount = loaded.chart().require(juan.id());
+
+            assertThat(loadedAccount.person()).containsSame(loadedJuan);
+            assertThat(loaded.chart().allOf(loadedJuan)).containsExactly(loadedAccount);
+        }
+
+        @Test
+        @DisplayName("R19 · así que la posición con cada persona da lo mismo que antes")
+        void everyPositionMatches() {
+            Book loaded = load();
+
+            for (Person person : written.directory().all()) {
+                PersonPosition before =
+                        PersonPosition.of(person, written.chart(), written.ledger(), TODAY);
+                PersonPosition after = PersonPosition.of(
+                        loaded.directory().require(person.id()),
+                        loaded.chart(), loaded.ledger(), TODAY);
+
+                assertThat(after).as("posición con %s", person.name()).isEqualTo(before);
+            }
+        }
+
+        @Test
+        @DisplayName("R20 · una cuenta que no es de nadie vuelve sin persona")
+        void anAccountWithoutAPerson() {
+            assertThat(load().chart().require(bancolombia.id()).person()).isEmpty();
+        }
+
+        /**
+         * Un vecino al que nunca se le movió nada, que es la única forma de
+         * archivarlo: su cuenta tiene que estar archivada antes, y una cuenta
+         * que guarda plata no se archiva con saldo.
+         */
+        @Test
+        @DisplayName("R21 · una persona archivada vuelve archivada, y su cuenta con ella")
+        void anArchivedPersonComesBackArchived() {
+            Person vecino = addPerson("Vecino");
+            Account owedToVecino = open(AccountType.PAYABLE, "Vecino");
+            link(owedToVecino, vecino);
+
+            written.chart().archive(owedToVecino.id(), written.ledger(), WHEN);
+            accounts.markArchived(owedToVecino.id(), WHEN);
+            written.directory().archive(vecino.id(), written.chart(), WHEN);
+            people.markArchived(vecino.id(), WHEN);
+
+            Book loaded = load();
+            Person loadedVecino = loaded.directory().require(vecino.id());
+
+            assertThat(loadedVecino.archivedAt()).contains(WHEN);
+            assertThat(loaded.chart().require(owedToVecino.id()).person())
+                    .containsSame(loadedVecino);
+        }
+
+        @Test
+        @DisplayName("R22 · mover el vínculo a otra persona queda guardado")
+        void movingTheLinkIsStored() {
+            link(juan, theBrother);
+
+            Book loaded = load();
+            Person loadedBrother = loaded.directory().require(theBrother.id());
+
+            assertThat(loaded.chart().require(juan.id()).person()).containsSame(loadedBrother);
+            assertThat(loaded.chart().allOf(
+                    loaded.directory().require(juanHimself.id()))).isEmpty();
+        }
+
+        @Test
+        @DisplayName("R23 · y un nombre cambiado vuelve cambiado")
+        void renamingIsStored() {
+            people.rename(juanHimself.id(), "Juan Pérez");
+
+            assertThat(load().directory().require(juanHimself.id()).name())
+                    .isEqualTo("Juan Pérez");
+        }
+
+        /**
+         * Por lo mismo que abrir dos veces una cuenta: sin la clave primaria
+         * poniéndose de por medio, "escribir" una persona que ya existía podría
+         * cambiarle el nombre o desarchivarla sin dejar rastro.
+         */
+        @Test
+        @DisplayName("R24 · escribir dos veces la misma persona falla y no la reescribe")
+        void writingTwiceDoesNotRewrite() {
+            Person impostor = Person.rehydrated(juanHimself.id(), "Otra persona", null);
+
+            assertThatThrownBy(() -> people.add(impostor))
+                    .isInstanceOf(DataIntegrityViolationException.class);
+
+            assertThat(load().directory().require(juanHimself.id()).name()).isEqualTo("Juan");
+        }
+    }
+
     // --- Ayudas.
 
     /**
@@ -414,6 +538,17 @@ class BookRoundTripTest extends PostgresIntegrationTest {
         Account account = written.chart().open(type, name);
         accounts.open(account);
         return account;
+    }
+
+    private Person addPerson(String name) {
+        Person person = written.directory().open(name);
+        people.add(person);
+        return person;
+    }
+
+    private void link(Account account, Person person) {
+        written.chart().linkToPerson(account.id(), person);
+        accounts.linkToPerson(account.id(), person.id());
     }
 
     private void record(Transaction transaction) {

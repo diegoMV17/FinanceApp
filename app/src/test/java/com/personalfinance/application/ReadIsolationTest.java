@@ -3,6 +3,7 @@ package com.personalfinance.application;
 import static com.personalfinance.domain.shared.Money.ofUnits;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatNoException;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
 
 import com.personalfinance.application.command.ExpenseCommand;
@@ -114,7 +115,7 @@ class ReadIsolationTest extends PostgresIntegrationTest {
                 inAnotherThread(this::openACategoryAndSpendOnIt);
             }
             return loaded;
-        }).when(accounts).all();
+        }).when(accounts).all(any());
     }
 
     private void openACategoryAndSpendOnIt() {

@@ -3,6 +3,7 @@ package com.personalfinance.infrastructure.api.web;
 import com.personalfinance.infrastructure.api.limit.RangeTooWideException;
 import java.time.Clock;
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
 
 /**
@@ -32,8 +33,20 @@ final class Dates {
     /** Los meses que se devuelven cuando no se pide un rango. */
     private static final int MONTHS_BY_DEFAULT = 12;
 
-    static LocalDate orToday(LocalDate asOf, Clock clock) {
-        return asOf != null ? asOf : LocalDate.now(clock);
+    /**
+     * La fecha que se pidió, o la de hoy en el calendario del dueño.
+     *
+     * <p>La zona es un parámetro y no la del reloj. El reloj está en UTC porque
+     * los instantes que se guardan tienen que estarlo, y de un instante en UTC
+     * no sale la fecha correcta: a las 23:30 del 31 de octubre en Bogotá, para
+     * UTC ya es el 1 de noviembre, y el resumen del cierre de mes contestaba
+     * noviembre con los dos indicadores del mes en cero.
+     *
+     * <p>Que la zona entre por aquí y solo por aquí es el reparto: cambia la
+     * fecha con la que se contesta y no cambia ni un dato guardado.
+     */
+    static LocalDate orToday(LocalDate asOf, Clock clock, ZoneId zone) {
+        return asOf != null ? asOf : LocalDate.ofInstant(clock.instant(), zone);
     }
 
     /**

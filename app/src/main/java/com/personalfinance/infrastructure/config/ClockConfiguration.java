@@ -2,6 +2,7 @@ package com.personalfinance.infrastructure.config;
 
 import java.time.Clock;
 import java.time.Duration;
+import java.time.ZoneId;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -32,5 +33,21 @@ public class ClockConfiguration {
     @Bean
     Clock clock() {
         return Clock.tick(Clock.systemUTC(), POSTGRES_PRECISION);
+    }
+
+    /**
+     * La zona en la que se decide qué día es hoy, y nada más.
+     *
+     * <p>Va aparte del reloj a propósito. El reloj da instantes y los instantes
+     * se guardan en UTC, que es lo correcto: el mismo hecho no puede quedar con
+     * dos horas. Lo que no se puede sacar de UTC es una <em>fecha de
+     * calendario</em>, porque a las siete de la tarde en Bogotá para UTC ya es
+     * mañana. Un reloj con la zona puesta arreglaría lo segundo sin tocar lo
+     * primero, pero dejaría la decisión escondida en el tipo del bean; así se
+     * ve en cada sitio donde se usa.
+     */
+    @Bean
+    ZoneId timezone(TimeZoneProperties properties) {
+        return properties.zone();
     }
 }

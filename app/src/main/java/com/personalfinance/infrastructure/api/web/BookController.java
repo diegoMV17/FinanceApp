@@ -5,6 +5,7 @@ import com.personalfinance.infrastructure.api.dto.response.BalancesResponse;
 import com.personalfinance.infrastructure.api.dto.response.SummaryResponse;
 import java.time.Clock;
 import java.time.LocalDate;
+import java.time.ZoneId;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -32,10 +33,12 @@ class BookController {
 
     private final ReadBook book;
     private final Clock clock;
+    private final ZoneId timezone;
 
-    BookController(ReadBook book, Clock clock) {
+    BookController(ReadBook book, Clock clock, ZoneId timezone) {
         this.book = book;
         this.clock = clock;
+        this.timezone = timezone;
     }
 
     @GetMapping("/summary")
@@ -43,7 +46,7 @@ class BookController {
             @RequestParam(required = false)
             @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate asOf) {
 
-        return SummaryResponse.of(book.summary(Dates.orToday(asOf, clock)));
+        return SummaryResponse.of(book.summary(Dates.orToday(asOf, clock, timezone)));
     }
 
     @GetMapping("/balances")
@@ -51,7 +54,7 @@ class BookController {
             @RequestParam(required = false)
             @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate asOf) {
 
-        LocalDate when = Dates.orToday(asOf, clock);
+        LocalDate when = Dates.orToday(asOf, clock, timezone);
         return BalancesResponse.of(when, book.balances(when));
     }
 }

@@ -14,6 +14,7 @@ import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.Size;
 import java.time.Clock;
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -51,10 +52,12 @@ class StatsController {
 
     private final ReadBook book;
     private final Clock clock;
+    private final ZoneId timezone;
 
-    StatsController(ReadBook book, Clock clock) {
+    StatsController(ReadBook book, Clock clock, ZoneId timezone) {
         this.book = book;
         this.clock = clock;
+        this.timezone = timezone;
     }
 
     /**
@@ -72,7 +75,7 @@ class StatsController {
             @RequestParam(required = false)
             @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {
 
-        LocalDate last = Dates.orToday(to, clock);
+        LocalDate last = Dates.orToday(to, clock, timezone);
         LocalDate first = Dates.orAYearBefore(from, last);
         Dates.requireWithinTheSpan(first, last);
 
@@ -104,7 +107,7 @@ class StatsController {
             @RequestParam(required = false) @Min(0) @Max(Entry.MAX_ABSOLUTE_CENTS) Long minInCents,
             @RequestParam(required = false) @Min(0) @Max(Entry.MAX_ABSOLUTE_CENTS) Long maxInCents) {
 
-        LocalDate last = Dates.orToday(to, clock);
+        LocalDate last = Dates.orToday(to, clock, timezone);
         LocalDate first = Dates.orAYearBefore(from, last);
 
         MovementFilter filter = new MovementFilter(

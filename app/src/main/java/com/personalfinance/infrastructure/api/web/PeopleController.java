@@ -17,6 +17,7 @@ import com.personalfinance.infrastructure.api.dto.response.PersonResponse;
 import jakarta.validation.Valid;
 import java.time.Clock;
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.UUID;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.MediaType;
@@ -56,6 +57,7 @@ class PeopleController {
     private final LinkAccountToPerson linkAccountToPerson;
     private final ReadBook book;
     private final Clock clock;
+    private final ZoneId timezone;
 
     PeopleController(
             OpenPerson openPerson,
@@ -63,7 +65,8 @@ class PeopleController {
             ArchivePerson archivePerson,
             LinkAccountToPerson linkAccountToPerson,
             ReadBook book,
-            Clock clock) {
+            Clock clock,
+            ZoneId timezone) {
 
         this.openPerson = openPerson;
         this.renamePerson = renamePerson;
@@ -71,6 +74,7 @@ class PeopleController {
         this.linkAccountToPerson = linkAccountToPerson;
         this.book = book;
         this.clock = clock;
+        this.timezone = timezone;
     }
 
     @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE)
@@ -115,7 +119,7 @@ class PeopleController {
             @RequestParam(required = false)
             @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate asOf) {
 
-        LocalDate when = Dates.orToday(asOf, clock);
+        LocalDate when = Dates.orToday(asOf, clock, timezone);
         return PeopleResponse.of(when, book.people(when));
     }
 
@@ -125,7 +129,7 @@ class PeopleController {
             @RequestParam(required = false)
             @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate asOf) {
 
-        LocalDate when = Dates.orToday(asOf, clock);
+        LocalDate when = Dates.orToday(asOf, clock, timezone);
         return PersonDetailResponse.of(when, book.person(new PersonId(id), when));
     }
 

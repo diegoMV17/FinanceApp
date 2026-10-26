@@ -9,6 +9,7 @@ import com.personalfinance.domain.ledger.AccountType;
 import com.personalfinance.infrastructure.PostgresIntegrationTest;
 import java.time.Clock;
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -46,6 +47,7 @@ class ReadEndpointsTest extends PostgresIntegrationTest {
     @Autowired private MockMvc mvc;
     @Autowired private JdbcTemplate jdbc;
     @Autowired private Clock clock;
+    @Autowired private ZoneId timezone;
 
     private final JsonMapper json = JsonMapper.builder().build();
 
@@ -117,7 +119,7 @@ class ReadEndpointsTest extends PostgresIntegrationTest {
             JsonNode body = read(ask("/api/summary"));
 
             assertThat(body.get("asOf").asString())
-                    .isEqualTo(LocalDate.now(clock).toString());
+                    .isEqualTo(today().toString());
         }
 
         @Test
@@ -154,7 +156,7 @@ class ReadEndpointsTest extends PostgresIntegrationTest {
 
             assertThat(empty.getResponse().getStatus()).isEqualTo(200);
             assertThat(read(empty).get("asOf").asString())
-                    .isEqualTo(LocalDate.now(clock).toString());
+                    .isEqualTo(today().toString());
         }
     }
 
@@ -425,7 +427,7 @@ class ReadEndpointsTest extends PostgresIntegrationTest {
         @Test
         @DisplayName("H8 · sin fecha contestan con la de hoy y lo dicen")
         void withoutADateTheyAnswerForToday() throws Exception {
-            String today = LocalDate.now(clock).toString();
+            String today = today().toString();
 
             assertThat(read(ask("/api/people")).get("asOf").asString()).isEqualTo(today);
             assertThat(read(ask("/api/people/" + juan)).get("asOf").asString())
@@ -437,7 +439,7 @@ class ReadEndpointsTest extends PostgresIntegrationTest {
         void anEmptyAsOfCountsAsAbsent() throws Exception {
             JsonNode body = read(ask("/api/people?asOf="));
 
-            assertThat(body.get("asOf").asString()).isEqualTo(LocalDate.now(clock).toString());
+            assertThat(body.get("asOf").asString()).isEqualTo(today().toString());
         }
 
         @Test
@@ -842,7 +844,7 @@ class ReadEndpointsTest extends PostgresIntegrationTest {
         void withoutARangeItAnswersTheLastYear() throws Exception {
             JsonNode body = read(ask("/api/stats/over-time"));
 
-            LocalDate today = LocalDate.now(clock);
+            LocalDate today = today();
             assertThat(body.get("to").asString()).isEqualTo(today.toString());
             assertThat(body.get("from").asString())
                     .isEqualTo(today.minusMonths(11).withDayOfMonth(1).toString());
@@ -962,6 +964,16 @@ class ReadEndpointsTest extends PostgresIntegrationTest {
                 """
                 {"id":"%s","type":"%s","name":"%s"}""".formatted(id, type, name));
         return id;
+    }
+
+    /**
+     * El día de hoy como lo contesta la API: el del calendario del dueño, no el
+     * de UTC. Comparar contra la fecha UTC del reloj dejaba estos tests
+     * inestables desde las siete de la tarde en Bogotá, que es cuando para UTC
+     * ya es mañana.
+     */
+    private LocalDate today() {
+        return LocalDate.ofInstant(clock.instant(), timezone);
     }
 
     private MvcResult ask(String path) throws Exception {

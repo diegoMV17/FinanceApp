@@ -8,9 +8,11 @@ import com.personalfinance.domain.ledger.ArchivedAccountException;
 import com.personalfinance.domain.ledger.ArchivedPersonException;
 import com.personalfinance.domain.ledger.BlankAccountNameException;
 import com.personalfinance.domain.ledger.BlankPersonNameException;
+import com.personalfinance.domain.ledger.BudgetAlreadySupersededException;
 import com.personalfinance.domain.ledger.DateOutOfRangeException;
 import com.personalfinance.domain.ledger.DuplicateAccountException;
 import com.personalfinance.domain.ledger.DuplicateAccountNameException;
+import com.personalfinance.domain.ledger.DuplicateBudgetException;
 import com.personalfinance.domain.ledger.DuplicatePersonException;
 import com.personalfinance.domain.ledger.DuplicatePersonNameException;
 import com.personalfinance.domain.ledger.DuplicateTransactionException;
@@ -20,7 +22,9 @@ import com.personalfinance.domain.ledger.PersonStillHasOpenAccountsException;
 import com.personalfinance.domain.ledger.ReversedRangeException;
 import com.personalfinance.domain.ledger.SameAccountTransferException;
 import com.personalfinance.domain.ledger.TransactionAlreadyCancelledException;
+import com.personalfinance.domain.ledger.UnexpectedAccountTypeException;
 import com.personalfinance.domain.ledger.UnknownAccountException;
+import com.personalfinance.domain.ledger.UnknownBudgetException;
 import com.personalfinance.domain.ledger.UnknownPersonException;
 import com.personalfinance.domain.ledger.UnknownTransactionException;
 import com.personalfinance.infrastructure.api.limit.BodyTooLargeException;
@@ -82,12 +86,14 @@ public final class ApiErrors {
     static ApiError forType(Class<?> failure) {
         if (UnknownAccountException.class.isAssignableFrom(failure)
                 || UnknownTransactionException.class.isAssignableFrom(failure)
-                || UnknownPersonException.class.isAssignableFrom(failure)) {
+                || UnknownPersonException.class.isAssignableFrom(failure)
+                || UnknownBudgetException.class.isAssignableFrom(failure)) {
             return ApiError.NOT_FOUND;
         }
         if (DuplicateTransactionException.class.isAssignableFrom(failure)
                 || DuplicateAccountException.class.isAssignableFrom(failure)
-                || DuplicatePersonException.class.isAssignableFrom(failure)) {
+                || DuplicatePersonException.class.isAssignableFrom(failure)
+                || DuplicateBudgetException.class.isAssignableFrom(failure)) {
             return ApiError.DUPLICATE_ID;
         }
         if (DuplicateAccountNameException.class.isAssignableFrom(failure)) {
@@ -143,6 +149,12 @@ public final class ApiErrors {
         }
         if (ReversedRangeException.class.isAssignableFrom(failure)) {
             return ApiError.REVERSED_RANGE;
+        }
+        if (BudgetAlreadySupersededException.class.isAssignableFrom(failure)) {
+            return ApiError.BUDGET_ALREADY_SUPERSEDED;
+        }
+        if (UnexpectedAccountTypeException.class.isAssignableFrom(failure)) {
+            return ApiError.UNEXPECTED_ACCOUNT_TYPE;
         }
         // Siempre el último de los conocidos: es el padre de todos los de
         // arriba, y es lo que hace que una regla nueva del dominio responda

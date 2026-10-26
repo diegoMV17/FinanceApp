@@ -6,6 +6,10 @@ import com.personalfinance.application.BookBusyException;
 import com.personalfinance.domain.ledger.AccountAlreadyArchivedException;
 import com.personalfinance.domain.ledger.AccountCannotBelongToAPersonException;
 import com.personalfinance.domain.ledger.AccountStillHoldsMoneyException;
+import com.personalfinance.domain.ledger.BudgetAlreadySupersededException;
+import com.personalfinance.domain.ledger.DuplicateBudgetException;
+import com.personalfinance.domain.ledger.UnexpectedAccountTypeException;
+import com.personalfinance.domain.ledger.UnknownBudgetException;
 import com.personalfinance.domain.ledger.ArchivedAccountException;
 import com.personalfinance.domain.ledger.ArchivedPersonException;
 import com.personalfinance.domain.ledger.BlankAccountNameException;
@@ -65,7 +69,7 @@ class ApiErrorsTest {
         // sin comprobar nada. Esto es el seguro de ese seguro.
         assertThat(LEDGER_EXCEPTIONS)
                 .as("las subclases de LedgerException del dominio")
-                .hasSizeGreaterThanOrEqualTo(24);
+                .hasSizeGreaterThanOrEqualTo(27);
     }
 
     @Test
@@ -132,7 +136,13 @@ class ApiErrorsTest {
             Map.entry(ArchivedPersonException.class, ApiError.ARCHIVED_PERSON),
             Map.entry(ArchivedAccountException.class, ApiError.ARCHIVED_ACCOUNT),
             Map.entry(ReversedRangeException.class, ApiError.REVERSED_RANGE),
-            Map.entry(RangeTooWideException.class, ApiError.RANGE_TOO_WIDE));
+            Map.entry(RangeTooWideException.class, ApiError.RANGE_TOO_WIDE),
+            Map.entry(DuplicateBudgetException.class, ApiError.DUPLICATE_ID),
+            Map.entry(UnknownBudgetException.class, ApiError.NOT_FOUND),
+            Map.entry(BudgetAlreadySupersededException.class,
+                    ApiError.BUDGET_ALREADY_SUPERSEDED),
+            Map.entry(UnexpectedAccountTypeException.class,
+                    ApiError.UNEXPECTED_ACCOUNT_TYPE));
 
     @Test
     @DisplayName("H2 · y el brazo de recogida no se traga a las que tienen nombre")

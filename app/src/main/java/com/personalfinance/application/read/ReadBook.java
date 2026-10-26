@@ -50,6 +50,16 @@ public class ReadBook {
             Comparator.comparing(AccountTotal::total, Comparator.reverseOrder())
                     .thenComparing(AccountTotal::name);
 
+    /**
+     * El más consumido primero: arriba queda lo que está a punto de reventar,
+     * que es lo que se busca al abrir esta pantalla. El nombre desempata para
+     * que dos categorías igual de gastadas no salgan hoy en un orden y mañana
+     * en otro.
+     */
+    private static final Comparator<BudgetView> MOST_USED_FIRST =
+            Comparator.comparingLong(BudgetView::percentageUsed).reversed()
+                    .thenComparing(BudgetView::categoryName);
+
     private final BookLoader loader;
 
     ReadBook(BookLoader loader) {
@@ -221,6 +231,34 @@ public class ReadBook {
                         .toList();
 
         return Page.of(all, asked);
+    }
+
+    /**
+     * HU27. Cómo va cada límite de ese mes, el más consumido primero.
+     *
+     * <p>Lo gastado sale de los apuntes de ese mes, como todo número de aquí, y
+     * se cruza con el límite en el dominio. Solo salen los límites vivos: los
+     * que fueron reemplazados siguen en la base porque la historia los
+     * necesita, pero no son el plan de nadie.
+     *
+     * <p>El orden es el más consumido primero, que es el que pone arriba lo que
+     * está a punto de reventar: es la pregunta que se hace frente a esta
+     * pantalla.
+     */
+    @Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)
+    public List<BudgetView> budgets(YearMonth month) {
+        Book book = loader.load();
+
+        MovementQuery thatMonth = MovementQuery.everything()
+                .between(month.atDay(1), month.atEndOfMonth());
+        Map<AccountId, Money> spent =
+                book.ledger().totalsByAccount(AccountType.EXPENSE, thatMonth);
+
+        return book.budgets().liveFor(month).stream()
+                .map(budget -> BudgetView.of(budget.progressWith(
+                        spent.getOrDefault(budget.category().id(), Money.ZERO))))
+                .sorted(MOST_USED_FIRST)
+                .toList();
     }
 
     /** HU06. La cadena de versiones de un movimiento, la original primero. */

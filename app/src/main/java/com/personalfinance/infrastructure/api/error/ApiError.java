@@ -130,6 +130,29 @@ public enum ApiError {
     PERSON_STILL_HAS_OPEN_ACCOUNTS(HttpStatus.CONFLICT, "person-still-has-open-accounts",
             "Esa persona todavía tiene cuentas abiertas."),
 
+    /**
+     * Un presupuesto que ya había sido reemplazado se reemplazó otra vez.
+     *
+     * <p>El caso de uso no puede producirlo — solo reemplaza el que está vivo —,
+     * así que esto es la red del store, que nunca da por hecho que el libro en
+     * memoria comprobó primero.
+     */
+    BUDGET_ALREADY_SUPERSEDED(HttpStatus.CONFLICT, "budget-already-superseded",
+            "Ese presupuesto ya había sido reemplazado."),
+
+    /**
+     * La cuenta existe y es del tipo equivocado para lo que se pidió: pagar un
+     * almuerzo «desde» una categoría de ingreso, o poner un presupuesto a una
+     * cuenta de banco.
+     *
+     * <p>Estrena código y deja de caer en el 422 genérico por lo mismo que
+     * {@code archived-account}: antes solo se tropezaba armando un movimiento,
+     * donde el texto genérico bastaba; al poner un presupuesto es uno de los
+     * dos errores posibles, y decir cuál ahorra el viaje de adivinarlo.
+     */
+    UNEXPECTED_ACCOUNT_TYPE(HttpStatus.UNPROCESSABLE_CONTENT, "unexpected-account-type",
+            "Ese tipo de cuenta no sirve para esta operación."),
+
     SAME_ACCOUNT_TRANSFER(HttpStatus.UNPROCESSABLE_CONTENT, "same-account-transfer",
             "Una transferencia necesita dos cuentas distintas."),
 

@@ -32,7 +32,6 @@ public final class Budget {
     private final BudgetId replaces;
 
     private Instant supersededAt;
-    private BudgetId supersededBy;
 
     private Budget(
             BudgetId id,
@@ -40,8 +39,7 @@ public final class Budget {
             YearMonth month,
             Money limit,
             BudgetId replaces,
-            Instant supersededAt,
-            BudgetId supersededBy) {
+            Instant supersededAt) {
 
         this.id = Objects.requireNonNull(id, "id");
         this.category = requireACategory(category);
@@ -49,7 +47,6 @@ public final class Budget {
         this.limit = requireASensibleLimit(category, limit);
         this.replaces = replaces;
         this.supersededAt = supersededAt;
-        this.supersededBy = supersededBy;
     }
 
     /**
@@ -59,7 +56,7 @@ public final class Budget {
      * a retry is told apart from a contradiction without writing anything.
      */
     public static Budget of(BudgetId id, Account category, YearMonth month, Money limit) {
-        return new Budget(id, category, month, limit, null, null, null);
+        return new Budget(id, category, month, limit, null, null);
     }
 
     /**
@@ -75,28 +72,32 @@ public final class Budget {
             YearMonth month,
             Money limit,
             BudgetId replaces,
-            Instant supersededAt,
-            BudgetId supersededBy) {
+            Instant supersededAt) {
 
-        return new Budget(id, category, month, limit, replaces, supersededAt, supersededBy);
+        return new Budget(id, category, month, limit, replaces, supersededAt);
     }
 
     /** The replacement for a limit that was already set, with its own id. */
     static Budget replacing(Budget previous, BudgetId id, Money limit) {
-        return new Budget(
-                id, previous.category, previous.month, limit, previous.id, null, null);
+        return new Budget(id, previous.category, previous.month, limit, previous.id, null);
     }
 
-    /** Stops this limit from counting. Once, and never undone. */
-    void supersede(Instant when, BudgetId by) {
+    /**
+     * Stops this limit from counting. Once, and never undone.
+     *
+     * <p>It does not record <em>which</em> limit took its place, and that is
+     * deliberate: the replacement already points back here through
+     * {@link #replaces()}, and writing the same link in both directions is the
+     * same fact stored twice. One of the two copies always ends up wrong. The
+     * ledger settles a correction the same way.
+     */
+    void supersede(Instant when) {
         Objects.requireNonNull(when, "when");
-        Objects.requireNonNull(by, "by");
 
         if (supersededAt != null) {
             throw new BudgetAlreadySupersededException(id, supersededAt);
         }
         this.supersededAt = when;
-        this.supersededBy = by;
     }
 
     /**
@@ -153,10 +154,6 @@ public final class Budget {
 
     public Optional<Instant> supersededAt() {
         return Optional.ofNullable(supersededAt);
-    }
-
-    public Optional<BudgetId> supersededBy() {
-        return Optional.ofNullable(supersededBy);
     }
 
     /**

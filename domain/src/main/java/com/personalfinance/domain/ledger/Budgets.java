@@ -61,7 +61,7 @@ public final class Budgets {
                 .map(replaced -> Budget.replacing(replaced, id, limit))
                 .orElseGet(() -> Budget.of(id, category, month, limit));
 
-        previous.ifPresent(replaced -> replaced.supersede(when, id));
+        previous.ifPresent(replaced -> replaced.supersede(when));
         budgets.put(id, current);
 
         return current;

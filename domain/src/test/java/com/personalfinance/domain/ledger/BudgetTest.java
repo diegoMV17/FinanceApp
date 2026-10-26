@@ -132,6 +132,12 @@ class BudgetTest {
          * moment it stopped counting, so a report can still say what the plan
          * for March was before it was raised.
          */
+        /**
+         * The link is written once, on the replacement. The superseded one says
+         * only that it stopped counting and when: storing "replaced by" here as
+         * well would be the same fact in two places, and one of the two copies
+         * always ends up wrong.
+         */
         @Test
         @DisplayName("N8 · and the previous one stays in the history, marked")
         void theOldOneStaysInTheHistory() {
@@ -142,7 +148,7 @@ class BudgetTest {
 
             assertThat(first.isLive()).isFalse();
             assertThat(first.supersededAt()).contains(WHEN);
-            assertThat(first.supersededBy()).contains(second.id());
+            assertThat(second.replaces()).contains(first.id());
             assertThat(budgets.all()).containsExactly(first, second);
         }
 

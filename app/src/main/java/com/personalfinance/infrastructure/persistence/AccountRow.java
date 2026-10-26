@@ -43,6 +43,13 @@ class AccountRow extends AssignedIdRow {
     @Column(name = "archived_at")
     private Instant archivedAt;
 
+    /**
+     * De quién es esta cuenta, o nulo. La columna está desde la V1; la tabla a
+     * la que apunta y su clave ajena llegaron con la V6.
+     */
+    @Column(name = "person_id")
+    private UUID personId;
+
     /** La pone la base. Solo se lee, y sirve para cargar en el orden de apertura. */
     @Column(name = "created_at", insertable = false, updatable = false)
     private Instant createdAt;
@@ -51,11 +58,12 @@ class AccountRow extends AssignedIdRow {
     protected AccountRow() {
     }
 
-    AccountRow(UUID id, AccountType type, String name, Instant archivedAt) {
+    AccountRow(UUID id, AccountType type, String name, Instant archivedAt, UUID personId) {
         this.id = id;
         this.type = type;
         this.name = name;
         this.archivedAt = archivedAt;
+        this.personId = personId;
     }
 
     @Override
@@ -75,6 +83,10 @@ class AccountRow extends AssignedIdRow {
         return archivedAt;
     }
 
+    UUID personId() {
+        return personId;
+    }
+
     boolean isArchived() {
         return archivedAt != null;
     }
@@ -85,5 +97,9 @@ class AccountRow extends AssignedIdRow {
 
     void archivedAt(Instant when) {
         this.archivedAt = when;
+    }
+
+    void linkTo(UUID person) {
+        this.personId = person;
     }
 }

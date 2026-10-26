@@ -3,11 +3,12 @@ package com.personalfinance.infrastructure.persistence;
 import com.personalfinance.domain.ledger.Account;
 import com.personalfinance.domain.ledger.AccountAlreadyArchivedException;
 import com.personalfinance.domain.ledger.AccountId;
+import com.personalfinance.domain.ledger.Directory;
+import com.personalfinance.domain.ledger.PersonId;
 import com.personalfinance.domain.ledger.UnknownAccountException;
 import com.personalfinance.domain.ledger.port.AccountStore;
 import java.time.Instant;
 import java.util.List;
-import java.util.Optional;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -15,8 +16,8 @@ import org.springframework.transaction.annotation.Transactional;
  * El catálogo de cuentas, contra Postgres.
  *
  * <p>No hay {@code delete}: las cuentas se archivan. Lo que cambia después de
- * abrir una cuenta es su nombre y su fecha de archivado, y nada más — por eso
- * esta clase solo sabe hacer esas dos cosas.
+ * abrir una cuenta es su nombre, su fecha de archivado y de quién es, y nada
+ * más — por eso esta clase solo sabe hacer esas tres cosas.
  *
  * <p>Abrir dos veces la misma cuenta falla con la clave primaria (ver
  * {@link AssignedIdRow}) en vez de reescribirla: sin eso, "abrir" una cuenta
@@ -42,7 +43,7 @@ class JpaAccountStore implements AccountStore {
     public void markArchived(AccountId id, Instant at) {
         AccountRow row = require(id);
         if (row.isArchived()) {
-            throw new AccountAlreadyArchivedException(LedgerMapper.accountFrom(row));
+            throw new AccountAlreadyArchivedException(LedgerMapper.unlinkedAccountFrom(row));
         }
         row.archivedAt(at);
     }
@@ -53,17 +54,23 @@ class JpaAccountStore implements AccountStore {
         require(id).renameTo(newName);
     }
 
+    /**
+     * Mover el vínculo a otra persona es un UPDATE normal; quitarlo no está
+     * ofrecido. Que la persona exista lo garantiza la clave ajena de la V6, y
+     * que el tipo de cuenta pueda tenerla, el CHECK de la V1: las dos reglas ya
+     * las comprobó el dominio, y aquí quedan como red de atrás.
+     */
     @Override
-    @Transactional(readOnly = true)
-    public Optional<Account> find(AccountId id) {
-        return accounts.findById(id.value()).map(LedgerMapper::accountFrom);
+    @Transactional
+    public void linkToPerson(AccountId id, PersonId person) {
+        require(id).linkTo(person.value());
     }
 
     @Override
     @Transactional(readOnly = true)
-    public List<Account> all() {
+    public List<Account> all(Directory directory) {
         return accounts.findAllByOrderByCreatedAtAscIdAsc().stream()
-                .map(LedgerMapper::accountFrom)
+                .map(row -> LedgerMapper.accountFrom(row, directory))
                 .toList();
     }
 

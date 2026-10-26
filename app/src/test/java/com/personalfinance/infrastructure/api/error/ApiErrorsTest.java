@@ -4,16 +4,25 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.personalfinance.application.BookBusyException;
 import com.personalfinance.domain.ledger.AccountAlreadyArchivedException;
+import com.personalfinance.domain.ledger.AccountCannotBelongToAPersonException;
 import com.personalfinance.domain.ledger.AccountStillHoldsMoneyException;
+import com.personalfinance.domain.ledger.ArchivedAccountException;
+import com.personalfinance.domain.ledger.ArchivedPersonException;
 import com.personalfinance.domain.ledger.BlankAccountNameException;
+import com.personalfinance.domain.ledger.BlankPersonNameException;
 import com.personalfinance.domain.ledger.DateOutOfRangeException;
 import com.personalfinance.domain.ledger.DuplicateAccountException;
 import com.personalfinance.domain.ledger.DuplicateAccountNameException;
+import com.personalfinance.domain.ledger.DuplicatePersonException;
+import com.personalfinance.domain.ledger.DuplicatePersonNameException;
 import com.personalfinance.domain.ledger.DuplicateTransactionException;
 import com.personalfinance.domain.ledger.LedgerException;
+import com.personalfinance.domain.ledger.PersonAlreadyArchivedException;
+import com.personalfinance.domain.ledger.PersonStillHasOpenAccountsException;
 import com.personalfinance.domain.ledger.SameAccountTransferException;
 import com.personalfinance.domain.ledger.TransactionAlreadyCancelledException;
 import com.personalfinance.domain.ledger.UnknownAccountException;
+import com.personalfinance.domain.ledger.UnknownPersonException;
 import com.personalfinance.domain.ledger.UnknownTransactionException;
 import com.personalfinance.infrastructure.api.limit.BodyTooLargeException;
 import com.tngtech.archunit.core.domain.JavaClass;
@@ -32,9 +41,9 @@ import org.springframework.http.HttpStatus;
  * <p>El test que de verdad importa es el primero, y no comprueba un caso: los
  * comprueba todos. Recorre las subclases de {@link LedgerException} que
  * existen de verdad en el código y exige que cada una tenga una respuesta
- * pensada. Cuando el incremento 2 traiga reglas nuevas con excepciones nuevas,
- * este test se pondrá rojo hasta que alguien decida qué responde la API — que
- * es exactamente cuándo hay que decidirlo.
+ * pensada. El incremento 2 trajo ocho excepciones nuevas y este test se puso
+ * rojo con cada una hasta que alguien decidió qué responde la API — que es
+ * exactamente cuándo hay que decidirlo.
  */
 @DisplayName("La traducción de los fallos")
 class ApiErrorsTest {
@@ -54,7 +63,7 @@ class ApiErrorsTest {
         // sin comprobar nada. Esto es el seguro de ese seguro.
         assertThat(LEDGER_EXCEPTIONS)
                 .as("las subclases de LedgerException del dominio")
-                .hasSizeGreaterThanOrEqualTo(15);
+                .hasSizeGreaterThanOrEqualTo(23);
     }
 
     @Test
@@ -109,7 +118,17 @@ class ApiErrorsTest {
             Map.entry(BlankAccountNameException.class, ApiError.ACCOUNT_NEEDS_NAME),
             Map.entry(DateOutOfRangeException.class, ApiError.DATE_OUT_OF_RANGE),
             Map.entry(BookBusyException.class, ApiError.BOOK_BUSY),
-            Map.entry(BodyTooLargeException.class, ApiError.CONTENT_TOO_LARGE));
+            Map.entry(BodyTooLargeException.class, ApiError.CONTENT_TOO_LARGE),
+            Map.entry(UnknownPersonException.class, ApiError.NOT_FOUND),
+            Map.entry(DuplicatePersonException.class, ApiError.DUPLICATE_ID),
+            Map.entry(DuplicatePersonNameException.class, ApiError.DUPLICATE_PERSON_NAME),
+            Map.entry(PersonAlreadyArchivedException.class, ApiError.PERSON_ALREADY_ARCHIVED),
+            Map.entry(PersonStillHasOpenAccountsException.class,
+                    ApiError.PERSON_STILL_HAS_OPEN_ACCOUNTS),
+            Map.entry(BlankPersonNameException.class, ApiError.PERSON_NEEDS_NAME),
+            Map.entry(AccountCannotBelongToAPersonException.class, ApiError.ACCOUNT_IS_NOBODY),
+            Map.entry(ArchivedPersonException.class, ApiError.ARCHIVED_PERSON),
+            Map.entry(ArchivedAccountException.class, ApiError.ARCHIVED_ACCOUNT));
 
     @Test
     @DisplayName("H2 · y el brazo de recogida no se traga a las que tienen nombre")

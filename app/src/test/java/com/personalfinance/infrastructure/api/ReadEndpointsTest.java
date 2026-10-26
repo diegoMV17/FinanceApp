@@ -28,7 +28,7 @@ import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 
 /**
- * H4. Las cuatro lecturas, por HTTP.
+ * H4 y H8. Las seis lecturas, por HTTP.
  *
  * <p>Las lecturas no toman el candado y van en {@code REPEATABLE READ}; eso ya
  * lo prueban los tests {@code C*}. Lo que se prueba aquí es el contrato: qué
@@ -55,7 +55,7 @@ class ReadEndpointsTest extends PostgresIntegrationTest {
 
     @BeforeEach
     void writeABookWorthReading() throws Exception {
-        jdbc.execute("TRUNCATE entries, transactions, audit_log, accounts CASCADE");
+        jdbc.execute("TRUNCATE entries, transactions, audit_log, accounts, people CASCADE");
 
         bank = openAccount("ASSET", "Bancolombia");
         food = openAccount("EXPENSE", "Alimentación");
@@ -286,6 +286,160 @@ class ReadEndpointsTest extends PostgresIntegrationTest {
                             .getResponse().getStatus())
                     .isEqualTo(404);
         }
+    }
+
+    /**
+     * H8. HU19 y HU21: la lectura por la que existe el incremento.
+     *
+     * <p>El libro de este nido es el ejemplo de siempre: Juan me debe 100.000,
+     * yo le debo 30.000 y tengo 50.000 de su plata guardados. Los tres números
+     * salen en positivo y el neto da 20.000.
+     */
+    @Nested
+    @DisplayName("las personas")
+    class ThePeople {
+
+        private UUID juan;
+        private UUID owedByJuan;
+        private UUID owedToJuan;
+        private UUID juansFund;
+
+        @BeforeEach
+        void aBookWithJuanInIt() throws Exception {
+            juan = addPerson("Juan");
+
+            owedByJuan = openAccount("RECEIVABLE", "Juan");
+            owedToJuan = openAccount("PAYABLE", "Juan");
+            juansFund = openAccount("THIRD_PARTY_FUND", "Juan");
+            link(juan, owedByJuan);
+            link(juan, owedToJuan);
+            link(juan, juansFund);
+
+            send("/api/movements", """
+                    {"type":"LEND","id":"%s","date":"%s","description":"Préstamo",
+                     "paidFrom":"%s","borrower":"%s","amountInCents":10000000}"""
+                    .formatted(UUID.randomUUID(), JANUARY, bank, owedByJuan));
+            send("/api/movements", """
+                    {"type":"BORROW","id":"%s","date":"%s","description":"Me prestó",
+                     "lender":"%s","receivedInto":"%s","amountInCents":3000000}"""
+                    .formatted(UUID.randomUUID(), JANUARY, owedToJuan, bank));
+            send("/api/movements", """
+                    {"type":"RECEIVE_THIRD_PARTY_MONEY","id":"%s","date":"%s",
+                     "description":"Me dejó plata","fund":"%s","heldIn":"%s",
+                     "amountInCents":5000000}"""
+                    .formatted(UUID.randomUUID(), JANUARY, juansFund, bank));
+        }
+
+        @Test
+        @DisplayName("H8 · traen los tres lados y el neto, con el signo que se lee")
+        void theThreeSidesAndTheNet() throws Exception {
+            JsonNode body = read(ask("/api/people?asOf=2026-12-31"));
+
+            assertThat(body.get("asOf").asString()).isEqualTo("2026-12-31");
+            JsonNode person = personNamed(body.get("people"), "Juan");
+
+            assertThat(person.get("id").asString()).isEqualTo(juan.toString());
+            assertThat(person.get("owedToYouInCents").asLong()).isEqualTo(10_000_000L);
+            assertThat(person.get("youOweInCents").asLong()).isEqualTo(3_000_000L);
+            assertThat(person.get("theirFundInCents").asLong()).isEqualTo(5_000_000L);
+            assertThat(person.get("netOwedToYouInCents").asLong()).isEqualTo(2_000_000L);
+            assertThat(person.get("archivedAt").isNull()).isTrue();
+        }
+
+        @Test
+        @DisplayName("H8 · y las cuentas de las que salen esos números, con su saldo")
+        void theAccountsBehindTheNumbers() throws Exception {
+            JsonNode accounts = read(ask("/api/people/" + juan + "?asOf=2026-12-31"))
+                    .get("person").get("accounts");
+
+            assertThat(accounts.size()).isEqualTo(3);
+            assertThat(accountNamed(accounts, "Juan").get("balanceInCents").asLong())
+                    .isPositive();
+
+            List<String> types = new ArrayList<>();
+            accounts.forEach(account -> types.add(account.get("type").asString()));
+            assertThat(types).containsExactlyInAnyOrder(
+                    "RECEIVABLE", "PAYABLE", "THIRD_PARTY_FUND");
+        }
+
+        @Test
+        @DisplayName("H8 · una sola persona viene en su sobre, con el asOf")
+        void onePersonComesInAnEnvelope() throws Exception {
+            JsonNode body = read(ask("/api/people/" + juan + "?asOf=2026-12-31"));
+
+            assertThat(body.get("asOf").asString()).isEqualTo("2026-12-31");
+            assertThat(body.get("person").get("name").asString()).isEqualTo("Juan");
+        }
+
+        @Test
+        @DisplayName("H8 · sin fecha contestan con la de hoy y lo dicen")
+        void withoutADateTheyAnswerForToday() throws Exception {
+            String today = LocalDate.now(clock).toString();
+
+            assertThat(read(ask("/api/people")).get("asOf").asString()).isEqualTo(today);
+            assertThat(read(ask("/api/people/" + juan)).get("asOf").asString())
+                    .isEqualTo(today);
+        }
+
+        @Test
+        @DisplayName("H8 · un asOf vacío cuenta como ausente, y la respuesta lo dice")
+        void anEmptyAsOfCountsAsAbsent() throws Exception {
+            JsonNode body = read(ask("/api/people?asOf="));
+
+            assertThat(body.get("asOf").asString()).isEqualTo(LocalDate.now(clock).toString());
+        }
+
+        @Test
+        @DisplayName("H8 · antes del primer movimiento la posición está en cero")
+        void beforeAnythingHappenedEverythingIsZero() throws Exception {
+            JsonNode person = read(ask("/api/people/" + juan + "?asOf=2025-12-31"))
+                    .get("person");
+
+            assertThat(person.get("owedToYouInCents").asLong()).isZero();
+            assertThat(person.get("youOweInCents").asLong()).isZero();
+            assertThat(person.get("theirFundInCents").asLong()).isZero();
+            assertThat(person.get("netOwedToYouInCents").asLong()).isZero();
+        }
+
+        @Test
+        @DisplayName("H8 · una persona sin cuentas sale en cero, no se omite")
+        void aPersonWithoutAccountsStillComes() throws Exception {
+            UUID pedro = addPerson("Pedro");
+
+            JsonNode person = personNamed(read(ask("/api/people")).get("people"), "Pedro");
+
+            assertThat(person.get("id").asString()).isEqualTo(pedro.toString());
+            assertThat(person.get("netOwedToYouInCents").asLong()).isZero();
+            assertThat(person.get("accounts").size()).isZero();
+        }
+
+        @Test
+        @DisplayName("H8 · una persona que no existe responde 404")
+        void anUnknownPersonIs404() throws Exception {
+            assertThat(ask("/api/people/" + UUID.randomUUID()).getResponse().getStatus())
+                    .isEqualTo(404);
+        }
+
+        private UUID addPerson(String name) throws Exception {
+            UUID id = UUID.randomUUID();
+            send("/api/people", """
+                    {"id":"%s","name":"%s"}""".formatted(id, name));
+            return id;
+        }
+
+        private void link(UUID person, UUID account) throws Exception {
+            send("/api/people/" + person + "/accounts", """
+                    {"account":"%s"}""".formatted(account));
+        }
+    }
+
+    private static JsonNode personNamed(JsonNode people, String name) {
+        for (JsonNode person : people) {
+            if (name.equals(person.get("name").asString())) {
+                return person;
+            }
+        }
+        throw new AssertionError("no vino la persona " + name);
     }
 
     private static JsonNode accountNamed(JsonNode accounts, String name) {

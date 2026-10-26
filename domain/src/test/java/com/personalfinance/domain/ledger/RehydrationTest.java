@@ -38,7 +38,7 @@ class RehydrationTest {
         void keepsEverything() {
             AccountId id = AccountId.generate();
 
-            Account loaded = Account.rehydrated(id, AccountType.ASSET, "Nequi", WHEN);
+            Account loaded = Account.rehydrated(id, AccountType.ASSET, "Nequi", WHEN, null);
 
             assertThat(loaded.id()).isEqualTo(id);
             assertThat(loaded.type()).isEqualTo(AccountType.ASSET);
@@ -50,7 +50,7 @@ class RehydrationTest {
         @DisplayName("F2 · is open when no archive date is stored")
         void openWhenNoDate() {
             Account loaded =
-                    Account.rehydrated(AccountId.generate(), AccountType.EXPENSE, "Ocio", null);
+                    Account.rehydrated(AccountId.generate(), AccountType.EXPENSE, "Ocio", null, null);
 
             assertThat(loaded.isArchived()).isFalse();
         }
@@ -60,7 +60,7 @@ class RehydrationTest {
         void blankNameStillRefused() {
             assertThatExceptionOfType(BlankAccountNameException.class)
                     .isThrownBy(() ->
-                            Account.rehydrated(AccountId.generate(), AccountType.ASSET, " ", null));
+                            Account.rehydrated(AccountId.generate(), AccountType.ASSET, " ", null, null));
         }
     }
 
@@ -181,6 +181,78 @@ class RehydrationTest {
                     .isThrownBy(() -> Transaction.rehydrated(
                             TransactionId.generate(), DAY, "Almuerzo", TransactionSource.APP,
                             lonely, null, null));
+        }
+    }
+
+    @Nested
+    @DisplayName("a person")
+    class RehydratedPerson {
+
+        @Test
+        @DisplayName("F14 · keeps their id, name and archived state")
+        void keepsEverything() {
+            PersonId id = PersonId.generate();
+
+            Person loaded = Person.rehydrated(id, "Juan", WHEN);
+
+            assertThat(loaded.id()).isEqualTo(id);
+            assertThat(loaded.name()).isEqualTo("Juan");
+            assertThat(loaded.archivedAt()).contains(WHEN);
+
+            assertThat(Person.rehydrated(PersonId.generate(), "Pedro", null).isArchived())
+                    .isFalse();
+        }
+
+        @Test
+        @DisplayName("F15 · and a blank stored name is still no name")
+        void blankNameStillRefused() {
+            assertThatExceptionOfType(BlankPersonNameException.class)
+                    .isThrownBy(() -> Person.rehydrated(PersonId.generate(), " ", null));
+        }
+    }
+
+    @Nested
+    @DisplayName("an account with a person")
+    class RehydratedLink {
+
+        private final Person juan = Person.rehydrated(PersonId.generate(), "Juan", null);
+
+        @Test
+        @DisplayName("F16 · comes back pointing at the very person the directory handed out")
+        void keepsItsPerson() {
+            Account loaded = Account.rehydrated(
+                    AccountId.generate(), AccountType.RECEIVABLE, "Juan", null, juan);
+
+            assertThat(loaded.person()).containsSame(juan);
+            assertThat(loaded.belongsTo(juan)).isTrue();
+        }
+
+        /**
+         * The invariant lives in the constructor, so loading applies it too. A
+         * row somebody wrote around the CHECK has to fail here, loudly, the way
+         * an unbalanced transaction already does.
+         */
+        @Test
+        @DisplayName("F17 · and a stored category with a person fails on load")
+        void aTamperedRowFailsOnLoad() {
+            assertThatExceptionOfType(AccountCannotBelongToAPersonException.class)
+                    .isThrownBy(() -> Account.rehydrated(
+                            AccountId.generate(), AccountType.EXPENSE, "Alimentación", null, juan));
+        }
+
+        /**
+         * An archived account keeps the person it had: the history is read
+         * through them. What is refused is attaching one <em>now</em>, which is
+         * {@link Chart#linkToPerson} and not this.
+         */
+        @Test
+        @DisplayName("F18 · an archived account still comes back with its person")
+        void archivedKeepsItsPerson() {
+            Account loaded = Account.rehydrated(
+                    AccountId.generate(), AccountType.PAYABLE, "Juan", WHEN, juan);
+
+            assertThat(loaded.isArchived()).isTrue();
+            assertThat(loaded.person()).containsSame(juan);
         }
     }
 }

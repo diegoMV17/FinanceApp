@@ -1,6 +1,7 @@
 package com.personalfinance.application.port;
 
 import com.personalfinance.domain.ledger.AccountId;
+import com.personalfinance.domain.ledger.PersonId;
 import com.personalfinance.domain.ledger.TransactionId;
 import com.personalfinance.domain.ledger.TransactionSource;
 import java.util.Map;
@@ -13,9 +14,11 @@ import java.util.UUID;
  * <p>{@code before} y {@code after} se llenan solo donde el dato se perdería de
  * otra forma. Un renombrado guarda el nombre anterior y el nuevo, porque la
  * tabla {@code accounts} solo conserva el último; una corrección guarda el id
- * de su reemplazo. Montos y descripciones no se copian nunca: ya están en
- * tablas que nadie puede modificar, y duplicarlos sería una segunda verdad que
- * alguien tendría que recordar mantener.
+ * de su reemplazo; un vínculo guarda de quién era la cuenta antes, porque
+ * {@code accounts.person_id} solo conserva de quién es ahora. Montos y
+ * descripciones no se copian nunca: ya están en tablas que nadie puede
+ * modificar, y duplicarlos sería una segunda verdad que alguien tendría que
+ * recordar mantener.
  *
  * <p>Los valores son cadenas y no objetos cualesquiera: el JSON que llega a la
  * base es predecible, pequeño y no arrastra la forma interna de nada.
@@ -69,6 +72,36 @@ public record AuditRecord(
                 Map.of("name", from), Map.of("name", to));
     }
 
+    public static AuditRecord personOpened(PersonId id) {
+        return ofPerson(id, AuditAction.CREATE, Map.of(), Map.of());
+    }
+
+    public static AuditRecord personArchived(PersonId id) {
+        return ofPerson(id, AuditAction.ARCHIVE, Map.of(), Map.of());
+    }
+
+    public static AuditRecord personRenamed(PersonId id, String from, String to) {
+        return ofPerson(id, AuditAction.RENAME,
+                Map.of("name", from), Map.of("name", to));
+    }
+
+    /**
+     * El vínculo se anota sobre la cuenta, que es la fila que cambió y el id por
+     * el que alguien va a preguntar.
+     *
+     * <p>Van los ids y no los nombres: un nombre se puede cambiar después y
+     * entonces la bitácora contaría una historia que ya no cuadra con el
+     * directorio. Y son ids, no nombres, también por lo de siempre — aquí no se
+     * copian datos de la persona.
+     *
+     * @param before de quién era antes, o {@code null} si no era de nadie
+     */
+    public static AuditRecord accountLinked(AccountId id, PersonId before, PersonId after) {
+        return ofAccount(id, AuditAction.LINK,
+                before == null ? Map.of() : Map.of("person", before.toString()),
+                Map.of("person", after.toString()));
+    }
+
     private static AuditRecord ofTransaction(
             TransactionId id, AuditAction action,
             Map<String, String> before, Map<String, String> after) {
@@ -82,6 +115,14 @@ public record AuditRecord(
             Map<String, String> before, Map<String, String> after) {
 
         return new AuditRecord(AuditedEntity.ACCOUNT, id.value(), action,
+                TransactionSource.APP, before, after);
+    }
+
+    private static AuditRecord ofPerson(
+            PersonId id, AuditAction action,
+            Map<String, String> before, Map<String, String> after) {
+
+        return new AuditRecord(AuditedEntity.PERSON, id.value(), action,
                 TransactionSource.APP, before, after);
     }
 }

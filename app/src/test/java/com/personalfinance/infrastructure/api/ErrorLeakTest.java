@@ -57,6 +57,7 @@ class ErrorLeakTest extends PostgresIntegrationTest {
     private static final String ACCOUNT_SENTINEL = "ÑOÑO-CENTINELA-BANCO";
     private static final String CATEGORY_SENTINEL = "CENTINELA-CATEGORIA";
     private static final String DESCRIPTION_SENTINEL = "CENTINELA-DESCRIPCION";
+    private static final String PERSON_SENTINEL = "CENTINELA-PERSONA";
     private static final long AMOUNT_SENTINEL = 987_654_321L;
 
     /** Lo único que un cuerpo de error puede traer. */
@@ -77,10 +78,12 @@ class ErrorLeakTest extends PostgresIntegrationTest {
     private UUID bank;
     private UUID category;
     private UUID movement;
+    private UUID person;
+    private UUID owedToPerson;
 
     @BeforeEach
     void writeABookFullOfSentinels() throws Exception {
-        jdbc.execute("TRUNCATE entries, transactions, audit_log, accounts CASCADE");
+        jdbc.execute("TRUNCATE entries, transactions, audit_log, accounts, people CASCADE");
 
         bank = open("ASSET", ACCOUNT_SENTINEL);
         category = open("EXPENSE", CATEGORY_SENTINEL);
@@ -96,6 +99,14 @@ class ErrorLeakTest extends PostgresIntegrationTest {
                 {"type":"EXPENSE","id":"%s","date":"%s","description":"%s",
                  "paidFrom":"%s","category":"%s","amountInCents":1000}"""
                 .formatted(movement, TODAY, DESCRIPTION_SENTINEL, bank, category));
+
+        person = UUID.randomUUID();
+        seed("/api/people", """
+                {"id":"%s","name":"%s"}""".formatted(person, PERSON_SENTINEL));
+
+        owedToPerson = open("RECEIVABLE", "CENTINELA-DEUDA");
+        seed("/api/people/" + person + "/accounts", """
+                {"account":"%s"}""".formatted(owedToPerson));
     }
 
     @Test
@@ -150,6 +161,7 @@ class ErrorLeakTest extends PostgresIntegrationTest {
                     .doesNotContain(ACCOUNT_SENTINEL)
                     .doesNotContain(CATEGORY_SENTINEL)
                     .doesNotContain(DESCRIPTION_SENTINEL)
+                    .doesNotContain(PERSON_SENTINEL)
                     .doesNotContain(String.valueOf(AMOUNT_SENTINEL))
                     .doesNotContain(TEST_API_TOKEN);
 
@@ -210,6 +222,14 @@ class ErrorLeakTest extends PostgresIntegrationTest {
         probes.add(new Probe("POST movimiento sin token",
                 post("/api/movements").contentType(MediaType.APPLICATION_JSON)
                         .content("{}")));
+        probes.add(new Probe("GET personas sin token", get("/api/people")));
+        probes.add(new Probe("GET persona sin token", get("/api/people/" + person)));
+        probes.add(new Probe("POST persona sin token",
+                post("/api/people").contentType(MediaType.APPLICATION_JSON)
+                        .content("{}")));
+        probes.add(new Probe("POST vinculo sin token",
+                post("/api/people/" + person + "/accounts")
+                        .contentType(MediaType.APPLICATION_JSON).content("{}")));
 
         // Token mal.
         probes.add(new Probe("token equivocado",
@@ -294,6 +314,44 @@ class ErrorLeakTest extends PostgresIntegrationTest {
                 jsonBody("/api/movements/" + unknown + "/amendments", """
                         {"correction":%s}""".formatted(
                                 expense(UUID.randomUUID(), 1000, "x")))));
+
+        // Las personas: las seis rutas del incremento 2, con algo que filtrar
+        // en cada clase de error.
+        probes.add(new Probe("persona inexistente", authed(get("/api/people/" + unknown))));
+        probes.add(new Probe("id de persona que no es uuid",
+                authed(get("/api/people/no-soy-uuid"))));
+        probes.add(new Probe("nombre de persona ya usado",
+                jsonBody("/api/people", """
+                        {"id":"%s","name":"%s"}"""
+                        .formatted(UUID.randomUUID(), PERSON_SENTINEL))));
+        probes.add(new Probe("misma persona con otro nombre",
+                jsonBody("/api/people", """
+                        {"id":"%s","name":"Otra"}""".formatted(person))));
+        probes.add(new Probe("nombre de persona en blanco",
+                jsonBody("/api/people", """
+                        {"id":"%s","name":"   "}""".formatted(UUID.randomUUID()))));
+        probes.add(new Probe("nombre de persona con control de direccion",
+                jsonBody("/api/people", """
+                        {"id":"%s","name":"Juan\\u202E"}"""
+                        .formatted(UUID.randomUUID()))));
+        probes.add(new Probe("renombrar una persona que no existe",
+                jsonBody("/api/people/" + unknown + "/renames", """
+                        {"newName":"Otra"}""")));
+        probes.add(new Probe("archivar una persona con cuentas abiertas",
+                authed(post("/api/people/" + person + "/archivals"))));
+        probes.add(new Probe("archivar una persona que no existe",
+                authed(post("/api/people/" + unknown + "/archivals"))));
+        probes.add(new Probe("vincular una categoria",
+                jsonBody("/api/people/" + person + "/accounts", """
+                        {"account":"%s"}""".formatted(category))));
+        probes.add(new Probe("vincular a una persona que no existe",
+                jsonBody("/api/people/" + unknown + "/accounts", """
+                        {"account":"%s"}""".formatted(owedToPerson))));
+        probes.add(new Probe("vincular una cuenta que no existe",
+                jsonBody("/api/people/" + person + "/accounts", """
+                        {"account":"%s"}""".formatted(unknown))));
+        probes.add(new Probe("vincular sin decir la cuenta",
+                jsonBody("/api/people/" + person + "/accounts", "{}")));
 
         return probes;
     }

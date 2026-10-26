@@ -29,8 +29,22 @@ import org.testcontainers.junit.jupiter.Testcontainers;
  * saben con qué autenticarse y CI no necesita un secreto para correr. Que esto
  * esté escrito en el repositorio es exactamente la razón por la que el de
  * producción viene de {@code API_TOKEN} y nunca de un archivo versionado.
+ *
+ * <p>Y el tope de intentos fallidos se sube, porque en producción protege de
+ * alguien probando tokens y aquí solo acopla unos tests con otros.
+ * {@code FailedAttempts} cuenta por {@code getRemoteAddr()}, y en MockMvc todas
+ * las peticiones vienen de la misma dirección falsa: la ráfaga de peticiones sin
+ * token que {@code ErrorLeakTest} necesita para barrer las formas de fallar
+ * dejaba bloqueada esa dirección, y como Spring reutiliza el contexto en caché,
+ * la clase siguiente recibía 429 en el montaje de su propio libro. El
+ * comportamiento real del limitador se prueba donde se tiene que probar, en
+ * {@code FailedAttemptsTest} y {@code ApiTokenFilterTest}, que corren sin Spring
+ * y con sus propios topes.
  */
-@SpringBootTest(properties = "finance.api.token=" + PostgresIntegrationTest.TEST_API_TOKEN)
+@SpringBootTest(properties = {
+        "finance.api.token=" + PostgresIntegrationTest.TEST_API_TOKEN,
+        "finance.api.limits.failed-attempts=1000"
+})
 @Import(PostgresContainer.class)
 @Testcontainers(disabledWithoutDocker = true)
 public abstract class PostgresIntegrationTest {

@@ -153,7 +153,7 @@ class ContentComparisonTest {
         @DisplayName("G26 · still match once one of them has been archived")
         void archivingIsNotContent() {
             Account open = Account.open(id, AccountType.EXPENSE, "Alimentación");
-            Account archived = Account.rehydrated(id, AccountType.EXPENSE, "Alimentación", NOW);
+            Account archived = Account.rehydrated(id, AccountType.EXPENSE, "Alimentación", NOW, null);
 
             assertThat(open.sameContentAs(archived)).isTrue();
             assertThat(archived.sameContentAs(open)).isTrue();
@@ -185,6 +185,35 @@ class ContentComparisonTest {
             assertThat(account.isNamed("nequi")).isFalse();
             assertThat(account.isNamed("NEQUI")).isFalse();
             assertThat(account.isNamed("Nequi Ahorros")).isFalse();
+        }
+    }
+
+    @Nested
+    @DisplayName("two people")
+    class People {
+
+        private final PersonId id = PersonId.generate();
+
+        @Test
+        @DisplayName("G29 · match on id and name, ignoring case and blanks")
+        void sameContent() {
+            Person juan = Person.open(id, "Juan");
+
+            assertThat(juan.sameContentAs(Person.open(id, "Juan"))).isTrue();
+            assertThat(juan.sameContentAs(Person.open(id, "  juan "))).isTrue();
+        }
+
+        @Test
+        @DisplayName("G30 · differ on id or on a real change of name, and archiving is not content")
+        void differentContent() {
+            Person juan = Person.open(id, "Juan");
+
+            assertThat(juan.sameContentAs(Person.open(PersonId.generate(), "Juan"))).isFalse();
+            assertThat(juan.sameContentAs(Person.open(id, "Juan Pérez"))).isFalse();
+
+            Person archived = Person.rehydrated(id, "Juan", NOW);
+            assertThat(juan.sameContentAs(archived)).isTrue();
+            assertThat(archived.sameContentAs(juan)).isTrue();
         }
     }
 }

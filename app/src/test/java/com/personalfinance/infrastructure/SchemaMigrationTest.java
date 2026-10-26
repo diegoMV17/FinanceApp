@@ -74,7 +74,7 @@ class SchemaMigrationTest extends PostgresIntegrationTest {
         // DELETE está prohibido por los triggers, y eso es justamente el punto.
         // TRUNCATE no dispara triggers de fila, así que deja la base limpia sin
         // desactivar las protecciones que se están probando.
-        jdbc.execute("TRUNCATE entries, transactions, audit_log, accounts CASCADE");
+        jdbc.execute("TRUNCATE entries, transactions, audit_log, accounts, people CASCADE");
 
         openAccount(CASH, "ASSET", "Efectivo");
         openAccount(FOOD, "EXPENSE", "Alimentación");
@@ -92,14 +92,14 @@ class SchemaMigrationTest extends PostgresIntegrationTest {
                     "SELECT description FROM flyway_schema_history WHERE success",
                     String.class);
 
-            assertThat(applied).contains("esquema inicial", "limites de entrada");
+            assertThat(applied).contains("esquema inicial", "limites de entrada", "personas");
         }
 
         @Test
-        @DisplayName("P2 · con las cuatro tablas, la vista y cada uno de sus triggers")
+        @DisplayName("P2 · con las cinco tablas, la vista y cada uno de sus triggers")
         void everythingIsThere() {
             assertThat(tableNames())
-                    .contains("accounts", "transactions", "entries", "audit_log");
+                    .contains("accounts", "transactions", "entries", "audit_log", "people");
             assertThat(viewNames()).contains("account_eventual_balances");
             // Por nombre y no por cantidad: un número no dice cuál falta, y uno
             // reemplazado por otro con distinto alcance daría el mismo total.
@@ -110,7 +110,9 @@ class SchemaMigrationTest extends PostgresIntegrationTest {
                     "transactions_only_cancel_once",
                     "accounts_keep_their_identity",
                     "accounts_are_never_deleted",
-                    "audit_log_only_grows");
+                    "audit_log_only_grows",
+                    "people_keep_their_identity",
+                    "people_are_never_deleted");
         }
 
         @Test
@@ -679,6 +681,148 @@ class SchemaMigrationTest extends PostgresIntegrationTest {
         }
     }
 
+    /**
+     * Las personas, que son la V6. La columna {@code person_id} estaba desde la
+     * V1 con un CHECK y un comentario; lo que faltaba era la tabla a la que
+     * apuntaba y la clave ajena.
+     */
+    @Nested
+    @DisplayName("protege a las personas")
+    class People {
+
+        private static final String JUAN = "44444444-4444-4444-4444-444444444444";
+        private static final String PEDRO = "55555555-5555-5555-5555-555555555555";
+
+        private String owedByJuan;
+
+        @BeforeEach
+        void twoPeopleAndAnAccount() {
+            addPerson(JUAN, "Juan");
+            addPerson(PEDRO, "Pedro");
+            owedByJuan = newId();
+            openAccount(owedByJuan, "RECEIVABLE", "Juan");
+        }
+
+        @Test
+        @DisplayName("P48 · dos personas abiertas no se llaman igual")
+        void noDuplicateNamesAmongOpenPeople() {
+            assertThatThrownBy(() -> addPerson(newId(), "  juan  "))
+                    .hasStackTraceContaining("people_open_name_unique");
+        }
+
+        @Test
+        @DisplayName("P49 · y una archivada libera su nombre")
+        void archivingFreesTheName() {
+            jdbc.update("UPDATE people SET archived_at = now() WHERE id = ?::uuid", JUAN);
+
+            assertThatNoException().isThrownBy(() -> addPerson(newId(), "Juan"));
+        }
+
+        @Test
+        @DisplayName("P50 · un nombre en blanco, de sesenta y uno o con salto de línea no pasa")
+        void theNameLimits() {
+            assertThatNoException().isThrownBy(() -> addPerson(newId(), "a".repeat(60)));
+
+            assertThatThrownBy(() -> addPerson(newId(), "   "))
+                    .hasStackTraceContaining("people_name_not_blank");
+
+            assertThatThrownBy(() -> addPerson(newId(), "b".repeat(61)))
+                    .hasStackTraceContaining("people_name_within_length");
+
+            assertThatThrownBy(() -> addPerson(newId(), "Juan\nPérez"))
+                    .hasStackTraceContaining("people_name_is_one_line");
+        }
+
+        /**
+         * Lo que hace que el límite de Java y el de Postgres sean el mismo
+         * límite: los dos cuentan code points.
+         */
+        @Test
+        @DisplayName("P51 · contando un emoji como un carácter, igual que el dominio")
+        void lengthIsCountedInCodePoints() {
+            assertThatNoException().isThrownBy(() -> addPerson(newId(), "🙂".repeat(60)));
+
+            assertThatThrownBy(() -> addPerson(newId(), "🙂".repeat(61)))
+                    .hasStackTraceContaining("people_name_within_length");
+        }
+
+        @Test
+        @DisplayName("P52 · una persona no se borra")
+        void peopleAreNeverDeleted() {
+            assertThatThrownBy(() -> jdbc.update("DELETE FROM people WHERE id = ?::uuid", PEDRO))
+                    .hasStackTraceContaining("no se borran");
+        }
+
+        @Test
+        @DisplayName("P53 · ni se desarchiva")
+        void archivingIsFinal() {
+            jdbc.update("UPDATE people SET archived_at = now() WHERE id = ?::uuid", JUAN);
+
+            assertThatThrownBy(() -> jdbc.update(
+                    "UPDATE people SET archived_at = NULL WHERE id = ?::uuid", JUAN))
+                    .hasStackTraceContaining("ya fue archivada");
+        }
+
+        @Test
+        @DisplayName("P54 · pero sí se puede renombrar")
+        void renamingIsAllowed() {
+            assertThatNoException().isThrownBy(() -> jdbc.update(
+                    "UPDATE people SET name = 'Juan Pérez' WHERE id = ?::uuid", JUAN));
+        }
+
+        /**
+         * Sin esta clave ajena, una cuenta podía apuntar a una persona que no
+         * existe: el saldo seguía bien y esa cuenta desaparecía de toda vista de
+         * personas sin que nada se quejara.
+         */
+        @Test
+        @DisplayName("P55 · una cuenta solo se vincula a una persona que existe")
+        void theLinkPointsSomewhere() {
+            assertThatThrownBy(() -> linkAccount(owedByJuan, newId()))
+                    .hasStackTraceContaining("accounts_person_exists");
+        }
+
+        @Test
+        @DisplayName("P56 · el vínculo se mueve a otra persona")
+        void theLinkMoves() {
+            linkAccount(owedByJuan, JUAN);
+            linkAccount(owedByJuan, PEDRO);
+
+            assertThat(personOf(owedByJuan)).isEqualTo(PEDRO);
+        }
+
+        @Test
+        @DisplayName("P57 · pero no se quita")
+        void theLinkIsNeverRemoved() {
+            linkAccount(owedByJuan, JUAN);
+
+            assertThatThrownBy(() -> jdbc.update(
+                    "UPDATE accounts SET person_id = NULL WHERE id = ?::uuid", owedByJuan))
+                    .hasStackTraceContaining("no se quita");
+
+            assertThat(personOf(owedByJuan)).isEqualTo(JUAN);
+        }
+
+        @Test
+        @DisplayName("P58 · y la bitácora admite la acción de vincular")
+        void theAuditKnowsAboutLinking() {
+            assertThatNoException().isThrownBy(() -> jdbc.update(
+                    "INSERT INTO audit_log (entity, entity_id, action, source) "
+                            + "VALUES ('account', ?::uuid, 'LINK', 'APP')", owedByJuan));
+
+            assertThatThrownBy(() -> jdbc.update(
+                    "INSERT INTO audit_log (entity, entity_id, action, source) "
+                            + "VALUES ('account', ?::uuid, 'INVENTADA', 'APP')", owedByJuan))
+                    .hasStackTraceContaining("audit_known_action");
+        }
+
+        private String personOf(String accountId) {
+            return jdbc.queryForObject(
+                    "SELECT person_id::text FROM accounts WHERE id = ?::uuid",
+                    String.class, accountId);
+        }
+    }
+
     // --- Ayudas. SQL crudo a propósito: lo que se prueba es el esquema, así que
     // --- cualquier capa intermedia estorbaría.
 
@@ -715,6 +859,15 @@ class SchemaMigrationTest extends PostgresIntegrationTest {
     private void openAccount(String id, String type, String name) {
         jdbc.update("INSERT INTO accounts (id, type, name) "
                 + "VALUES (?::uuid, ?::account_type, ?)", id, type, name);
+    }
+
+    private void addPerson(String id, String name) {
+        jdbc.update("INSERT INTO people (id, name) VALUES (?::uuid, ?)", id, name);
+    }
+
+    private void linkAccount(String accountId, String personId) {
+        jdbc.update("UPDATE accounts SET person_id = ?::uuid WHERE id = ?::uuid",
+                personId, accountId);
     }
 
     private void cancelWithNote(String id, String note) {

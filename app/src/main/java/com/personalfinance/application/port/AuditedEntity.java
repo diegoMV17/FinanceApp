@@ -4,7 +4,8 @@ package com.personalfinance.application.port;
 public enum AuditedEntity {
 
     TRANSACTION("transaction"),
-    ACCOUNT("account");
+    ACCOUNT("account"),
+    PERSON("person");
 
     private final String storedAs;
 

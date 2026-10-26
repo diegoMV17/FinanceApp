@@ -4,7 +4,10 @@ import com.personalfinance.domain.ledger.Account;
 import com.personalfinance.domain.ledger.AccountId;
 import com.personalfinance.domain.ledger.Cancellation;
 import com.personalfinance.domain.ledger.Chart;
+import com.personalfinance.domain.ledger.Directory;
 import com.personalfinance.domain.ledger.Entry;
+import com.personalfinance.domain.ledger.Person;
+import com.personalfinance.domain.ledger.PersonId;
 import com.personalfinance.domain.ledger.Transaction;
 import com.personalfinance.domain.ledger.TransactionId;
 import com.personalfinance.domain.shared.Money;
@@ -23,7 +26,10 @@ import java.util.UUID;
  * <p>Al cargar, cada apunte resuelve su cuenta contra el {@link Chart} que se
  * le pasa, nunca construyendo una suya. Dos objetos {@code Account} llamados
  * "Bancolombia" con ids distintos son dos cuentas para el libro, y el saldo se
- * partiría en dos sin que nadie se diera cuenta.
+ * partiría en dos sin que nadie se diera cuenta. Una cuenta resuelve su persona
+ * contra el {@link Directory} por lo mismo, un nivel más arriba: dos objetos
+ * {@code Person} llamados "Juan" son dos personas, y la posición con cada una
+ * se partiría en dos.
  */
 final class LedgerMapper {
 
@@ -32,12 +38,46 @@ final class LedgerMapper {
                 account.id().value(),
                 account.type(),
                 account.name(),
-                account.archivedAt().orElse(null));
+                account.archivedAt().orElse(null),
+                account.person().map(person -> person.id().value()).orElse(null));
     }
 
-    static Account accountFrom(AccountRow row) {
+    /**
+     * @param directory el directorio ya cargado; si una cuenta apunta a una
+     *                  persona que no está, {@code Directory.require} lo dice en
+     *                  voz alta en vez de dejar la cuenta fuera de toda posición
+     */
+    static Account accountFrom(AccountRow row, Directory directory) {
+        Person person = row.personId() == null
+                ? null
+                : directory.require(new PersonId(row.personId()));
+
         return Account.rehydrated(
-                new AccountId(row.getId()), row.type(), row.name(), row.archivedAt());
+                new AccountId(row.getId()), row.type(), row.name(), row.archivedAt(), person);
+    }
+
+    /**
+     * La cuenta tal como está guardada, <strong>sin</strong> resolver de quién
+     * es.
+     *
+     * <p>Solo para los mensajes de error de los stores, que nombran la cuenta y
+     * su fecha de archivado y nada más. Cargar el libro usa
+     * {@link #accountFrom(AccountRow, Directory)}, que sí resuelve la persona:
+     * una cuenta cargada sin ella dejaría una deuda viva fuera de toda posición,
+     * con todos los saldos correctos y nadie quejándose.
+     */
+    static Account unlinkedAccountFrom(AccountRow row) {
+        return Account.rehydrated(
+                new AccountId(row.getId()), row.type(), row.name(), row.archivedAt(), null);
+    }
+
+    static PersonRow rowOf(Person person) {
+        return new PersonRow(
+                person.id().value(), person.name(), person.archivedAt().orElse(null));
+    }
+
+    static Person personFrom(PersonRow row) {
+        return Person.rehydrated(new PersonId(row.getId()), row.name(), row.archivedAt());
     }
 
     static TransactionRow rowOf(Transaction transaction) {

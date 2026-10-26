@@ -9,6 +9,7 @@ import com.personalfinance.domain.ledger.AccountType;
 import com.personalfinance.infrastructure.PostgresIntegrationTest;
 import java.time.Clock;
 import java.time.LocalDate;
+import java.time.YearMonth;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
@@ -928,6 +929,160 @@ class ReadEndpointsTest extends PostgresIntegrationTest {
             assertThat(accountNamed(accounts, "Alimentación").get("totalInCents").asLong())
                     .as("el almuerzo no toca Transporte")
                     .isZero();
+        }
+    }
+
+    /**
+     * H19. HU27: cómo va el mes contra sus límites.
+     *
+     * <p>El libro de siempre gasta 25.000 en Alimentación en enero. Este nido
+     * pone los límites de enero y comprueba los tres derivados, que son lo que
+     * la historia pide distinguir: el porcentaje, acercarse y pasarse.
+     */
+    @Nested
+    @DisplayName("los presupuestos del mes")
+    class TheBudgetsOfTheMonth {
+
+        private static final String JANUARY_MONTH = "2026-01";
+
+        private UUID transport;
+
+        @BeforeEach
+        void openAnotherCategory() throws Exception {
+            transport = openAccount("EXPENSE", "Transporte");
+        }
+
+        @Test
+        @DisplayName("H19 · traen el límite, lo gastado, lo que queda y el porcentaje")
+        void bringTheWholePicture() throws Exception {
+            setBudget(food, JANUARY_MONTH, 10_000_000);
+
+            JsonNode body = read(ask("/api/budgets?month=" + JANUARY_MONTH));
+
+            assertThat(body.get("month").asString()).isEqualTo(JANUARY_MONTH);
+            JsonNode line = body.get("budgets").get(0);
+            assertThat(line.get("categoryName").asString()).isEqualTo("Alimentación");
+            assertThat(line.get("limitInCents").asLong()).isEqualTo(10_000_000L);
+            assertThat(line.get("spentInCents").asLong())
+                    .as("el almuerzo de enero")
+                    .isEqualTo(2_500_000L);
+            assertThat(line.get("remainingInCents").asLong()).isEqualTo(7_500_000L);
+            assertThat(line.get("percentageUsed").asLong()).isEqualTo(25);
+            assertThat(line.get("nearTheLimit").asBoolean()).isFalse();
+            assertThat(line.get("exceeded").asBoolean()).isFalse();
+        }
+
+        /**
+         * HU27 pide las dos cosas por separado, y por separado viajan: con un
+         * límite de 3.000.000 el almuerzo se come el 83% y hay que avisar; con
+         * uno de 2.000.000 ya se pasó, y pasarse no es acercarse.
+         */
+        @Test
+        @DisplayName("H19 · acercarse y pasarse son dos avisos distintos")
+        void nearAndOverAreTwoDifferentThings() throws Exception {
+            setBudget(food, JANUARY_MONTH, 3_000_000);
+            setBudget(transport, JANUARY_MONTH, 1_000_000);
+
+            JsonNode budgets = read(ask("/api/budgets?month=" + JANUARY_MONTH)).get("budgets");
+
+            JsonNode theFood = budgetNamed(budgets, "Alimentación");
+            assertThat(theFood.get("percentageUsed").asLong()).isEqualTo(83);
+            assertThat(theFood.get("nearTheLimit").asBoolean()).isTrue();
+            assertThat(theFood.get("exceeded").asBoolean()).isFalse();
+
+            JsonNode theTransport = budgetNamed(budgets, "Transporte");
+            assertThat(theTransport.get("percentageUsed").asLong())
+                    .as("en transporte no se gastó nada")
+                    .isZero();
+            assertThat(theTransport.get("nearTheLimit").asBoolean()).isFalse();
+        }
+
+        @Test
+        @DisplayName("H19 · pasarse deja lo que queda en negativo")
+        void goingOverLeavesANegativeRemainder() throws Exception {
+            setBudget(food, JANUARY_MONTH, 2_000_000);
+
+            JsonNode line = read(ask("/api/budgets?month=" + JANUARY_MONTH))
+                    .get("budgets").get(0);
+
+            assertThat(line.get("exceeded").asBoolean()).isTrue();
+            assertThat(line.get("nearTheLimit").asBoolean())
+                    .as("pasarse no es acercarse")
+                    .isFalse();
+            assertThat(line.get("remainingInCents").asLong()).isEqualTo(-500_000L);
+            assertThat(line.get("percentageUsed").asLong()).isEqualTo(125);
+        }
+
+        @Test
+        @DisplayName("H19 · el más consumido primero")
+        void theMostUsedComesFirst() throws Exception {
+            setBudget(food, JANUARY_MONTH, 5_000_000);
+            setBudget(transport, JANUARY_MONTH, 1_000_000);
+
+            JsonNode budgets = read(ask("/api/budgets?month=" + JANUARY_MONTH)).get("budgets");
+
+            assertThat(budgets.get(0).get("categoryName").asString())
+                    .as("arriba lo que está a punto de reventar")
+                    .isEqualTo("Alimentación");
+            assertThat(budgets.get(1).get("categoryName").asString()).isEqualTo("Transporte");
+        }
+
+        @Test
+        @DisplayName("H19 · solo los límites vivos, y solo los de ese mes")
+        void onlyTheLiveOnesOfThatMonth() throws Exception {
+            setBudget(food, JANUARY_MONTH, 10_000_000);
+            setBudget(food, JANUARY_MONTH, 20_000_000);
+            setBudget(transport, "2026-02", 1_000_000);
+
+            JsonNode budgets = read(ask("/api/budgets?month=" + JANUARY_MONTH)).get("budgets");
+
+            assertThat(budgets.size())
+                    .as("el reemplazado sigue en la base, pero no es el plan de nadie")
+                    .isEqualTo(1);
+            assertThat(budgets.get(0).get("limitInCents").asLong()).isEqualTo(20_000_000L);
+        }
+
+        @Test
+        @DisplayName("H19 · un mes sin límites es una lista vacía, y lo dice")
+        void aMonthWithoutBudgetsIsEmpty() throws Exception {
+            JsonNode body = read(ask("/api/budgets?month=2026-07"));
+
+            assertThat(body.get("month").asString()).isEqualTo("2026-07");
+            assertThat(body.get("budgets")).isEmpty();
+        }
+
+        @Test
+        @DisplayName("H19 · sin mes contesta el de hoy, en el calendario del dueño")
+        void withoutAMonthItAnswersThisOne() throws Exception {
+            JsonNode body = read(ask("/api/budgets"));
+
+            assertThat(body.get("month").asString())
+                    .isEqualTo(YearMonth.from(today()).toString());
+        }
+
+        @Test
+        @DisplayName("H19 · un mes mal escrito responde 400")
+        void aMalformedMonthIs400() throws Exception {
+            MvcResult refused = ask("/api/budgets?month=2026-13");
+
+            assertThat(refused.getResponse().getStatus()).isEqualTo(400);
+            assertThat(read(refused).get("type").asString())
+                    .isEqualTo("urn:finance:error:invalid-request");
+        }
+
+        private void setBudget(UUID category, String month, long cents) throws Exception {
+            send("/api/budgets", """
+                    {"id":"%s","category":"%s","month":"%s","limitInCents":%d}"""
+                    .formatted(UUID.randomUUID(), category, month, cents));
+        }
+
+        private JsonNode budgetNamed(JsonNode budgets, String name) {
+            for (JsonNode budget : budgets) {
+                if (name.equals(budget.get("categoryName").asString())) {
+                    return budget;
+                }
+            }
+            throw new AssertionError("no vino el presupuesto de " + name);
         }
     }
 

@@ -180,6 +180,13 @@ class ErrorLeakTest extends PostgresIntegrationTest {
                 .isGreaterThan(25);
     }
 
+    /** Un presupuesto en JSON, para las formas de equivocarse al ponerlo. */
+    private static String budgetOn(Object category, String month, long cents) {
+        return """
+                {"id":"%s","category":"%s","month":"%s","limitInCents":%d}"""
+                .formatted(UUID.randomUUID(), category, month, cents);
+    }
+
     /** Una cuenta más que el tope del filtro, para que lo rechace por tamaño. */
     private static String elevenAccounts() {
         return java.util.stream.IntStream.range(0, 11)
@@ -299,6 +306,31 @@ class ErrorLeakTest extends PostgresIntegrationTest {
                 authed(get("/api/stats/by-account?account=" + unknown))));
         probes.add(new Probe("desglose al reves",
                 authed(get("/api/stats/by-account?from=2026-12-31&to=2026-01-01"))));
+
+        // Los presupuestos, las dos rutas.
+        probes.add(new Probe("GET presupuestos sin token", get("/api/budgets")));
+        probes.add(new Probe("POST presupuesto sin token",
+                post("/api/budgets").contentType(MediaType.APPLICATION_JSON).content("{}")));
+        probes.add(new Probe("presupuesto sin campos",
+                authed(post("/api/budgets")).contentType(MediaType.APPLICATION_JSON)
+                        .content("{}")));
+        probes.add(new Probe("presupuesto de una categoria inexistente",
+                authed(post("/api/budgets")).contentType(MediaType.APPLICATION_JSON)
+                        .content(budgetOn(unknown, "2026-03", 50_000_000))));
+        probes.add(new Probe("presupuesto sobre una cuenta que no es de gasto",
+                authed(post("/api/budgets")).contentType(MediaType.APPLICATION_JSON)
+                        .content(budgetOn(bank, "2026-03", 50_000_000))));
+        probes.add(new Probe("presupuesto con mes inventado",
+                authed(post("/api/budgets")).contentType(MediaType.APPLICATION_JSON)
+                        .content(budgetOn(category, "2026-13", 50_000_000))));
+        probes.add(new Probe("presupuesto con mes fuera del siglo",
+                authed(post("/api/budgets")).contentType(MediaType.APPLICATION_JSON)
+                        .content(budgetOn(category, "1999-12", 50_000_000))));
+        probes.add(new Probe("presupuesto con monto cero",
+                authed(post("/api/budgets")).contentType(MediaType.APPLICATION_JSON)
+                        .content(budgetOn(category, "2026-03", 0))));
+        probes.add(new Probe("lectura de presupuestos con mes inventado",
+                authed(get("/api/budgets?month=marzo"))));
 
         // Metodos y tipos de contenido.
         probes.add(new Probe("metodo no admitido", authed(delete("/api/movements"))));

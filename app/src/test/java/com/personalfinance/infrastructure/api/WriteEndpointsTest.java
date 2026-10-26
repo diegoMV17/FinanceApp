@@ -806,6 +806,159 @@ class WriteEndpointsTest extends PostgresIntegrationTest {
         }
     }
 
+    /**
+     * H18. HU26: poner el límite de una categoría, por HTTP.
+     *
+     * <p>La misma forma que las demás escrituras — 201, 200 con el cuerpo
+     * idéntico, 409 — más la cara propia de este caso: el mismo monto con otro
+     * id tampoco escribe, porque el hecho ya estaba.
+     */
+    @Nested
+    @DisplayName("al poner un presupuesto")
+    class WhenSettingABudget {
+
+        @Test
+        @DisplayName("H18 · la primera vez responde 201 con el límite")
+        void theFirstTimeIs201() throws Exception {
+            UUID id = UUID.randomUUID();
+
+            MvcResult created = send("/api/budgets", budget(id, food, "2026-03", 50_000_000));
+
+            assertThat(created.getResponse().getStatus()).isEqualTo(201);
+            JsonNode body = read(created);
+            assertThat(body.get("id").asString()).isEqualTo(id.toString());
+            assertThat(body.get("category").asString()).isEqualTo(food.toString());
+            assertThat(body.get("categoryName").asString()).isEqualTo("Alimentación");
+            assertThat(body.get("month").asString()).isEqualTo("2026-03");
+            assertThat(body.get("limitInCents").asLong()).isEqualTo(50_000_000L);
+            assertThat(body.get("replaces").isNull()).isTrue();
+        }
+
+        @Test
+        @DisplayName("H18 · el mismo id con el mismo monto responde 200 con el cuerpo idéntico")
+        void aRetryIs200WithTheSameBody() throws Exception {
+            UUID id = UUID.randomUUID();
+            String command = budget(id, food, "2026-03", 50_000_000);
+
+            String first = send("/api/budgets", command).getResponse().getContentAsString();
+            MvcResult again = send("/api/budgets", command);
+
+            assertThat(again.getResponse().getStatus()).isEqualTo(200);
+            assertThat(again.getResponse().getContentAsString()).isEqualTo(first);
+        }
+
+        @Test
+        @DisplayName("H18 · el mismo id con otro monto responde 409")
+        void aContradictionIs409() throws Exception {
+            UUID id = UUID.randomUUID();
+            send("/api/budgets", budget(id, food, "2026-03", 50_000_000));
+
+            MvcResult conflict = send("/api/budgets", budget(id, food, "2026-03", 60_000_000));
+
+            assertThat(conflict.getResponse().getStatus()).isEqualTo(409);
+            assertThat(read(conflict).get("type").asString())
+                    .isEqualTo("urn:finance:error:duplicate-id");
+        }
+
+        @Test
+        @DisplayName("H18 · el mismo monto con otro id responde 200: el hecho ya estaba")
+        void theSameLimitUnderAnotherIdIs200() throws Exception {
+            send("/api/budgets", budget(UUID.randomUUID(), food, "2026-03", 50_000_000));
+
+            MvcResult again = send("/api/budgets",
+                    budget(UUID.randomUUID(), food, "2026-03", 50_000_000));
+
+            assertThat(again.getResponse().getStatus()).isEqualTo(200);
+            assertThat(budgetCount()).isEqualTo(1);
+        }
+
+        @Test
+        @DisplayName("H18 · otro monto responde 201 y dice a cuál reemplazó")
+        void anotherLimitIs201AndNamesWhatItReplaced() throws Exception {
+            UUID first = UUID.randomUUID();
+            send("/api/budgets", budget(first, food, "2026-03", 50_000_000));
+
+            MvcResult changed = send("/api/budgets",
+                    budget(UUID.randomUUID(), food, "2026-03", 60_000_000));
+
+            assertThat(changed.getResponse().getStatus()).isEqualTo(201);
+            assertThat(read(changed).get("replaces").asString()).isEqualTo(first.toString());
+            assertThat(budgetCount())
+                    .as("nada se borra: los dos siguen ahí")
+                    .isEqualTo(2);
+        }
+
+        @Test
+        @DisplayName("H18 · una cuenta que no es de gasto responde 422 con su propio código")
+        void aNonExpenseAccountIs422() throws Exception {
+            MvcResult refused = send("/api/budgets",
+                    budget(UUID.randomUUID(), bank, "2026-03", 50_000_000));
+
+            assertThat(refused.getResponse().getStatus()).isEqualTo(422);
+            assertThat(read(refused).get("type").asString())
+                    .as("decir cuál de los dos errores posibles fue ahorra adivinarlo")
+                    .isEqualTo("urn:finance:error:unexpected-account-type");
+        }
+
+        @Test
+        @DisplayName("H18 · una categoría que no existe responde 404")
+        void anUnknownCategoryIs404() throws Exception {
+            MvcResult missing = send("/api/budgets",
+                    budget(UUID.randomUUID(), UUID.randomUUID(), "2026-03", 50_000_000));
+
+            assertThat(missing.getResponse().getStatus()).isEqualTo(404);
+        }
+
+        @Test
+        @DisplayName("H18 · un mes mal escrito responde 400 en el borde")
+        void aMalformedMonthIs400() throws Exception {
+            for (String month : new String[] {"2026-13", "2026-3", "marzo", "2026-03-01", ""}) {
+                MvcResult refused = send("/api/budgets",
+                        budget(UUID.randomUUID(), food, month, 50_000_000));
+
+                assertThat(refused.getResponse().getStatus())
+                        .as("mes %s", month)
+                        .isEqualTo(400);
+                assertThat(read(refused).get("type").asString())
+                        .as("mes %s", month)
+                        .isEqualTo("urn:finance:error:invalid-request");
+            }
+        }
+
+        @Test
+        @DisplayName("H18 · un monto de cero o negativo responde 400, y uno enorme también")
+        void aBadLimitIs400() throws Exception {
+            for (long cents : new long[] {0, -1, 1_000_000_000_001L}) {
+                assertThat(send("/api/budgets",
+                        budget(UUID.randomUUID(), food, "2026-03", cents))
+                        .getResponse().getStatus())
+                        .as("monto %d", cents)
+                        .isEqualTo(400);
+            }
+        }
+
+        @Test
+        @DisplayName("H18 · un mes fuera del siglo del libro responde 422")
+        void aMonthOutOfTheCenturyIs422() throws Exception {
+            MvcResult refused = send("/api/budgets",
+                    budget(UUID.randomUUID(), food, "1999-12", 50_000_000));
+
+            assertThat(refused.getResponse().getStatus()).isEqualTo(422);
+            assertThat(read(refused).get("type").asString())
+                    .isEqualTo("urn:finance:error:date-out-of-range");
+        }
+
+        private String budget(UUID id, UUID category, String month, long cents) {
+            return """
+                    {"id":"%s","category":"%s","month":"%s","limitInCents":%d}"""
+                    .formatted(id, category, month, cents);
+        }
+
+        private long budgetCount() {
+            return jdbc.queryForObject("SELECT count(*) FROM budgets", Long.class);
+        }
+    }
+
     private UUID addPerson(String name) throws Exception {
         UUID id = UUID.randomUUID();
         MvcResult written = send("/api/people", """

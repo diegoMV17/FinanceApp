@@ -115,7 +115,7 @@ class PeopleController {
             @RequestParam(required = false)
             @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate asOf) {
 
-        LocalDate when = orToday(asOf);
+        LocalDate when = Dates.orToday(asOf, clock);
         return PeopleResponse.of(when, book.people(when));
     }
 
@@ -125,11 +125,8 @@ class PeopleController {
             @RequestParam(required = false)
             @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate asOf) {
 
-        LocalDate when = orToday(asOf);
+        LocalDate when = Dates.orToday(asOf, clock);
         return PersonDetailResponse.of(when, book.person(new PersonId(id), when));
     }
 
-    private LocalDate orToday(LocalDate asOf) {
-        return asOf != null ? asOf : LocalDate.now(clock);
-    }
 }

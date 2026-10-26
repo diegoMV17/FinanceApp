@@ -284,6 +284,22 @@ class ErrorLeakTest extends PostgresIntegrationTest {
         probes.add(new Probe("movimientos de una cuenta con tamano sobre el tope",
                 authed(get("/api/accounts/" + bank + "/movements?size=100000"))));
 
+        // Las dos series.
+        probes.add(new Probe("GET serie sin token", get("/api/stats/over-time")));
+        probes.add(new Probe("GET desglose sin token", get("/api/stats/by-account")));
+        probes.add(new Probe("serie de un siglo",
+                authed(get("/api/stats/over-time?from=2000-01-01&to=2099-12-31"))));
+        probes.add(new Probe("serie al reves",
+                authed(get("/api/stats/over-time?from=2026-12-31&to=2026-01-01"))));
+        probes.add(new Probe("serie con fecha ilegible",
+                authed(get("/api/stats/over-time?from=ayer"))));
+        probes.add(new Probe("desglose con tipo inventado",
+                authed(get("/api/stats/by-account?type=BANANA"))));
+        probes.add(new Probe("desglose con cuenta inexistente",
+                authed(get("/api/stats/by-account?account=" + unknown))));
+        probes.add(new Probe("desglose al reves",
+                authed(get("/api/stats/by-account?from=2026-12-31&to=2026-01-01"))));
+
         // Metodos y tipos de contenido.
         probes.add(new Probe("metodo no admitido", authed(delete("/api/movements"))));
         probes.add(new Probe("tipo de contenido equivocado",

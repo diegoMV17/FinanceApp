@@ -193,6 +193,56 @@ class LedgerPropertiesTest {
                 .isEqualTo(ledger.totalFor(AccountType.THIRD_PARTY_FUND, asOf));
     }
 
+    /**
+     * HU23. The one invariant an aggregation has: breaking a total apart and
+     * adding the pieces back has to give the total again.
+     *
+     * <p>Every type, over any period of any random history. If this ever fails,
+     * a pie chart and the number printed beside it disagree — and both of them
+     * look perfectly reasonable on their own, which is why nobody would notice.
+     */
+    @Property
+    void theBreakdownAlwaysAddsUpToItsTotal(
+            @ForAll("anyHistory") List<Step> history,
+            @ForAll("anyDayOffset") int from,
+            @ForAll("anyDayOffset") int to) {
+
+        LedgerScenario scenario = new LedgerScenario();
+        Ledger ledger = scenario.ledgerFrom(history);
+
+        MovementQuery period = MovementQuery.everything().between(
+                scenario.dayAfterStart(Math.min(from, to)),
+                scenario.dayAfterStart(Math.max(from, to)));
+
+        for (AccountType type : AccountType.values()) {
+            assertThat(Money.sum(ledger.totalsByAccount(type, period).values()))
+                    .as("the breakdown of %s", type)
+                    .isEqualTo(ledger.totalFor(type, period));
+        }
+    }
+
+    /**
+     * And the same total asked the two ways the book offers must agree: up to a
+     * date is nothing but a period that starts at the beginning of the book.
+     */
+    @Property
+    void aPeriodOpenAtTheStartIsTheSameAsUpToADate(
+            @ForAll("anyHistory") List<Step> history,
+            @ForAll("anyDayOffset") int dayOffset) {
+
+        LedgerScenario scenario = new LedgerScenario();
+        Ledger ledger = scenario.ledgerFrom(history);
+        LocalDate asOf = scenario.dayAfterStart(dayOffset);
+
+        MovementQuery openAtTheStart = MovementQuery.everything().between(null, asOf);
+
+        for (AccountType type : AccountType.values()) {
+            assertThat(ledger.totalFor(type, openAtTheStart))
+                    .as("the total of %s", type)
+                    .isEqualTo(ledger.totalFor(type, asOf));
+        }
+    }
+
     private static Money sumOf(
             List<PersonPosition> positions, Function<PersonPosition, Money> side) {
 

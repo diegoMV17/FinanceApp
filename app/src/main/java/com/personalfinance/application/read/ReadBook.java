@@ -12,9 +12,13 @@ import com.personalfinance.domain.ledger.PersonId;
 import com.personalfinance.domain.ledger.TransactionId;
 import com.personalfinance.domain.shared.Money;
 import java.time.LocalDate;
+import java.time.YearMonth;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
@@ -37,23 +41,93 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class ReadBook {
 
+    /**
+     * La más grande primero, que es el orden en que se lee un gráfico de
+     * categorías. El nombre desempata para que dos cuentas con el mismo total
+     * no salgan hoy en un orden y mañana en otro.
+     */
+    private static final Comparator<AccountTotal> BIGGEST_FIRST =
+            Comparator.comparing(AccountTotal::total, Comparator.reverseOrder())
+                    .thenComparing(AccountTotal::name);
+
     private final BookLoader loader;
 
     ReadBook(BookLoader loader) {
         this.loader = loader;
     }
 
-    /** HU22. Cuánto es de verdad suyo, y los totales por tipo, a esa fecha. */
+    /** HU22. Los indicadores a esa fecha, incluidos los dos del mes. */
     @Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)
     public BookSummary summary(LocalDate asOf) {
-        Ledger ledger = loader.load().ledger();
+        return summaryAt(loader.load().ledger(), asOf);
+    }
 
-        Map<AccountType, Money> totals = new EnumMap<>(AccountType.class);
-        for (AccountType type : AccountType.values()) {
-            totals.put(type, ledger.totalFor(type, asOf));
+    /**
+     * HU23. Los mismos indicadores a fin de cada mes del rango: la evolución
+     * del saldo, el dinero prestado y el adeudado, y los ingresos contra los
+     * gastos de cada mes.
+     *
+     * <p><strong>El rango elige los puntos que se dibujan, no lo que se
+     * cuenta.</strong> Cada punto es el acumulado desde el origen del libro,
+     * porque un saldo no es otra cosa; si el {@code from} filtrara, el número
+     * de marzo dejaría de ser un saldo y sería «lo que se movió en marzo», con
+     * la misma pinta y otro significado. Mover el {@code from} no cambia
+     * ninguno de los puntos que sigan estando en el rango, y hay un test que lo
+     * exige.
+     *
+     * <p>El último punto es {@code to} y no el fin de su mes: un punto en el 31
+     * de marzo cuando hoy es el 15 sería el saldo del futuro.
+     *
+     * @throws com.personalfinance.domain.ledger.ReversedRangeException
+     *         si el rango viene con los extremos al revés
+     */
+    @Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)
+    public List<BookSummary> overTime(LocalDate from, LocalDate to) {
+        // La misma regla de rangos que todo lo demás, en el mismo sitio: un
+        // rango al revés se rechaza en vez de devolver una serie vacía.
+        MovementQuery span = MovementQuery.everything()
+                .between(Objects.requireNonNull(from, "from"), Objects.requireNonNull(to, "to"));
+
+        Ledger ledger = loader.load().ledger();
+        List<BookSummary> series = new ArrayList<>();
+        YearMonth last = YearMonth.from(span.to());
+
+        for (YearMonth month = YearMonth.from(span.from());
+                !month.isAfter(last);
+                month = month.plusMonths(1)) {
+
+            LocalDate endOfMonth = month.atEndOfMonth();
+            series.add(summaryAt(ledger, endOfMonth.isAfter(span.to()) ? span.to() : endOfMonth));
         }
 
-        return new BookSummary(asOf, ledger.moneyReallyMine(asOf), totals);
+        return List.copyOf(series);
+    }
+
+    /**
+     * HU23. Cuánto movió cada cuenta en el periodo, la más grande primero.
+     *
+     * <p>Con {@code type = EXPENSE} esto es «gastos por categoría». Ahí el tipo
+     * dice qué <em>apuntes</em> se suman y no qué movimientos cuentan: un
+     * almuerzo toca Nequi y Alimentación, y meter los dos apuntes en el mismo
+     * desglose pondría la misma plata dos veces con signos opuestos.
+     *
+     * <p>Salen todas las cuentas del catálogo, también las que no se movieron,
+     * en cero. Es la misma razón por la que el resumen trae los siete tipos
+     * aunque estén en cero: un cliente no debería tener que distinguir «no
+     * vino» de «está en cero».
+     */
+    @Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)
+    public List<AccountTotal> totalsByAccount(AccountType type, MovementFilter filter) {
+        Book book = loader.load();
+        Map<AccountId, Money> moved =
+                book.ledger().totalsByAccount(type, queryFrom(filter, book));
+
+        return book.chart().all().stream()
+                .filter(account -> type == null || account.type() == type)
+                .map(account -> AccountTotal.of(
+                        account, moved.getOrDefault(account.id(), Money.ZERO)))
+                .sorted(BIGGEST_FIRST)
+                .toList();
     }
 
     /** El saldo de cada cuenta, archivadas incluidas, en el orden en que se abrieron. */
@@ -164,6 +238,29 @@ public class ReadBook {
      * un id inventado sea un 404. Devuelve el mismo id que entró, y eso es el
      * punto: lo que se busca es la queja, no el objeto.
      */
+    /**
+     * Los indicadores a una fecha, que es el punto de una serie y también la
+     * respuesta de {@code GET /api/summary}: la lectura suelta es el último
+     * punto de la evolución, y por eso las dos salen de aquí.
+     */
+    private static BookSummary summaryAt(Ledger ledger, LocalDate asOf) {
+        Map<AccountType, Money> totals = new EnumMap<>(AccountType.class);
+        for (AccountType type : AccountType.values()) {
+            totals.put(type, ledger.totalFor(type, asOf));
+        }
+
+        LocalDate monthFrom = asOf.withDayOfMonth(1);
+        MovementQuery thatMonth = MovementQuery.everything().between(monthFrom, asOf);
+
+        return new BookSummary(
+                asOf,
+                ledger.moneyReallyMine(asOf),
+                totals,
+                monthFrom,
+                ledger.totalFor(AccountType.INCOME, thatMonth),
+                ledger.totalFor(AccountType.EXPENSE, thatMonth));
+    }
+
     private static MovementQuery queryFrom(MovementFilter filter, Book book) {
         MovementQuery query = MovementQuery.everything()
                 .between(filter.from(), filter.to())

@@ -76,6 +76,18 @@ public enum ApiError {
     UNSAFE_TEXT(HttpStatus.BAD_REQUEST, "unsafe-text",
             "El texto trae caracteres que no se admiten."),
 
+    /**
+     * Una serie pidió más meses de los que se admiten.
+     *
+     * <p>Es un 400 y no un 413: lo que se pasó de tope no es el tamaño de la
+     * petición sino el trabajo que encarga. Y tiene su propio código porque la
+     * alternativa — recortar el rango y contestar — cambiaría la pregunta en
+     * silencio, y un cliente no tendría forma de saber que el gráfico que
+     * dibujó es de otro periodo.
+     */
+    RANGE_TOO_WIDE(HttpStatus.BAD_REQUEST, "range-too-wide",
+            "El rango pedido abarca demasiados meses."),
+
     UNSUPPORTED_MEDIA_TYPE(HttpStatus.UNSUPPORTED_MEDIA_TYPE, "unsupported-media-type",
             "Esta API solo acepta application/json."),
 

@@ -716,6 +716,219 @@ class ReadEndpointsTest extends PostgresIntegrationTest {
         }
     }
 
+    /**
+     * H13, H14, H15. HU22 y HU23: los indicadores del mes y las series que se
+     * dibujan.
+     *
+     * <p>El libro de siempre pone 800.000 en enero y gasta 25.000 el mismo día.
+     * Este nido añade un sueldo de 4.000.000 y un bus de 5.000 en febrero, para
+     * que un mes se pueda distinguir de otro y del acumulado.
+     */
+    @Nested
+    @DisplayName("las estadísticas")
+    class TheStatistics {
+
+        private static final String FEBRUARY = "2026-02-10";
+
+        private UUID transport;
+
+        @BeforeEach
+        void addFebruary() throws Exception {
+            transport = openAccount("EXPENSE", "Transporte");
+            UUID salary = openAccount("INCOME", "Salario");
+
+            send("/api/movements", """
+                    {"type":"INCOME","id":"%s","date":"%s","description":"Sueldo",
+                     "receivedInto":"%s","category":"%s","amountInCents":400000000}"""
+                    .formatted(UUID.randomUUID(), FEBRUARY, bank, salary));
+            send("/api/movements", """
+                    {"type":"EXPENSE","id":"%s","date":"%s","description":"Bus",
+                     "paidFrom":"%s","category":"%s","amountInCents":500000}"""
+                    .formatted(UUID.randomUUID(), FEBRUARY, bank, transport));
+        }
+
+        @Test
+        @DisplayName("H13 · el resumen trae lo del mes aparte del acumulado")
+        void theSummaryTellsTheMonthApartFromTheWhole() throws Exception {
+            JsonNode body = read(ask("/api/summary?asOf=2026-02-28"));
+
+            assertThat(body.get("monthFrom").asString()).isEqualTo("2026-02-01");
+            assertThat(body.get("incomeThatMonthInCents").asLong())
+                    .isEqualTo(400_000_000L);
+            assertThat(body.get("expensesThatMonthInCents").asLong())
+                    .as("en febrero solo se gastó el bus")
+                    .isEqualTo(500_000L);
+            assertThat(body.get("totalsByTypeInCents").get("EXPENSE").asLong())
+                    .as("el acumulado sí trae el almuerzo de enero")
+                    .isEqualTo(2_500_000L + 500_000L);
+        }
+
+        @Test
+        @DisplayName("H13 · un mes sin gastos los deja en cero, no en el acumulado")
+        void aMonthWithoutExpensesIsZero() throws Exception {
+            JsonNode body = read(ask("/api/summary?asOf=2026-12-31"));
+
+            assertThat(body.get("expensesThatMonthInCents").asLong()).isZero();
+            assertThat(body.get("totalsByTypeInCents").get("EXPENSE").asLong())
+                    .isEqualTo(3_000_000L);
+        }
+
+        @Test
+        @DisplayName("H14 · la serie trae un punto por mes, y el último es la fecha pedida")
+        void onePointPerMonth() throws Exception {
+            JsonNode body = read(ask("/api/stats/over-time?from=2026-01-01&to=2026-03-15"));
+
+            assertThat(body.get("from").asString()).isEqualTo("2026-01-01");
+            assertThat(body.get("to").asString()).isEqualTo("2026-03-15");
+
+            JsonNode points = body.get("points");
+            assertThat(points.size()).isEqualTo(3);
+            assertThat(points.get(0).get("asOf").asString()).isEqualTo("2026-01-31");
+            assertThat(points.get(1).get("asOf").asString()).isEqualTo("2026-02-28");
+            assertThat(points.get(2).get("asOf").asString())
+                    .as("el último punto es hasta donde se pidió, no el fin de su mes: "
+                            + "un punto en el 31 cuando hoy es el 15 sería el saldo del futuro")
+                    .isEqualTo("2026-03-15");
+        }
+
+        @Test
+        @DisplayName("H14 · cada punto es el acumulado del libro, no lo del mes")
+        void eachPointIsCumulative() throws Exception {
+            JsonNode points = read(ask("/api/stats/over-time?from=2026-01-01&to=2026-02-28"))
+                    .get("points");
+
+            assertThat(points.get(0).get("moneyReallyMineInCents").asLong())
+                    .isEqualTo(80_000_000L - 2_500_000L);
+            assertThat(points.get(1).get("moneyReallyMineInCents").asLong())
+                    .as("febrero arrastra enero: un saldo viene del origen del libro")
+                    .isEqualTo(80_000_000L - 2_500_000L + 400_000_000L - 500_000L);
+        }
+
+        /**
+         * El error que esta serie puede cometer sin que nada se queje: aplicar
+         * el {@code from} como filtro. El número seguiría teniendo la misma
+         * pinta y ya no sería un saldo, sería «lo que se movió desde el from»,
+         * y el gráfico estaría mal sin una sola excepción.
+         */
+        @Test
+        @DisplayName("H14 · mover el from no cambia los puntos que siguen dentro")
+        void movingTheStartDoesNotChangeThePoints() throws Exception {
+            long fromJanuary = read(ask("/api/stats/over-time?from=2026-01-01&to=2026-02-28"))
+                    .get("points").get(1).get("moneyReallyMineInCents").asLong();
+            long fromFebruary = read(ask("/api/stats/over-time?from=2026-02-01&to=2026-02-28"))
+                    .get("points").get(0).get("moneyReallyMineInCents").asLong();
+
+            assertThat(fromFebruary)
+                    .as("el rango elige los puntos que se dibujan, no lo que se cuenta")
+                    .isEqualTo(fromJanuary);
+        }
+
+        @Test
+        @DisplayName("H14 · los ingresos y los gastos de un punto son los de su mes")
+        void eachPointCarriesItsOwnMonth() throws Exception {
+            JsonNode points = read(ask("/api/stats/over-time?from=2026-01-01&to=2026-02-28"))
+                    .get("points");
+
+            assertThat(points.get(0).get("expensesThatMonthInCents").asLong())
+                    .isEqualTo(2_500_000L);
+            assertThat(points.get(1).get("expensesThatMonthInCents").asLong())
+                    .isEqualTo(500_000L);
+            assertThat(points.get(1).get("incomeThatMonthInCents").asLong())
+                    .isEqualTo(400_000_000L);
+        }
+
+        @Test
+        @DisplayName("H14 · sin rango contesta los últimos doce meses y lo dice")
+        void withoutARangeItAnswersTheLastYear() throws Exception {
+            JsonNode body = read(ask("/api/stats/over-time"));
+
+            LocalDate today = LocalDate.now(clock);
+            assertThat(body.get("to").asString()).isEqualTo(today.toString());
+            assertThat(body.get("from").asString())
+                    .isEqualTo(today.minusMonths(11).withDayOfMonth(1).toString());
+            assertThat(body.get("points").size()).isEqualTo(12);
+        }
+
+        @Test
+        @DisplayName("H14 · un rango de más de diez años responde 400 con su propio código")
+        void tooManyMonthsIs400() throws Exception {
+            MvcResult tooWide = ask("/api/stats/over-time?from=2000-01-01&to=2099-12-31");
+
+            assertThat(tooWide.getResponse().getStatus()).isEqualTo(400);
+            assertThat(read(tooWide).get("type").asString())
+                    .as("se rechaza en vez de recortar: recortar contestaría otro "
+                            + "periodo del que se pidió, y el cliente no lo sabría")
+                    .isEqualTo("urn:finance:error:range-too-wide");
+        }
+
+        @Test
+        @DisplayName("H14 · un rango al revés responde 422, no una serie vacía")
+        void aReversedRangeIs422() throws Exception {
+            MvcResult reversed = ask("/api/stats/over-time?from=2026-03-31&to=2026-01-01");
+
+            assertThat(reversed.getResponse().getStatus()).isEqualTo(422);
+            assertThat(read(reversed).get("type").asString())
+                    .isEqualTo("urn:finance:error:reversed-range");
+        }
+
+        @Test
+        @DisplayName("H15 · el desglose por categoría trae la más grande primero")
+        void theBreakdownIsBiggestFirst() throws Exception {
+            JsonNode body = read(ask(
+                    "/api/stats/by-account?type=EXPENSE&from=2026-01-01&to=2026-12-31"));
+
+            assertThat(body.get("from").asString()).isEqualTo("2026-01-01");
+            JsonNode accounts = body.get("accounts");
+
+            assertThat(accounts.get(0).get("name").asString()).isEqualTo("Alimentación");
+            assertThat(accounts.get(0).get("totalInCents").asLong()).isEqualTo(2_500_000L);
+            assertThat(accounts.get(1).get("name").asString()).isEqualTo("Transporte");
+            assertThat(accounts.get(1).get("totalInCents").asLong()).isEqualTo(500_000L);
+            assertThat(accounts.size())
+                    .as("solo las de gasto")
+                    .isEqualTo(2);
+        }
+
+        @Test
+        @DisplayName("H15 · una categoría sin movimientos en el periodo sale en cero")
+        void anUnusedCategoryComesAsZero() throws Exception {
+            JsonNode accounts = read(ask(
+                    "/api/stats/by-account?type=EXPENSE&from=2026-02-01&to=2026-02-28"))
+                    .get("accounts");
+
+            JsonNode food = accountNamed(accounts, "Alimentación");
+            assertThat(food.get("totalInCents").asLong())
+                    .as("un cliente no debería tener que distinguir "
+                            + "«no vino» de «está en cero»")
+                    .isZero();
+        }
+
+        @Test
+        @DisplayName("H15 · sin tipo trae todas las cuentas del catálogo")
+        void withoutATypeItIsEveryAccount() throws Exception {
+            JsonNode accounts = read(ask("/api/stats/by-account?from=2026-01-01&to=2026-12-31"))
+                    .get("accounts");
+
+            assertThat(accounts.size()).isEqualTo(5);
+            assertThat(accountNamed(accounts, "Bancolombia").get("totalInCents").asLong())
+                    .isEqualTo(80_000_000L - 2_500_000L + 400_000_000L - 500_000L);
+        }
+
+        @Test
+        @DisplayName("H15 · los filtros de HU25 también valen en el desglose")
+        void theFiltersApplyToTheBreakdown() throws Exception {
+            JsonNode accounts = read(ask("/api/stats/by-account?type=EXPENSE"
+                    + "&from=2026-01-01&to=2026-12-31&account=" + transport))
+                    .get("accounts");
+
+            assertThat(accountNamed(accounts, "Transporte").get("totalInCents").asLong())
+                    .isEqualTo(500_000L);
+            assertThat(accountNamed(accounts, "Alimentación").get("totalInCents").asLong())
+                    .as("el almuerzo no toca Transporte")
+                    .isZero();
+        }
+    }
+
     private static JsonNode personNamed(JsonNode people, String name) {
         for (JsonNode person : people) {
             if (name.equals(person.get("name").asString())) {

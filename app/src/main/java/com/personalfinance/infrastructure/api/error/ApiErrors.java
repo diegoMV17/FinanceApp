@@ -24,6 +24,7 @@ import com.personalfinance.domain.ledger.UnknownAccountException;
 import com.personalfinance.domain.ledger.UnknownPersonException;
 import com.personalfinance.domain.ledger.UnknownTransactionException;
 import com.personalfinance.infrastructure.api.limit.BodyTooLargeException;
+import com.personalfinance.infrastructure.api.limit.RangeTooWideException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
 
@@ -115,6 +116,9 @@ public final class ApiErrors {
         }
         if (BodyTooLargeException.class.isAssignableFrom(failure)) {
             return ApiError.CONTENT_TOO_LARGE;
+        }
+        if (RangeTooWideException.class.isAssignableFrom(failure)) {
+            return ApiError.RANGE_TOO_WIDE;
         }
         if (SameAccountTransferException.class.isAssignableFrom(failure)) {
             return ApiError.SAME_ACCOUNT_TRANSFER;

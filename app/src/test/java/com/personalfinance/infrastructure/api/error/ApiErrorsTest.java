@@ -26,6 +26,7 @@ import com.personalfinance.domain.ledger.UnknownAccountException;
 import com.personalfinance.domain.ledger.UnknownPersonException;
 import com.personalfinance.domain.ledger.UnknownTransactionException;
 import com.personalfinance.infrastructure.api.limit.BodyTooLargeException;
+import com.personalfinance.infrastructure.api.limit.RangeTooWideException;
 import com.tngtech.archunit.core.domain.JavaClass;
 import com.tngtech.archunit.core.importer.ClassFileImporter;
 import com.tngtech.archunit.core.importer.ImportOption;
@@ -130,7 +131,8 @@ class ApiErrorsTest {
             Map.entry(AccountCannotBelongToAPersonException.class, ApiError.ACCOUNT_IS_NOBODY),
             Map.entry(ArchivedPersonException.class, ApiError.ARCHIVED_PERSON),
             Map.entry(ArchivedAccountException.class, ApiError.ARCHIVED_ACCOUNT),
-            Map.entry(ReversedRangeException.class, ApiError.REVERSED_RANGE));
+            Map.entry(ReversedRangeException.class, ApiError.REVERSED_RANGE),
+            Map.entry(RangeTooWideException.class, ApiError.RANGE_TOO_WIDE));
 
     @Test
     @DisplayName("H2 · y el brazo de recogida no se traga a las que tienen nombre")

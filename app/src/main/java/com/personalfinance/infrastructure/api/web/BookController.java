@@ -23,7 +23,8 @@ import org.springframework.web.bind.annotation.RestController;
  *
  * <p>El reloj es el bean en UTC truncado a microsegundos, el mismo que usan los
  * casos de uso. Dos relojes distintos darían dos «hoy» distintos según a quién
- * se le pregunte.
+ * se le pregunte, y por eso «qué día es hoy» se contesta en un solo sitio:
+ * {@link Dates}.
  */
 @RestController
 @RequestMapping(path = "/api", produces = MediaType.APPLICATION_JSON_VALUE)
@@ -42,7 +43,7 @@ class BookController {
             @RequestParam(required = false)
             @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate asOf) {
 
-        return SummaryResponse.of(book.summary(orToday(asOf)));
+        return SummaryResponse.of(book.summary(Dates.orToday(asOf, clock)));
     }
 
     @GetMapping("/balances")
@@ -50,11 +51,7 @@ class BookController {
             @RequestParam(required = false)
             @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate asOf) {
 
-        LocalDate when = orToday(asOf);
+        LocalDate when = Dates.orToday(asOf, clock);
         return BalancesResponse.of(when, book.balances(when));
-    }
-
-    private LocalDate orToday(LocalDate asOf) {
-        return asOf != null ? asOf : LocalDate.now(clock);
     }
 }

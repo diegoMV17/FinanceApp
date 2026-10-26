@@ -154,6 +154,19 @@ public enum ApiError {
             "Esa fecha está fuera del rango que admite el libro."),
 
     /**
+     * Un rango con los dos extremos al revés, en fechas o en valor.
+     *
+     * <p>Tiene su propio código porque la alternativa era contestar una lista
+     * vacía: un rango del 31 al 1 no lo cumple nada, así que el libro podría
+     * responder «ningún movimiento» y tener razón aritmética. Ese es justo el
+     * error que hay que decir en voz alta, porque un informe vacío se lee como
+     * «no gastaste nada en marzo» cuando lo que pasó es que las dos fechas
+     * venían cambiadas de sitio.
+     */
+    REVERSED_RANGE(HttpStatus.UNPROCESSABLE_CONTENT, "reversed-range",
+            "Un rango viene con el extremo inicial por encima del final."),
+
+    /**
      * El brazo de recogida de {@code LedgerException}. Una regla del dominio
      * nueva cae aquí y responde 422, en vez de escaparse como un 500 que diría
      * «esto es un error del servidor» cuando es el libro diciendo que no.

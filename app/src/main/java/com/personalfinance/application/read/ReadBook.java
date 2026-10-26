@@ -6,6 +6,7 @@ import com.personalfinance.domain.ledger.AccountId;
 import com.personalfinance.domain.ledger.AccountType;
 import com.personalfinance.domain.ledger.Book;
 import com.personalfinance.domain.ledger.Ledger;
+import com.personalfinance.domain.ledger.MovementQuery;
 import com.personalfinance.domain.ledger.Person;
 import com.personalfinance.domain.ledger.PersonId;
 import com.personalfinance.domain.ledger.TransactionId;
@@ -121,11 +122,60 @@ public class ReadBook {
         return Page.of(all, asked);
     }
 
+    /**
+     * HU24, HU25. El historial general, filtrado y por páginas.
+     *
+     * <p>Sin cuenta desde la que mirar, así que cada línea trae sus apuntes y
+     * su valor en vez de un efecto. El filtro se resuelve contra el libro ya
+     * cargado: una cuenta o una persona que no existe es un 404 y no una lista
+     * vacía, que se leería como «no hubo movimientos».
+     *
+     * @throws com.personalfinance.domain.ledger.UnknownAccountException
+     *         si se filtró por una cuenta que el catálogo no tiene
+     * @throws com.personalfinance.domain.ledger.UnknownPersonException
+     *         si se filtró por una persona que el directorio no tiene
+     * @throws com.personalfinance.domain.ledger.ReversedRangeException
+     *         si un rango viene con los extremos al revés
+     */
+    @Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)
+    public Page<MovementLine> movements(MovementFilter filter, PageRequest asked) {
+        Book book = loader.load();
+
+        List<MovementLine> all =
+                book.ledger().movementsMatching(queryFrom(filter, book)).stream()
+                        .map(MovementLine::of)
+                        .toList();
+
+        return Page.of(all, asked);
+    }
+
     /** HU06. La cadena de versiones de un movimiento, la original primero. */
     @Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)
     public List<RevisionView> revisionsOf(TransactionId id) {
         return loader.load().ledger().revisionsOf(id).stream()
                 .map(RevisionView::of)
                 .toList();
+    }
+
+    /**
+     * Los ids del borde, convertidos en la pregunta que el libro entiende.
+     *
+     * <p>El {@code require} de cada cuenta y de la persona es lo que hace que
+     * un id inventado sea un 404. Devuelve el mismo id que entró, y eso es el
+     * punto: lo que se busca es la queja, no el objeto.
+     */
+    private static MovementQuery queryFrom(MovementFilter filter, Book book) {
+        MovementQuery query = MovementQuery.everything()
+                .between(filter.from(), filter.to())
+                .ofType(filter.type())
+                .worth(filter.minAmount(), filter.maxAmount());
+
+        for (AccountId account : filter.accounts()) {
+            query = query.touching(book.chart().require(account).id());
+        }
+        if (filter.person() != null) {
+            query = query.withPerson(book.directory().require(filter.person()));
+        }
+        return query;
     }
 }

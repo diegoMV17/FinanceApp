@@ -19,6 +19,7 @@ import com.personalfinance.domain.ledger.DuplicateTransactionException;
 import com.personalfinance.domain.ledger.LedgerException;
 import com.personalfinance.domain.ledger.PersonAlreadyArchivedException;
 import com.personalfinance.domain.ledger.PersonStillHasOpenAccountsException;
+import com.personalfinance.domain.ledger.ReversedRangeException;
 import com.personalfinance.domain.ledger.SameAccountTransferException;
 import com.personalfinance.domain.ledger.TransactionAlreadyCancelledException;
 import com.personalfinance.domain.ledger.UnknownAccountException;
@@ -63,7 +64,7 @@ class ApiErrorsTest {
         // sin comprobar nada. Esto es el seguro de ese seguro.
         assertThat(LEDGER_EXCEPTIONS)
                 .as("las subclases de LedgerException del dominio")
-                .hasSizeGreaterThanOrEqualTo(23);
+                .hasSizeGreaterThanOrEqualTo(24);
     }
 
     @Test
@@ -128,7 +129,8 @@ class ApiErrorsTest {
             Map.entry(BlankPersonNameException.class, ApiError.PERSON_NEEDS_NAME),
             Map.entry(AccountCannotBelongToAPersonException.class, ApiError.ACCOUNT_IS_NOBODY),
             Map.entry(ArchivedPersonException.class, ApiError.ARCHIVED_PERSON),
-            Map.entry(ArchivedAccountException.class, ApiError.ARCHIVED_ACCOUNT));
+            Map.entry(ArchivedAccountException.class, ApiError.ARCHIVED_ACCOUNT),
+            Map.entry(ReversedRangeException.class, ApiError.REVERSED_RANGE));
 
     @Test
     @DisplayName("H2 · y el brazo de recogida no se traga a las que tienen nombre")

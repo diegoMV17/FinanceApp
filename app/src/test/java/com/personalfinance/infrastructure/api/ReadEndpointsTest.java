@@ -484,6 +484,238 @@ class ReadEndpointsTest extends PostgresIntegrationTest {
         }
     }
 
+    /**
+     * H10, H11, H12. HU24 y HU25: el historial general y sus siete filtros.
+     *
+     * <p>Al libro de siempre — un saldo inicial y un almuerzo en enero — este
+     * nido le añade un sueldo y un bus en febrero y un préstamo a Juan en
+     * marzo, porque un filtro no se puede probar contra un libro que solo tiene
+     * un mes, una categoría y ninguna persona.
+     */
+    @Nested
+    @DisplayName("el historial general")
+    class TheGeneralHistory {
+
+        private static final String FEBRUARY = "2026-02-10";
+        private static final String MARCH = "2026-03-05";
+
+        private UUID transport;
+        private UUID bus;
+        private UUID payday;
+        private UUID loan;
+        private UUID juan;
+
+        @BeforeEach
+        void addMoreMonths() throws Exception {
+            transport = openAccount("EXPENSE", "Transporte");
+            UUID salary = openAccount("INCOME", "Salario");
+            UUID owedByJuan = openAccount("RECEIVABLE", "Juan");
+
+            juan = UUID.randomUUID();
+            send("/api/people", """
+                    {"id":"%s","name":"Juan"}""".formatted(juan));
+            send("/api/people/" + juan + "/accounts", """
+                    {"account":"%s"}""".formatted(owedByJuan));
+
+            payday = UUID.randomUUID();
+            send("/api/movements", """
+                    {"type":"INCOME","id":"%s","date":"%s","description":"Sueldo",
+                     "receivedInto":"%s","category":"%s","amountInCents":400000000}"""
+                    .formatted(payday, FEBRUARY, bank, salary));
+
+            bus = UUID.randomUUID();
+            send("/api/movements", """
+                    {"type":"EXPENSE","id":"%s","date":"%s","description":"Bus",
+                     "paidFrom":"%s","category":"%s","amountInCents":500000}"""
+                    .formatted(bus, FEBRUARY, bank, transport));
+
+            loan = UUID.randomUUID();
+            send("/api/movements", """
+                    {"type":"LEND","id":"%s","date":"%s","description":"Préstamo",
+                     "paidFrom":"%s","borrower":"%s","amountInCents":30000000}"""
+                    .formatted(loan, MARCH, bank, owedByJuan));
+        }
+
+        @Test
+        @DisplayName("H10 · sin filtros trae todo, con los apuntes y el valor de cada uno")
+        void unfilteredBringsEverything() throws Exception {
+            JsonNode body = read(ask("/api/movements"));
+
+            assertThat(body.get("total").asLong()).isEqualTo(5);
+            assertThat(body.get("page").asInt()).isZero();
+
+            JsonNode lunch = movementNamed(body.get("movements"), "Almuerzo");
+            assertThat(lunch.get("valueInCents").asLong())
+                    .as("el valor de un movimiento es su magnitud, no un apunte suelto")
+                    .isEqualTo(2_500_000L);
+            assertThat(lunch.get("entries").size())
+                    .as("sin cuenta desde la que mirar, lo que explica el movimiento "
+                            + "son sus apuntes")
+                    .isEqualTo(2);
+        }
+
+        @Test
+        @DisplayName("H10 · el rango de fechas acota, y los dos extremos están dentro")
+        void theDateRangeBoundsBothEnds() throws Exception {
+            JsonNode february = read(ask("/api/movements?from=2026-02-01&to=2026-02-28"));
+
+            assertThat(february.get("total").asLong()).isEqualTo(2);
+
+            JsonNode justTheTenth = read(ask("/api/movements?from=" + FEBRUARY
+                    + "&to=" + FEBRUARY));
+            assertThat(justTheTenth.get("total").asLong())
+                    .as("un rango de un solo día es un día, no un error")
+                    .isEqualTo(2);
+        }
+
+        @Test
+        @DisplayName("H10 · el tipo acota a los movimientos que tocan ese tipo")
+        void theTypeBounds() throws Exception {
+            JsonNode expenses = read(ask("/api/movements?type=EXPENSE"));
+
+            assertThat(expenses.get("total").asLong()).isEqualTo(2);
+            assertThat(expenses.get("movements").size()).isEqualTo(2);
+        }
+
+        /**
+         * La consulta por la que el filtro vale la pena: lo que salió de una
+         * cuenta hacia una categoría. Dos cuentas significan las dos, no
+         * cualquiera de las dos: con «cualquiera» la respuesta serían todos los
+         * gastos de esa categoría más todo lo que alguna vez salió de esa
+         * cuenta, que no es una pregunta que nadie haga.
+         */
+        @Test
+        @DisplayName("H10 · dos cuentas significan las dos, no cualquiera de las dos")
+        void twoAccountsMeanBoth() throws Exception {
+            JsonNode both = read(ask(
+                    "/api/movements?account=" + bank + "&account=" + transport));
+
+            assertThat(both.get("total").asLong()).isEqualTo(1);
+            assertThat(both.get("movements").get(0).get("description").asString())
+                    .isEqualTo("Bus");
+        }
+
+        @Test
+        @DisplayName("H10 · la persona trae lo que toca alguna cuenta suya")
+        void thePersonBringsTheirs() throws Exception {
+            JsonNode withJuan = read(ask("/api/movements?person=" + juan));
+
+            assertThat(withJuan.get("total").asLong()).isEqualTo(1);
+            assertThat(withJuan.get("movements").get(0).get("id").asString())
+                    .isEqualTo(loan.toString());
+        }
+
+        @Test
+        @DisplayName("H10 · el rango de valor acota por la magnitud")
+        void theValueRangeBounds() throws Exception {
+            JsonNode small = read(ask("/api/movements?maxInCents=1000000"));
+
+            assertThat(small.get("total").asLong()).isEqualTo(1);
+            assertThat(small.get("movements").get(0).get("id").asString())
+                    .isEqualTo(bus.toString());
+
+            JsonNode exact = read(ask("/api/movements?minInCents=500000&maxInCents=500000"));
+            assertThat(exact.get("total").asLong())
+                    .as("los dos extremos del valor están dentro")
+                    .isEqualTo(1);
+        }
+
+        @Test
+        @DisplayName("H10 · los filtros se combinan entre ellos")
+        void theFiltersCombine() throws Exception {
+            JsonNode none = read(ask("/api/movements?type=EXPENSE&person=" + juan));
+
+            assertThat(none.get("total").asLong())
+                    .as("el préstamo a Juan no es un gasto")
+                    .isZero();
+        }
+
+        /**
+         * Una lista vacía se lee como «no hubo movimientos», que es una
+         * respuesta perfectamente tranquilizadora a una pregunta mal escrita.
+         */
+        @Test
+        @DisplayName("H11 · una cuenta que no existe responde 404, no una lista vacía")
+        void anUnknownAccountIs404() throws Exception {
+            MvcResult missing = ask("/api/movements?account=" + UUID.randomUUID());
+
+            assertThat(missing.getResponse().getStatus()).isEqualTo(404);
+            assertThat(read(missing).get("type").asString())
+                    .isEqualTo("urn:finance:error:not-found");
+        }
+
+        @Test
+        @DisplayName("H11 · una persona que no existe responde 404 igual")
+        void anUnknownPersonIs404() throws Exception {
+            assertThat(ask("/api/movements?person=" + UUID.randomUUID())
+                            .getResponse().getStatus())
+                    .isEqualTo(404);
+        }
+
+        @Test
+        @DisplayName("H12 · un rango de fechas al revés responde 422 y dice cuál es")
+        void aReversedDateRangeIs422() throws Exception {
+            MvcResult reversed = ask("/api/movements?from=2026-03-31&to=2026-03-01");
+
+            assertThat(reversed.getResponse().getStatus()).isEqualTo(422);
+            assertThat(read(reversed).get("type").asString())
+                    .as("es el libro diciendo que no, no un cuerpo ilegible")
+                    .isEqualTo("urn:finance:error:reversed-range");
+        }
+
+        @Test
+        @DisplayName("H12 · un rango de valor al revés responde 422 también")
+        void aReversedValueRangeIs422() throws Exception {
+            MvcResult reversed = ask("/api/movements?minInCents=900000&maxInCents=1000");
+
+            assertThat(reversed.getResponse().getStatus()).isEqualTo(422);
+            assertThat(read(reversed).get("type").asString())
+                    .isEqualTo("urn:finance:error:reversed-range");
+        }
+
+        @Test
+        @DisplayName("H12 · una fecha fuera del siglo del libro responde 422")
+        void aDateOutOfTheCenturyIs422() throws Exception {
+            MvcResult tooOld = ask("/api/movements?from=1999-12-31");
+
+            assertThat(tooOld.getResponse().getStatus()).isEqualTo(422);
+            assertThat(read(tooOld).get("type").asString())
+                    .isEqualTo("urn:finance:error:date-out-of-range");
+        }
+
+        @Test
+        @DisplayName("H12 · un valor por encima del tope responde 400 en el borde")
+        void aValueOverTheCapIs400() throws Exception {
+            MvcResult tooBig = ask("/api/movements?minInCents=9999999999999999");
+
+            assertThat(tooBig.getResponse().getStatus()).isEqualTo(400);
+            assertThat(read(tooBig).get("type").asString())
+                    .isEqualTo("urn:finance:error:invalid-request");
+        }
+
+        @Test
+        @DisplayName("H12 · un tipo inventado responde 400, y lo dice del query")
+        void anInventedTypeIs400() throws Exception {
+            MvcResult nonsense = ask("/api/movements?type=BANANA");
+
+            assertThat(nonsense.getResponse().getStatus()).isEqualTo(400);
+            assertThat(read(nonsense).get("type").asString())
+                    .isEqualTo("urn:finance:error:invalid-path");
+        }
+
+        @Test
+        @DisplayName("H12 · lo anulado no sale en el historial")
+        void cancelledMovementsAreNotInTheHistory() throws Exception {
+            send("/api/movements/" + bus + "/cancellations", """
+                    {"reason":"No fue"}""");
+
+            JsonNode body = read(ask("/api/movements"));
+
+            assertThat(body.get("total").asLong()).isEqualTo(4);
+            assertThat(body.toString()).doesNotContain(bus.toString());
+        }
+    }
+
     private static JsonNode personNamed(JsonNode people, String name) {
         for (JsonNode person : people) {
             if (name.equals(person.get("name").asString())) {

@@ -17,6 +17,7 @@ import com.personalfinance.domain.ledger.DuplicateTransactionException;
 import com.personalfinance.domain.ledger.LedgerException;
 import com.personalfinance.domain.ledger.PersonAlreadyArchivedException;
 import com.personalfinance.domain.ledger.PersonStillHasOpenAccountsException;
+import com.personalfinance.domain.ledger.ReversedRangeException;
 import com.personalfinance.domain.ledger.SameAccountTransferException;
 import com.personalfinance.domain.ledger.TransactionAlreadyCancelledException;
 import com.personalfinance.domain.ledger.UnknownAccountException;
@@ -135,6 +136,9 @@ public final class ApiErrors {
         }
         if (DateOutOfRangeException.class.isAssignableFrom(failure)) {
             return ApiError.DATE_OUT_OF_RANGE;
+        }
+        if (ReversedRangeException.class.isAssignableFrom(failure)) {
+            return ApiError.REVERSED_RANGE;
         }
         // Siempre el último de los conocidos: es el padre de todos los de
         // arriba, y es lo que hace que una regla nueva del dominio responda

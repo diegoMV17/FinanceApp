@@ -180,6 +180,13 @@ class ErrorLeakTest extends PostgresIntegrationTest {
                 .isGreaterThan(25);
     }
 
+    /** Una cuenta más que el tope del filtro, para que lo rechace por tamaño. */
+    private static String elevenAccounts() {
+        return java.util.stream.IntStream.range(0, 11)
+                .mapToObj(unused -> "account=" + UUID.randomUUID())
+                .collect(Collectors.joining("&"));
+    }
+
     @Test
     @DisplayName("S12 · y ninguna respuesta de error es HTML")
     void noErrorIsEverHtml() throws Exception {
@@ -247,6 +254,35 @@ class ErrorLeakTest extends PostgresIntegrationTest {
                 authed(get("/api/accounts/no-soy-uuid/movements"))));
         probes.add(new Probe("fecha imposible",
                 authed(get("/api/summary?asOf=2026-13-45"))));
+
+        // El historial general y las formas de equivocarse en sus filtros.
+        // Esta lista es blanca: una ruta nueva que no se agregue aquí no es una
+        // ruta que pase el barrido, es una ruta que el barrido no mira.
+        probes.add(new Probe("GET historial sin token", get("/api/movements")));
+        probes.add(new Probe("historial con cuenta inexistente",
+                authed(get("/api/movements?account=" + unknown))));
+        probes.add(new Probe("historial con persona inexistente",
+                authed(get("/api/movements?person=" + unknown))));
+        probes.add(new Probe("historial con rango de fechas al reves",
+                authed(get("/api/movements?from=2026-03-31&to=2026-03-01"))));
+        probes.add(new Probe("historial con rango de valor al reves",
+                authed(get("/api/movements?minInCents=500000&maxInCents=100"))));
+        probes.add(new Probe("historial con fecha fuera del siglo",
+                authed(get("/api/movements?from=1999-12-31"))));
+        probes.add(new Probe("historial con fecha ilegible",
+                authed(get("/api/movements?from=no-es-fecha"))));
+        probes.add(new Probe("historial con tipo inventado",
+                authed(get("/api/movements?type=BANANA"))));
+        probes.add(new Probe("historial con pagina negativa",
+                authed(get("/api/movements?page=-1"))));
+        probes.add(new Probe("historial con tamano sobre el tope",
+                authed(get("/api/movements?size=100000"))));
+        probes.add(new Probe("historial con valor fuera de rango",
+                authed(get("/api/movements?minInCents=9999999999999999"))));
+        probes.add(new Probe("historial con demasiadas cuentas",
+                authed(get("/api/movements?" + elevenAccounts()))));
+        probes.add(new Probe("movimientos de una cuenta con tamano sobre el tope",
+                authed(get("/api/accounts/" + bank + "/movements?size=100000"))));
 
         // Metodos y tipos de contenido.
         probes.add(new Probe("metodo no admitido", authed(delete("/api/movements"))));

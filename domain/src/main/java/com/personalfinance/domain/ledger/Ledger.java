@@ -149,9 +149,20 @@ public final class Ledger {
 
     /** HU21, HU24: how a fund, a person or an account has moved, oldest first. */
     public List<Transaction> movementsOf(Account account) {
-        return activeTransactions().stream()
-                .filter(transaction -> transaction.touches(account))
-                .toList();
+        Objects.requireNonNull(account, "account");
+        return movementsMatching(MovementQuery.everything().touching(account.id()));
+    }
+
+    /**
+     * HU24, HU25: the movements that still count and answer that question,
+     * oldest first.
+     *
+     * <p>The order is the one the book was written in, and every answer derived
+     * from a query keeps it, so walking pages in order walks the history in
+     * order.
+     */
+    public List<Transaction> movementsMatching(MovementQuery query) {
+        return matching(query).toList();
     }
 
     /**
@@ -197,9 +208,25 @@ public final class Ledger {
     }
 
     private Stream<Transaction> countedUpTo(LocalDate asOf) {
-        Objects.requireNonNull(asOf, "asOf");
+        return matching(MovementQuery.upTo(asOf));
+    }
+
+    /**
+     * The one filter the book has.
+     *
+     * <p>Everything that answers a bounded question goes through here: the
+     * lists, the totals and every balance, which is nothing but the total up to
+     * a date. Two filters would be two readings of the same question, and the
+     * day they disagreed a list and the total printed under it would contradict
+     * each other with both halves looking plausible.
+     *
+     * <p>Cancelled movements are dropped here and not in {@link MovementQuery}:
+     * whether something still counts is the book talking, not the question.
+     */
+    private Stream<Transaction> matching(MovementQuery query) {
+        Objects.requireNonNull(query, "query");
         return book.values().stream()
                 .filter(transaction -> !transaction.isCancelled())
-                .filter(transaction -> !transaction.date().isAfter(asOf));
+                .filter(query::matches);
     }
 }

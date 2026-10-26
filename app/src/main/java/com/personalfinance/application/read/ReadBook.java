@@ -96,15 +96,29 @@ public class ReadBook {
         return PersonView.of(person, book.chart(), book.ledger(), asOf);
     }
 
-    /** HU21, HU24. Los movimientos que siguen contando sobre una cuenta, el más viejo primero. */
+    /**
+     * HU21, HU24. Los movimientos que siguen contando sobre una cuenta, el más
+     * viejo primero y por páginas.
+     *
+     * <p>El orden es el que documenta el dominio y la página se corta sobre
+     * él, de modo que recorrer las páginas en orden recorre la historia en
+     * orden. Sin el tope, esta lectura devolvía el historial completo de la
+     * cuenta: con un libro de años, una petición corta a cambio de una
+     * respuesta sin límite.
+     *
+     * @throws com.personalfinance.domain.ledger.UnknownAccountException
+     *         si el catálogo no tiene esa cuenta
+     */
     @Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)
-    public List<MovementView> movementsOf(AccountId id) {
+    public Page<MovementView> movementsOf(AccountId id, PageRequest asked) {
         Book book = loader.load();
         Account account = book.chart().require(id);
 
-        return book.ledger().movementsOf(account).stream()
+        List<MovementView> all = book.ledger().movementsOf(account).stream()
                 .map(movement -> MovementView.of(movement, account))
                 .toList();
+
+        return Page.of(all, asked);
     }
 
     /** HU06. La cadena de versiones de un movimiento, la original primero. */

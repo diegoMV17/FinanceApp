@@ -1,6 +1,7 @@
 package com.personalfinance.infrastructure.api.web;
 
 import com.personalfinance.application.command.ArchiveAccountCommand;
+import com.personalfinance.application.read.PageRequest;
 import com.personalfinance.application.read.ReadBook;
 import com.personalfinance.application.usecase.ArchiveAccount;
 import com.personalfinance.application.usecase.OpenAccount;
@@ -11,6 +12,8 @@ import com.personalfinance.infrastructure.api.dto.request.RenameAccountRequest;
 import com.personalfinance.infrastructure.api.dto.response.AccountResponse;
 import com.personalfinance.infrastructure.api.dto.response.MovementsResponse;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import java.util.UUID;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -18,6 +21,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -82,8 +86,21 @@ class AccountsController {
         return Answers.of(archived, AccountResponse.of(archived.value()));
     }
 
+    /**
+     * HU24. El historial de una cuenta, por páginas.
+     *
+     * <p>Los topes apuntan a las constantes de {@link PageRequest} en vez de
+     * repetir el número: el borde y la capa de lectura tienen que decir lo
+     * mismo, y la única forma de que lo sigan diciendo es que haya un solo
+     * sitio donde esté escrito.
+     */
     @GetMapping("/{id}/movements")
-    MovementsResponse movements(@PathVariable UUID id) {
-        return MovementsResponse.of(id, book.movementsOf(new AccountId(id)));
+    MovementsResponse movements(
+            @PathVariable UUID id,
+            @RequestParam(required = false) @Min(0) Integer page,
+            @RequestParam(required = false) @Min(1) @Max(PageRequest.MAX_SIZE) Integer size) {
+
+        return MovementsResponse.of(
+                id, book.movementsOf(new AccountId(id), PageRequest.of(page, size)));
     }
 }

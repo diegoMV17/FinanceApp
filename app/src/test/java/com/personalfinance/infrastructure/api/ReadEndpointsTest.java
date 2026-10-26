@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 
+import com.personalfinance.application.read.PageRequest;
 import com.personalfinance.domain.ledger.AccountType;
 import com.personalfinance.infrastructure.PostgresIntegrationTest;
 import java.time.Clock;
@@ -234,6 +235,56 @@ class ReadEndpointsTest extends PostgresIntegrationTest {
             assertThat(read(notAnId).get("type").asString())
                     .as("con su propio código: lo que falló fue la ruta, no el cuerpo")
                     .isEqualTo("urn:finance:error:invalid-path");
+        }
+
+        @Test
+        @DisplayName("H9 · la página y el tamaño van en el sobre, con el total sin cortar")
+        void paginatesAndSaysTheTotal() throws Exception {
+            JsonNode first = read(ask("/api/accounts/" + bank + "/movements?page=0&size=1"));
+
+            assertThat(first.get("movements").size()).isEqualTo(1);
+            assertThat(first.get("page").asInt()).isZero();
+            assertThat(first.get("size").asInt()).isEqualTo(1);
+            assertThat(first.get("total").asLong())
+                    .as("el total es el del libro, no el de la página")
+                    .isEqualTo(2);
+        }
+
+        @Test
+        @DisplayName("H9 · sin página contesta la primera, con el tamaño por omisión")
+        void defaultsToTheFirstPage() throws Exception {
+            JsonNode body = read(ask("/api/accounts/" + bank + "/movements"));
+
+            assertThat(body.get("page").asInt()).isZero();
+            assertThat(body.get("size").asInt()).isEqualTo(PageRequest.DEFAULT_SIZE);
+            assertThat(body.get("movements").size()).isEqualTo(2);
+        }
+
+        /**
+         * El tope existe para que una petición corta no pueda pedir una
+         * respuesta enorme. Que el borde conteste 400 en vez de recortar en
+         * silencio es lo que le dice a un programa que pidió algo que no se
+         * admite; el recorte de {@code PageRequest} es la red de atrás.
+         */
+        @Test
+        @DisplayName("H9 · un tamaño por encima del tope responde 400")
+        void aSizeOverTheCapIs400() throws Exception {
+            MvcResult tooBig = ask("/api/accounts/" + bank + "/movements?size="
+                    + (PageRequest.MAX_SIZE + 1));
+
+            assertThat(tooBig.getResponse().getStatus()).isEqualTo(400);
+            assertThat(read(tooBig).get("type").asString())
+                    .as("un parámetro fuera de rango no es un cuerpo ilegible")
+                    .isEqualTo("urn:finance:error:invalid-request");
+        }
+
+        @Test
+        @DisplayName("H9 · una página más allá del final es una lista vacía, no un 404")
+        void pastTheEndIsEmpty() throws Exception {
+            JsonNode body = read(ask("/api/accounts/" + bank + "/movements?page=9"));
+
+            assertThat(body.get("movements")).isEmpty();
+            assertThat(body.get("total").asLong()).isEqualTo(2);
         }
     }
 

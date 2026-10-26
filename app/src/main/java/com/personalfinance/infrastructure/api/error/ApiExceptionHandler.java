@@ -14,6 +14,7 @@ import org.springframework.beans.TypeMismatchException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.HandlerMethodValidationException;
 import org.springframework.web.context.request.WebRequest;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
 
@@ -144,6 +145,15 @@ class ApiExceptionHandler extends ResponseEntityExceptionHandler {
         // texto habla del cuerpo. En un GET no hay cuerpo del que hablar.
         if (failure instanceof TypeMismatchException) {
             return ApiError.INVALID_PATH;
+        }
+        // Un page negativo o un size por encima del tope. Las restricciones
+        // sobre los parámetros de un método las valida Spring MVC por su
+        // cuenta y las trae en esta excepción, que no es la del cuerpo: sin
+        // este brazo caía en MALFORMED_REQUEST, cuyo texto dice que el cuerpo
+        // no se pudo leer. En un GET no hay cuerpo del que hablar, y el campo
+        // que no vale está en el query.
+        if (failure instanceof HandlerMethodValidationException) {
+            return ApiError.INVALID_REQUEST;
         }
         return ApiErrors.forFrameworkFailure(failure, status);
     }

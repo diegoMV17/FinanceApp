@@ -5,6 +5,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatNullPointerException;
 
 import java.time.LocalDate;
+import com.personalfinance.domain.shared.Money;
+import java.time.Instant;
+import java.time.YearMonth;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -40,13 +43,28 @@ class BookTest {
     }
 
     @Test
+    @DisplayName("F12c · and so do the budgets, pointing at the chart categories")
+    void bringsItsBudgets() {
+        Book book = Book.empty();
+
+        Account food = book.chart().open(AccountType.EXPENSE, "Alimentación");
+        Budget limit = book.budgets().set(BudgetId.generate(), food,
+                YearMonth.of(2026, 3), Money.ofUnits(500_000),
+                Instant.parse("2026-03-01T12:00:00Z"));
+
+        assertThat(limit.category()).isSameAs(food);
+    }
+
+    @Test
     @DisplayName("F13 · is never part of a book")
     void refusesPartOfItself() {
         assertThatNullPointerException()
-                .isThrownBy(() -> new Book(new Chart(), null, new Directory()));
+                .isThrownBy(() -> new Book(new Chart(), null, new Directory(), new Budgets()));
         assertThatNullPointerException()
-                .isThrownBy(() -> new Book(null, new Ledger(), new Directory()));
+                .isThrownBy(() -> new Book(null, new Ledger(), new Directory(), new Budgets()));
         assertThatNullPointerException()
-                .isThrownBy(() -> new Book(new Chart(), new Ledger(), null));
+                .isThrownBy(() -> new Book(new Chart(), new Ledger(), null, new Budgets()));
+        assertThatNullPointerException()
+                .isThrownBy(() -> new Book(new Chart(), new Ledger(), new Directory(), null));
     }
 }

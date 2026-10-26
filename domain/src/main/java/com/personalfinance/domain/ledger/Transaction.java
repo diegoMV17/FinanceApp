@@ -234,8 +234,13 @@ public final class Transaction {
      * <p>In the constructor, so {@code rehydrated} runs it too: a row somebody
      * edited by hand has to fail on load, the same way an unbalanced one
      * already does.
+     *
+     * <p>Package-private rather than private because a date is not the only
+     * thing bounded by this century: the ends of a {@link MovementQuery} and
+     * the month of a {@link Budget} are too, and they are the same rule. It
+     * lives here, next to the two constants that define it.
      */
-    private static LocalDate requireDateInRange(LocalDate date) {
+    static LocalDate requireDateInRange(LocalDate date) {
         Objects.requireNonNull(date, "date");
         if (date.isBefore(EARLIEST_DATE) || date.isAfter(LATEST_DATE)) {
             throw new DateOutOfRangeException(date, EARLIEST_DATE, LATEST_DATE);

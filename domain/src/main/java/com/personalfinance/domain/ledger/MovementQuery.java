@@ -43,8 +43,12 @@ public record MovementQuery(
     public MovementQuery {
         accounts = accounts == null ? List.of() : List.copyOf(accounts);
 
-        requireWithinTheCentury(from);
-        requireWithinTheCentury(to);
+        if (from != null) {
+            Transaction.requireDateInRange(from);
+        }
+        if (to != null) {
+            Transaction.requireDateInRange(to);
+        }
 
         if (from != null && to != null && from.isAfter(to)) {
             throw ReversedRangeException.ofDates(from, to);
@@ -137,13 +141,4 @@ public record MovementQuery(
                 && (maxAmount == null || magnitude.compareTo(maxAmount) <= 0);
     }
 
-    private static void requireWithinTheCentury(LocalDate date) {
-        if (date == null) {
-            return;
-        }
-        if (date.isBefore(Transaction.EARLIEST_DATE) || date.isAfter(Transaction.LATEST_DATE)) {
-            throw new DateOutOfRangeException(
-                    date, Transaction.EARLIEST_DATE, Transaction.LATEST_DATE);
-        }
-    }
 }

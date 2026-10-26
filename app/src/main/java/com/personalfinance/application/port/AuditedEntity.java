@@ -5,7 +5,8 @@ public enum AuditedEntity {
 
     TRANSACTION("transaction"),
     ACCOUNT("account"),
-    PERSON("person");
+    PERSON("person"),
+    BUDGET("budget");
 
     private final String storedAs;
 

@@ -5,6 +5,8 @@ import static com.personalfinance.application.Outcome.Status.APPLIED;
 import static com.personalfinance.domain.shared.Money.ofUnits;
 import static org.assertj.core.api.Assertions.assertThat;
 
+
+
 import com.personalfinance.application.command.ArchiveAccountCommand;
 import com.personalfinance.application.command.ArchivePersonCommand;
 import com.personalfinance.application.command.ExpenseCommand;
@@ -12,6 +14,7 @@ import com.personalfinance.application.command.LinkAccountToPersonCommand;
 import com.personalfinance.application.command.MovementCommand;
 import com.personalfinance.application.command.OpenAccountCommand;
 import com.personalfinance.application.command.OpenPersonCommand;
+import com.personalfinance.application.command.SetBudgetCommand;
 import com.personalfinance.application.command.OpeningBalanceCommand;
 import com.personalfinance.application.read.ReadBook;
 import com.personalfinance.application.usecase.ArchiveAccount;
@@ -20,7 +23,9 @@ import com.personalfinance.application.usecase.LinkAccountToPerson;
 import com.personalfinance.application.usecase.OpenAccount;
 import com.personalfinance.application.usecase.OpenPerson;
 import com.personalfinance.application.usecase.RecordMovement;
+import com.personalfinance.application.usecase.SetBudget;
 import com.personalfinance.domain.ledger.AccountId;
+import com.personalfinance.domain.ledger.BudgetId;
 import com.personalfinance.domain.ledger.AccountType;
 import com.personalfinance.domain.ledger.LedgerException;
 import com.personalfinance.domain.ledger.PersonId;
@@ -29,6 +34,7 @@ import com.personalfinance.domain.shared.Money;
 import com.personalfinance.infrastructure.PostgresIntegrationTest;
 import java.time.Duration;
 import java.time.LocalDate;
+import java.time.YearMonth;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Callable;
@@ -87,6 +93,9 @@ class ConcurrencyTest extends PostgresIntegrationTest {
     private LinkAccountToPerson linkAccountToPerson;
 
     @Autowired
+    private SetBudget setBudget;
+
+    @Autowired
     private ReadBook readBook;
 
     @Autowired
@@ -98,7 +107,8 @@ class ConcurrencyTest extends PostgresIntegrationTest {
 
     @BeforeEach
     void startFromAnEmptyBook() {
-        jdbc.execute("TRUNCATE entries, transactions, audit_log, accounts, people CASCADE");
+        jdbc.execute(
+                "TRUNCATE entries, transactions, audit_log, budgets, accounts, people CASCADE");
 
         cash = open(AccountType.ASSET, "Efectivo");
         food = open(AccountType.EXPENSE, "Alimentación");
@@ -217,6 +227,55 @@ class ConcurrencyTest extends PostgresIntegrationTest {
                     .as("ronda %d: nadie archivado puede tener cuentas abiertas", round)
                     .isZero();
         }
+    }
+
+    /**
+     * El candado otra vez, y en el sitio donde más se nota. Poner el límite de
+     * una categoría cruza filas: hay que mirar si ya hay uno vivo para ese mes
+     * antes de escribir. Sin turno, los dos hilos ven que no hay ninguno, los
+     * dos insertan uno nuevo, y el índice único parcial de la V7 rechaza al
+     * segundo con un error de base de datos en vez de dejar que reemplace al
+     * primero, que es lo que el dueño pidió.
+     *
+     * <p>Aquí no pierde nadie: los dos límites son hechos y el segundo
+     * reemplaza al primero. Lo que no puede pasar es que queden dos vivos, o
+     * que uno de los dos se caiga.
+     */
+    @Test
+    @DisplayName("C9 · dos límites del mismo mes a la vez: los dos se aplican, uno queda vivo")
+    void twoBudgetsForTheSameMonthRaceEachOther() throws Exception {
+        for (int round = 0; round < ROUNDS; round++) {
+            AccountId category = open(AccountType.EXPENSE, "Categoría C9 " + round);
+            YearMonth month = YearMonth.of(2026, 3);
+
+            List<Boolean> won = runTogether(List.of(
+                    attempt(() -> setBudget.execute(new SetBudgetCommand(
+                            BudgetId.generate(), category, month, ofUnits(500_000)))),
+                    attempt(() -> setBudget.execute(new SetBudgetCommand(
+                            BudgetId.generate(), category, month, ofUnits(600_000))))));
+
+            assertThat(won)
+                    .as("ronda %d: los dos son hechos, los dos tenían que entrar", round)
+                    .containsExactly(true, true);
+            assertThat(liveBudgetsFor(category))
+                    .as("ronda %d: un solo límite vivo para ese mes", round)
+                    .isEqualTo(1);
+            assertThat(budgetsFor(category))
+                    .as("ronda %d: y nada se borra", round)
+                    .isEqualTo(2);
+        }
+    }
+
+    private long liveBudgetsFor(AccountId category) {
+        return jdbc.queryForObject(
+                "SELECT count(*) FROM budgets WHERE category_id = ? AND superseded_at IS NULL",
+                Long.class, category.value());
+    }
+
+    private long budgetsFor(AccountId category) {
+        return jdbc.queryForObject(
+                "SELECT count(*) FROM budgets WHERE category_id = ?",
+                Long.class, category.value());
     }
 
     private int writeUntil(CountDownLatch stop) {

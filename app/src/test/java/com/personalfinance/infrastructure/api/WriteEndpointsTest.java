@@ -56,7 +56,8 @@ class WriteEndpointsTest extends PostgresIntegrationTest {
 
     @BeforeEach
     void startFromAnEmptyBook() throws Exception {
-        jdbc.execute("TRUNCATE entries, transactions, audit_log, accounts, people CASCADE");
+        jdbc.execute(
+                "TRUNCATE entries, transactions, audit_log, budgets, accounts, people CASCADE");
 
         bank = openAccount("ASSET", "Bancolombia");
         food = openAccount("EXPENSE", "Alimentación");

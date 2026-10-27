@@ -10,6 +10,8 @@ build/
 CLAUDE.md
 Historias de usuario propuestas.txt
 
+.env
+
 .jqwik-database
 *.class
 ### IntelliJ IDEA ###

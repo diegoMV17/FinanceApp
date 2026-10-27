@@ -4,7 +4,13 @@ build/
 !**/src/main/**/build/
 !**/src/test/**/build/
 
+# Fuera del repo a propósito: el repositorio es público. CLAUDE.md lleva la hoja
+# de ruta y las decisiones; el archivo de historias, los ejemplos reales del dueño
+# (sus cuentas, sus préstamos, quién le debe). Nunca con git add -f.
 CLAUDE.md
+Historias de usuario propuestas.txt
+
+.env
 
 .jqwik-database
 *.class

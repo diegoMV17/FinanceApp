@@ -7,6 +7,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 import static org.assertj.core.api.Assertions.tuple;
 
+
+
 import com.personalfinance.application.command.AmendTransactionCommand;
 import com.personalfinance.application.command.ArchiveAccountCommand;
 import com.personalfinance.application.command.ArchivePersonCommand;
@@ -23,6 +25,7 @@ import com.personalfinance.application.command.RenameAccountCommand;
 import com.personalfinance.application.command.RenamePersonCommand;
 import com.personalfinance.application.port.BookLock;
 import com.personalfinance.application.read.BookSummary;
+import com.personalfinance.application.command.SetBudgetCommand;
 import com.personalfinance.application.read.ReadBook;
 import com.personalfinance.application.usecase.AmendTransaction;
 import com.personalfinance.application.usecase.ArchiveAccount;
@@ -32,8 +35,13 @@ import com.personalfinance.application.usecase.LinkAccountToPerson;
 import com.personalfinance.application.usecase.OpenAccount;
 import com.personalfinance.application.usecase.OpenPerson;
 import com.personalfinance.application.usecase.RecordMovement;
+import com.personalfinance.application.usecase.SetBudget;
 import com.personalfinance.application.usecase.RenameAccount;
 import com.personalfinance.application.usecase.RenamePerson;
+import com.personalfinance.domain.ledger.Budget;
+import com.personalfinance.domain.ledger.BudgetId;
+import com.personalfinance.domain.ledger.DuplicateBudgetException;
+import com.personalfinance.domain.ledger.UnexpectedAccountTypeException;
 import com.personalfinance.domain.ledger.Account;
 import com.personalfinance.domain.ledger.AccountCannotBelongToAPersonException;
 import com.personalfinance.domain.ledger.AccountId;
@@ -58,6 +66,7 @@ import com.personalfinance.domain.ledger.UnknownAccountException;
 import com.personalfinance.domain.shared.Money;
 import com.personalfinance.infrastructure.PostgresIntegrationTest;
 import java.time.LocalDate;
+import java.time.YearMonth;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -122,6 +131,9 @@ class WriteUseCasesTest extends PostgresIntegrationTest {
     private LinkAccountToPerson linkAccountToPerson;
 
     @Autowired
+    private SetBudget setBudget;
+
+    @Autowired
     private ReadBook readBook;
 
     @Autowired
@@ -142,7 +154,8 @@ class WriteUseCasesTest extends PostgresIntegrationTest {
 
     @BeforeEach
     void startFromAnEmptyBook() {
-        jdbc.execute("TRUNCATE entries, transactions, audit_log, accounts, people CASCADE");
+        jdbc.execute(
+                "TRUNCATE entries, transactions, audit_log, budgets, accounts, people CASCADE");
 
         bank = open(AccountType.ASSET, "Bancolombia");
         cash = open(AccountType.ASSET, "Efectivo");
@@ -695,6 +708,129 @@ class WriteUseCasesTest extends PostgresIntegrationTest {
     }
 
     // --- Ayudas.
+
+    /** U27 a U32. HU26: poner el límite de una categoría para un mes. */
+    @Nested
+    @DisplayName("al poner un presupuesto")
+    class Budgeting {
+
+        private static final YearMonth MARCH = YearMonth.of(2026, 3);
+
+        @Test
+        @DisplayName("U27 · lo guarda y deja una línea de bitácora")
+        void setsAndAudits() {
+            BudgetId id = BudgetId.generate();
+
+            Outcome<Budget> outcome = setBudget.execute(
+                    new SetBudgetCommand(id, food, MARCH, ofUnits(500_000)));
+
+            assertThat(outcome.status()).isEqualTo(APPLIED);
+            assertThat(outcome.value().limit()).isEqualTo(ofUnits(500_000));
+            assertThat(liveLimitOf(food, MARCH)).isEqualTo(50_000_000L);
+            assertThat(auditFor(id.value()))
+                    .extracting("entity", "action", "before", "after")
+                    .containsExactly(tuple("budget", "CREATE", null, null));
+        }
+
+        @Test
+        @DisplayName("U28 · el mismo id con el mismo monto es un reintento, sin bitácora")
+        void theSameIdTwiceWritesOnce() {
+            BudgetId id = BudgetId.generate();
+            SetBudgetCommand command =
+                    new SetBudgetCommand(id, food, MARCH, ofUnits(500_000));
+            setBudget.execute(command);
+            long auditBefore = auditCount();
+
+            Outcome<Budget> again = setBudget.execute(command);
+
+            assertThat(again.status()).isEqualTo(ALREADY_APPLIED);
+            assertThat(auditCount()).isEqualTo(auditBefore);
+            assertThat(budgetCount()).isEqualTo(1);
+        }
+
+        @Test
+        @DisplayName("U29 · el mismo id con otro monto es una contradicción")
+        void theSameIdWithAnotherLimitConflicts() {
+            BudgetId id = BudgetId.generate();
+            setBudget.execute(new SetBudgetCommand(id, food, MARCH, ofUnits(500_000)));
+
+            assertThatExceptionOfType(DuplicateBudgetException.class).isThrownBy(
+                    () -> setBudget.execute(
+                            new SetBudgetCommand(id, food, MARCH, ofUnits(600_000))));
+
+            assertThat(liveLimitOf(food, MARCH)).isEqualTo(50_000_000L);
+        }
+
+        /**
+         * La otra cara de la idempotencia, la del hecho y no la del id: si el
+         * límite vivo ya dice ese monto, repetirlo con un id nuevo no es un
+         * cambio de idea. Sin esto, un cliente que reintenta generando otro id
+         * iría encadenando límites idénticos y la historia del mes se llenaría
+         * de cambios que nunca ocurrieron.
+         */
+        @Test
+        @DisplayName("U30 · el mismo monto con otro id tampoco escribe: el hecho ya estaba")
+        void theSameLimitUnderAnotherIdWritesNothing() {
+            setBudget.execute(new SetBudgetCommand(
+                    BudgetId.generate(), food, MARCH, ofUnits(500_000)));
+            long auditBefore = auditCount();
+
+            Outcome<Budget> again = setBudget.execute(new SetBudgetCommand(
+                    BudgetId.generate(), food, MARCH, ofUnits(500_000)));
+
+            assertThat(again.status()).isEqualTo(ALREADY_APPLIED);
+            assertThat(auditCount()).isEqualTo(auditBefore);
+            assertThat(budgetCount()).isEqualTo(1);
+        }
+
+        @Test
+        @DisplayName("U31 · otro monto reemplaza el anterior, lo marca y anota cuál era")
+        void anotherLimitReplacesThePreviousOne() {
+            BudgetId first = BudgetId.generate();
+            BudgetId second = BudgetId.generate();
+            setBudget.execute(new SetBudgetCommand(first, food, MARCH, ofUnits(500_000)));
+
+            Outcome<Budget> changed = setBudget.execute(
+                    new SetBudgetCommand(second, food, MARCH, ofUnits(600_000)));
+
+            assertThat(changed.status()).isEqualTo(APPLIED);
+            assertThat(changed.value().replaces()).contains(first);
+            assertThat(liveLimitOf(food, MARCH))
+                    .as("el que cuenta es el nuevo")
+                    .isEqualTo(60_000_000L);
+            assertThat(budgetCount())
+                    .as("nada se borra: los dos siguen ahí")
+                    .isEqualTo(2);
+            assertThat(auditFor(second.value()))
+                    .extracting("entity", "action", "before", "after")
+                    .containsExactly(tuple("budget", "AMEND",
+                            "{\"budget\": \"%s\"}".formatted(first), null));
+        }
+
+        @Test
+        @DisplayName("U32 · una cuenta que no es de gasto no admite presupuesto, y no deja rastro")
+        void onlyExpenseCategoriesAreBudgeted() {
+            long auditBefore = auditCount();
+
+            assertThatExceptionOfType(UnexpectedAccountTypeException.class).isThrownBy(
+                    () -> setBudget.execute(new SetBudgetCommand(
+                            BudgetId.generate(), cash, MARCH, ofUnits(500_000))));
+
+            assertThat(budgetCount()).isZero();
+            assertThat(auditCount()).isEqualTo(auditBefore);
+        }
+
+        private Long liveLimitOf(AccountId category, YearMonth month) {
+            return jdbc.queryForObject(
+                    "SELECT limit_cents FROM budgets WHERE category_id = ? "
+                            + "AND period = ? AND superseded_at IS NULL",
+                    Long.class, category.value(), month.atDay(1));
+        }
+
+        private long budgetCount() {
+            return jdbc.queryForObject("SELECT count(*) FROM budgets", Long.class);
+        }
+    }
 
     private AccountId open(AccountType type, String name) {
         AccountId id = AccountId.generate();

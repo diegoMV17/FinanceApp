@@ -2,6 +2,8 @@ package com.personalfinance.infrastructure.persistence;
 
 import com.personalfinance.domain.ledger.Account;
 import com.personalfinance.domain.ledger.AccountId;
+import com.personalfinance.domain.ledger.Budget;
+import com.personalfinance.domain.ledger.BudgetId;
 import com.personalfinance.domain.ledger.Cancellation;
 import com.personalfinance.domain.ledger.Chart;
 import com.personalfinance.domain.ledger.Directory;
@@ -11,6 +13,7 @@ import com.personalfinance.domain.ledger.PersonId;
 import com.personalfinance.domain.ledger.Transaction;
 import com.personalfinance.domain.ledger.TransactionId;
 import com.personalfinance.domain.shared.Money;
+import java.time.YearMonth;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -78,6 +81,39 @@ final class LedgerMapper {
 
     static Person personFrom(PersonRow row) {
         return Person.rehydrated(new PersonId(row.getId()), row.name(), row.archivedAt());
+    }
+
+    static BudgetRow rowOf(Budget budget) {
+        return new BudgetRow(
+                budget.id().value(),
+                budget.category().id().value(),
+                budget.month().atDay(1),
+                budget.limit().cents(),
+                budget.replaces().map(BudgetId::value).orElse(null),
+                budget.supersededAt().orElse(null));
+    }
+
+    /**
+     * El presupuesto de una fila, con su categoría resuelta contra el
+     * catálogo ya cargado.
+     *
+     * <p>Nunca construyendo una {@code Account} propia, por lo mismo que los
+     * apuntes resuelven la suya y que las cuentas resuelven su persona: dos
+     * objetos llamados «Alimentación» son dos categorías, y el gasto de una
+     * se mediría contra el límite de la otra.
+     *
+     * <p>El mes sale del día 1 que guarda la columna. Si alguna fila trajera
+     * otro día, {@code YearMonth.from} lo ignoraría en silencio, y por eso el
+     * CHECK de la V7 no deja que exista.
+     */
+    static Budget budgetFrom(BudgetRow row, Chart chart) {
+        return Budget.rehydrated(
+                new BudgetId(row.getId()),
+                chart.require(new AccountId(row.categoryId())),
+                YearMonth.from(row.period()),
+                Money.ofCents(row.limitCents()),
+                row.replacesId() == null ? null : new BudgetId(row.replacesId()),
+                row.supersededAt());
     }
 
     static TransactionRow rowOf(Transaction transaction) {

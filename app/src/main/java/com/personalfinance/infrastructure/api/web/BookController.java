@@ -5,6 +5,7 @@ import com.personalfinance.infrastructure.api.dto.response.BalancesResponse;
 import com.personalfinance.infrastructure.api.dto.response.SummaryResponse;
 import java.time.Clock;
 import java.time.LocalDate;
+import java.time.ZoneId;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -23,7 +24,8 @@ import org.springframework.web.bind.annotation.RestController;
  *
  * <p>El reloj es el bean en UTC truncado a microsegundos, el mismo que usan los
  * casos de uso. Dos relojes distintos darían dos «hoy» distintos según a quién
- * se le pregunte.
+ * se le pregunte, y por eso «qué día es hoy» se contesta en un solo sitio:
+ * {@link Dates}.
  */
 @RestController
 @RequestMapping(path = "/api", produces = MediaType.APPLICATION_JSON_VALUE)
@@ -31,10 +33,12 @@ class BookController {
 
     private final ReadBook book;
     private final Clock clock;
+    private final ZoneId timezone;
 
-    BookController(ReadBook book, Clock clock) {
+    BookController(ReadBook book, Clock clock, ZoneId timezone) {
         this.book = book;
         this.clock = clock;
+        this.timezone = timezone;
     }
 
     @GetMapping("/summary")
@@ -42,7 +46,7 @@ class BookController {
             @RequestParam(required = false)
             @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate asOf) {
 
-        return SummaryResponse.of(book.summary(orToday(asOf)));
+        return SummaryResponse.of(book.summary(Dates.orToday(asOf, clock, timezone)));
     }
 
     @GetMapping("/balances")
@@ -50,11 +54,7 @@ class BookController {
             @RequestParam(required = false)
             @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate asOf) {
 
-        LocalDate when = orToday(asOf);
+        LocalDate when = Dates.orToday(asOf, clock, timezone);
         return BalancesResponse.of(when, book.balances(when));
-    }
-
-    private LocalDate orToday(LocalDate asOf) {
-        return asOf != null ? asOf : LocalDate.now(clock);
     }
 }

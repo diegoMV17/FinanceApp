@@ -5,10 +5,16 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+
+
 import com.personalfinance.domain.ledger.Account;
 import com.personalfinance.domain.ledger.AccountAlreadyArchivedException;
 import com.personalfinance.domain.ledger.AccountId;
 import com.personalfinance.domain.ledger.AccountType;
+import com.personalfinance.domain.ledger.Budget;
+import com.personalfinance.domain.ledger.BudgetAlreadySupersededException;
+import com.personalfinance.domain.ledger.BudgetId;
+import com.personalfinance.domain.ledger.DuplicateBudgetException;
 import com.personalfinance.domain.ledger.Book;
 import com.personalfinance.domain.ledger.Cancellation;
 import com.personalfinance.domain.ledger.DuplicateTransactionException;
@@ -21,12 +27,14 @@ import com.personalfinance.domain.ledger.TransactionId;
 import com.personalfinance.domain.ledger.TransactionSource;
 import com.personalfinance.domain.ledger.UnbalancedTransactionException;
 import com.personalfinance.domain.ledger.port.AccountStore;
+import com.personalfinance.domain.ledger.port.BudgetStore;
 import com.personalfinance.domain.ledger.port.PersonStore;
 import com.personalfinance.domain.ledger.port.TransactionStore;
 import com.personalfinance.application.BookLoader;
 import com.personalfinance.domain.shared.Money;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.YearMonth;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -72,6 +80,9 @@ class BookRoundTripTest extends PostgresIntegrationTest {
     private PersonStore people;
 
     @Autowired
+    private BudgetStore budgets;
+
+    @Autowired
     private BookLoader loader;
 
     @Autowired
@@ -100,7 +111,8 @@ class BookRoundTripTest extends PostgresIntegrationTest {
         readOnly = new TransactionTemplate(transactionManager);
         readOnly.setReadOnly(true);
 
-        jdbc.execute("TRUNCATE entries, transactions, audit_log, accounts, people CASCADE");
+        jdbc.execute(
+                "TRUNCATE entries, transactions, audit_log, budgets, accounts, people CASCADE");
 
         written = Book.empty();
         bancolombia = open(AccountType.ASSET, "Bancolombia");
@@ -531,6 +543,105 @@ class BookRoundTripTest extends PostgresIntegrationTest {
      */
     private Book load() {
         return readOnly.execute(status -> loader.load());
+    }
+
+    /**
+     * R25 a R29. Los presupuestos: que vuelvan con su categoría, su mes y su
+     * límite, y que el reemplazo vuelva encadenado.
+     */
+    @Nested
+    @DisplayName("los presupuestos")
+    class TheBudgets {
+
+        private static final YearMonth MARCH = YearMonth.of(2026, 3);
+
+        @Test
+        @DisplayName("R25 · un límite vuelve con su categoría, su mes y su monto")
+        void aBudgetComesBackWhole() {
+            Budget limit = setBudget(food, MARCH, 500_000);
+
+            Budget loaded = load().budgets().find(limit.id()).orElseThrow();
+
+            assertThat(loaded.month()).isEqualTo(MARCH);
+            assertThat(loaded.limit()).isEqualTo(ofUnits(500_000));
+            assertThat(loaded.isLive()).isTrue();
+            assertThat(loaded.replaces()).isEmpty();
+        }
+
+        /**
+         * La categoría tiene que ser <em>la</em> del catálogo cargado y no una
+         * copia, por lo mismo que los apuntes y que la persona de una cuenta:
+         * dos objetos llamados «Alimentación» son dos categorías, y el gasto de
+         * una se mediría contra el límite de la otra.
+         */
+        @Test
+        @DisplayName("R26 · y su categoría es la del catálogo, no una copia")
+        void theCategoryIsTheOneFromTheChart() {
+            Budget limit = setBudget(food, MARCH, 500_000);
+
+            Book loaded = load();
+
+            assertThat(loaded.budgets().find(limit.id()).orElseThrow().category())
+                    .isSameAs(loaded.chart().require(food.id()));
+        }
+
+        @Test
+        @DisplayName("R27 · un reemplazo vuelve encadenado, y el anterior marcado")
+        void aReplacementComesBackChained() {
+            Budget first = setBudget(food, MARCH, 500_000);
+            Budget second = replaceBudget(food, MARCH, 600_000);
+
+            Book loaded = load();
+            Budget loadedFirst = loaded.budgets().find(first.id()).orElseThrow();
+            Budget loadedSecond = loaded.budgets().find(second.id()).orElseThrow();
+
+            assertThat(loadedSecond.replaces()).contains(first.id());
+            assertThat(loadedFirst.isLive()).isFalse();
+            assertThat(loadedFirst.supersededAt()).contains(WHEN);
+            assertThat(loaded.budgets().liveFor(loaded.chart().require(food.id()), MARCH))
+                    .contains(loadedSecond);
+        }
+
+        @Test
+        @DisplayName("R28 · escribir dos veces el mismo límite falla y no lo reescribe")
+        void writingTwiceDoesNotRewrite() {
+            Budget limit = setBudget(food, MARCH, 500_000);
+            Budget impostor = Budget.rehydrated(
+                    limit.id(), food, MARCH, ofUnits(900_000), null, null);
+
+            assertThatThrownBy(() -> budgets.set(impostor))
+                    .isInstanceOf(DuplicateBudgetException.class);
+
+            assertThat(load().budgets().find(limit.id()).orElseThrow().limit())
+                    .isEqualTo(ofUnits(500_000));
+        }
+
+        @Test
+        @DisplayName("R29 · y reemplazar dos veces el mismo falla")
+        void supersedingTwiceFails() {
+            setBudget(food, MARCH, 500_000);
+            replaceBudget(food, MARCH, 600_000);
+
+            Budget another = Budget.rehydrated(BudgetId.generate(), food, MARCH,
+                    ofUnits(700_000), written.budgets().all().get(0).id(), null);
+
+            assertThatThrownBy(() -> budgets.replace(another, WHEN))
+                    .isInstanceOf(BudgetAlreadySupersededException.class);
+        }
+
+        private Budget setBudget(Account category, YearMonth month, long units) {
+            Budget limit = written.budgets().set(
+                    BudgetId.generate(), category, month, ofUnits(units), WHEN);
+            budgets.set(limit);
+            return limit;
+        }
+
+        private Budget replaceBudget(Account category, YearMonth month, long units) {
+            Budget limit = written.budgets().set(
+                    BudgetId.generate(), category, month, ofUnits(units), WHEN);
+            budgets.replace(limit, WHEN);
+            return limit;
+        }
     }
 
     /** Abre la cuenta en el libro en memoria y en la base, que es lo que se compara. */

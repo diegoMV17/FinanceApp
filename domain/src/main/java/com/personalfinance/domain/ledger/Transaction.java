@@ -177,6 +177,37 @@ public final class Transaction {
         return entries.stream().anyMatch(entry -> entry.touches(account));
     }
 
+    /**
+     * The same question asked with an id, which is what a filter has.
+     *
+     * <p>A filter is built from what arrived over the wire, so it holds ids and
+     * not accounts. Comparing ids is also the only comparison that stays right
+     * after a rename.
+     */
+    public boolean touches(AccountId account) {
+        Objects.requireNonNull(account, "account");
+        return entries.stream().anyMatch(entry -> entry.account().id().equals(account));
+    }
+
+    /**
+     * HU25. What this movement is worth: the sum of its positive entries.
+     *
+     * <p>A transaction has no amount of its own, so "a movement of 35,000"
+     * needs defining. The entries sum to zero, which means the positive side
+     * and the negative side are the same number: either one is the size of the
+     * movement, and the positive one is the one a person states. A 35,000 lunch
+     * is two entries, minus 35,000 and plus 35,000, and it is worth 35,000.
+     *
+     * <p>This is always zero or more, which is why a filter on it never needs
+     * to reason about signs.
+     */
+    public Money magnitude() {
+        return entries.stream()
+                .map(Entry::amount)
+                .filter(Money::isPositive)
+                .reduce(Money.ZERO, Money::plus);
+    }
+
     public TransactionId id() {
         return id;
     }
@@ -203,8 +234,13 @@ public final class Transaction {
      * <p>In the constructor, so {@code rehydrated} runs it too: a row somebody
      * edited by hand has to fail on load, the same way an unbalanced one
      * already does.
+     *
+     * <p>Package-private rather than private because a date is not the only
+     * thing bounded by this century: the ends of a {@link MovementQuery} and
+     * the month of a {@link Budget} are too, and they are the same rule. It
+     * lives here, next to the two constants that define it.
      */
-    private static LocalDate requireDateInRange(LocalDate date) {
+    static LocalDate requireDateInRange(LocalDate date) {
         Objects.requireNonNull(date, "date");
         if (date.isBefore(EARLIEST_DATE) || date.isAfter(LATEST_DATE)) {
             throw new DateOutOfRangeException(date, EARLIEST_DATE, LATEST_DATE);

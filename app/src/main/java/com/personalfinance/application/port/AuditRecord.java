@@ -1,6 +1,7 @@
 package com.personalfinance.application.port;
 
 import com.personalfinance.domain.ledger.AccountId;
+import com.personalfinance.domain.ledger.BudgetId;
 import com.personalfinance.domain.ledger.PersonId;
 import com.personalfinance.domain.ledger.TransactionId;
 import com.personalfinance.domain.ledger.TransactionSource;
@@ -100,6 +101,32 @@ public record AuditRecord(
         return ofAccount(id, AuditAction.LINK,
                 before == null ? Map.of() : Map.of("person", before.toString()),
                 Map.of("person", after.toString()));
+    }
+
+    public static AuditRecord budgetSet(BudgetId id) {
+        return ofBudget(id, AuditAction.CREATE, Map.of(), Map.of());
+    }
+
+    /**
+     * Cambiar un límite es la misma forma que corregir un movimiento: se anota
+     * sobre el nuevo, que es el que queda vivo, y deja dicho en {@code before}
+     * cuál reemplazó. Sin ese id, la bitácora diría que apareció un límite de
+     * la nada el mismo día en que otro dejó de contar, y habría que adivinar
+     * que son el mismo hecho.
+     *
+     * <p>El monto no va, ni el viejo ni el nuevo: en la bitácora no van montos.
+     */
+    public static AuditRecord budgetChanged(BudgetId id, BudgetId replaced) {
+        return ofBudget(id, AuditAction.AMEND,
+                Map.of("budget", replaced.toString()), Map.of());
+    }
+
+    private static AuditRecord ofBudget(
+            BudgetId id, AuditAction action,
+            Map<String, String> before, Map<String, String> after) {
+
+        return new AuditRecord(AuditedEntity.BUDGET, id.value(), action,
+                TransactionSource.APP, before, after);
     }
 
     private static AuditRecord ofTransaction(

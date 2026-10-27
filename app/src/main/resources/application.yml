@@ -107,6 +107,17 @@ spring:
 #   book-lock:
 #     timeout: 5s
 
+# En qué calendario vive el dueño, que es lo único que decide qué día es "hoy"
+# cuando una lectura no trae fecha. Los instantes que se guardan siguen en UTC.
+#
+# El valor por defecto (America/Bogota) vive en TimeZoneProperties, no aquí, por
+# lo mismo que el del candado. Esto queda escrito solo para que se sepa que la
+# propiedad existe: el reloj es UTC y Colombia está en UTC-5, así que sin esto
+# a las siete de la tarde la API contestaba por el día siguiente.
+#
+# finance:
+#   timezone: America/Bogota
+
 # Escuchar solo en loopback mientras nadie diga lo contrario.
 #
 # El cifrado lo pondrá Tailscale cuando esto viva en Oracle, pero un bind a

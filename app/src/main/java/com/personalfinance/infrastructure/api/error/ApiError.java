@@ -76,6 +76,18 @@ public enum ApiError {
     UNSAFE_TEXT(HttpStatus.BAD_REQUEST, "unsafe-text",
             "El texto trae caracteres que no se admiten."),
 
+    /**
+     * Una serie pidió más meses de los que se admiten.
+     *
+     * <p>Es un 400 y no un 413: lo que se pasó de tope no es el tamaño de la
+     * petición sino el trabajo que encarga. Y tiene su propio código porque la
+     * alternativa — recortar el rango y contestar — cambiaría la pregunta en
+     * silencio, y un cliente no tendría forma de saber que el gráfico que
+     * dibujó es de otro periodo.
+     */
+    RANGE_TOO_WIDE(HttpStatus.BAD_REQUEST, "range-too-wide",
+            "El rango pedido abarca demasiados meses."),
+
     UNSUPPORTED_MEDIA_TYPE(HttpStatus.UNSUPPORTED_MEDIA_TYPE, "unsupported-media-type",
             "Esta API solo acepta application/json."),
 
@@ -118,6 +130,29 @@ public enum ApiError {
     PERSON_STILL_HAS_OPEN_ACCOUNTS(HttpStatus.CONFLICT, "person-still-has-open-accounts",
             "Esa persona todavía tiene cuentas abiertas."),
 
+    /**
+     * Un presupuesto que ya había sido reemplazado se reemplazó otra vez.
+     *
+     * <p>El caso de uso no puede producirlo — solo reemplaza el que está vivo —,
+     * así que esto es la red del store, que nunca da por hecho que el libro en
+     * memoria comprobó primero.
+     */
+    BUDGET_ALREADY_SUPERSEDED(HttpStatus.CONFLICT, "budget-already-superseded",
+            "Ese presupuesto ya había sido reemplazado."),
+
+    /**
+     * La cuenta existe y es del tipo equivocado para lo que se pidió: pagar un
+     * almuerzo «desde» una categoría de ingreso, o poner un presupuesto a una
+     * cuenta de banco.
+     *
+     * <p>Estrena código y deja de caer en el 422 genérico por lo mismo que
+     * {@code archived-account}: antes solo se tropezaba armando un movimiento,
+     * donde el texto genérico bastaba; al poner un presupuesto es uno de los
+     * dos errores posibles, y decir cuál ahorra el viaje de adivinarlo.
+     */
+    UNEXPECTED_ACCOUNT_TYPE(HttpStatus.UNPROCESSABLE_CONTENT, "unexpected-account-type",
+            "Ese tipo de cuenta no sirve para esta operación."),
+
     SAME_ACCOUNT_TRANSFER(HttpStatus.UNPROCESSABLE_CONTENT, "same-account-transfer",
             "Una transferencia necesita dos cuentas distintas."),
 
@@ -152,6 +187,19 @@ public enum ApiError {
 
     DATE_OUT_OF_RANGE(HttpStatus.UNPROCESSABLE_CONTENT, "date-out-of-range",
             "Esa fecha está fuera del rango que admite el libro."),
+
+    /**
+     * Un rango con los dos extremos al revés, en fechas o en valor.
+     *
+     * <p>Tiene su propio código porque la alternativa era contestar una lista
+     * vacía: un rango del 31 al 1 no lo cumple nada, así que el libro podría
+     * responder «ningún movimiento» y tener razón aritmética. Ese es justo el
+     * error que hay que decir en voz alta, porque un informe vacío se lee como
+     * «no gastaste nada en marzo» cuando lo que pasó es que las dos fechas
+     * venían cambiadas de sitio.
+     */
+    REVERSED_RANGE(HttpStatus.UNPROCESSABLE_CONTENT, "reversed-range",
+            "Un rango viene con el extremo inicial por encima del final."),
 
     /**
      * El brazo de recogida de {@code LedgerException}. Una regla del dominio

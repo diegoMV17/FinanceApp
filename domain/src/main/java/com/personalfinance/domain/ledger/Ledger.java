@@ -105,14 +105,63 @@ public final class Ledger {
      * owed to you, total held for other people.
      */
     public Money totalFor(AccountType type, LocalDate asOf) {
+        return totalFor(type, MovementQuery.upTo(asOf));
+    }
+
+    /**
+     * HU22, HU23. The same total over a bounded question: what was spent in
+     * March, what came in from a fund, what one person moved.
+     *
+     * <p>This is the one that makes a dashboard possible. Up to a date gives a
+     * balance; between two dates gives a period, which is what a chart has on
+     * its horizontal axis.
+     *
+     * <p>The sign is the one the person reads, applied once here from
+     * {@link BalanceNature}, so no caller has to remember which way round an
+     * expense goes.
+     */
+    public Money totalFor(AccountType type, MovementQuery query) {
         Objects.requireNonNull(type, "type");
-        Money onTheLedger = countedUpTo(asOf)
+        Money onTheLedger = matching(query)
                 .flatMap(transaction -> transaction.entries().stream())
                 .filter(entry -> entry.account().type() == type)
                 .map(Entry::amount)
                 .reduce(Money.ZERO, Money::plus);
 
         return onTheLedger.times(type.nature().presentationSign());
+    }
+
+    /**
+     * HU23. The same total broken down by account, in one pass.
+     *
+     * <p>This is what expenses by category is: a category is an account of type
+     * EXPENSE, so grouping the expense entries by their account is the whole
+     * answer. With {@code type} absent it groups every account that moved,
+     * which is the same question asked of the whole book.
+     *
+     * <p>Here {@code type} says which <em>entries</em> to add up, not which
+     * transactions count. A lunch touches Nequi and food; adding both of its
+     * entries into one breakdown would put the money in twice with opposite
+     * signs, and the chart would be of nothing.
+     *
+     * <p>Only accounts that moved are in the map. An account sitting at zero
+     * for the period is a fact about the chart and not about the entries, so
+     * filling that in belongs to whoever has the chart.
+     *
+     * @param type the accounts to add up, or {@code null} for all of them
+     */
+    public Map<AccountId, Money> totalsByAccount(AccountType type, MovementQuery query) {
+        Map<AccountId, Money> totals = new LinkedHashMap<>();
+
+        matching(query)
+                .flatMap(transaction -> transaction.entries().stream())
+                .filter(entry -> type == null || entry.account().type() == type)
+                .forEach(entry -> totals.merge(
+                        entry.account().id(),
+                        entry.amount().times(entry.account().type().nature().presentationSign()),
+                        Money::plus));
+
+        return Map.copyOf(totals);
     }
 
     /**
@@ -149,9 +198,20 @@ public final class Ledger {
 
     /** HU21, HU24: how a fund, a person or an account has moved, oldest first. */
     public List<Transaction> movementsOf(Account account) {
-        return activeTransactions().stream()
-                .filter(transaction -> transaction.touches(account))
-                .toList();
+        Objects.requireNonNull(account, "account");
+        return movementsMatching(MovementQuery.everything().touching(account.id()));
+    }
+
+    /**
+     * HU24, HU25: the movements that still count and answer that question,
+     * oldest first.
+     *
+     * <p>The order is the one the book was written in, and every answer derived
+     * from a query keeps it, so walking pages in order walks the history in
+     * order.
+     */
+    public List<Transaction> movementsMatching(MovementQuery query) {
+        return matching(query).toList();
     }
 
     /**
@@ -197,9 +257,25 @@ public final class Ledger {
     }
 
     private Stream<Transaction> countedUpTo(LocalDate asOf) {
-        Objects.requireNonNull(asOf, "asOf");
+        return matching(MovementQuery.upTo(asOf));
+    }
+
+    /**
+     * The one filter the book has.
+     *
+     * <p>Everything that answers a bounded question goes through here: the
+     * lists, the totals and every balance, which is nothing but the total up to
+     * a date. Two filters would be two readings of the same question, and the
+     * day they disagreed a list and the total printed under it would contradict
+     * each other with both halves looking plausible.
+     *
+     * <p>Cancelled movements are dropped here and not in {@link MovementQuery}:
+     * whether something still counts is the book talking, not the question.
+     */
+    private Stream<Transaction> matching(MovementQuery query) {
+        Objects.requireNonNull(query, "query");
         return book.values().stream()
                 .filter(transaction -> !transaction.isCancelled())
-                .filter(transaction -> !transaction.date().isAfter(asOf));
+                .filter(query::matches);
     }
 }

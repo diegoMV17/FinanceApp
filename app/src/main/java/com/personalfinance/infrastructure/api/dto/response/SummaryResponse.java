@@ -24,11 +24,21 @@ import java.util.Map;
  * <p>Se usa un {@link EnumMap} para que el JSON salga en el orden en que están
  * declarados los tipos, que es de lo más útil a lo más raro, y no en el orden en
  * que un {@code HashMap} decida.
+ *
+ * <p>Los dos del mes van aparte de los totales por tipo porque son otra cosa:
+ * HU22 pide «Ingresos», «Gastos» y «Gastos del mes» como tres indicadores. Los
+ * totales por tipo son el acumulado de toda la historia; estos dos van del
+ * {@code monthFrom} — el día 1 del mes de {@code asOf} — hasta {@code asOf}, que
+ * es lo que significa «del mes» en una lectura «a una fecha». El {@code monthFrom}
+ * viaja en la respuesta por lo mismo que el {@code asOf}: lo eligió el servidor.
  */
 public record SummaryResponse(
         LocalDate asOf,
         long moneyReallyMineInCents,
-        Map<AccountType, Long> totalsByTypeInCents) {
+        Map<AccountType, Long> totalsByTypeInCents,
+        LocalDate monthFrom,
+        long incomeThatMonthInCents,
+        long expensesThatMonthInCents) {
 
     public static SummaryResponse of(BookSummary summary) {
         Map<AccountType, Long> totals = new EnumMap<>(AccountType.class);
@@ -36,7 +46,12 @@ public record SummaryResponse(
             totals.put(type, summary.totalFor(type).cents());
         }
         return new SummaryResponse(
-                summary.asOf(), summary.moneyReallyMine().cents(), totals);
+                summary.asOf(),
+                summary.moneyReallyMine().cents(),
+                totals,
+                summary.monthFrom(),
+                summary.incomeThatMonth().cents(),
+                summary.expensesThatMonth().cents());
     }
 
     /**

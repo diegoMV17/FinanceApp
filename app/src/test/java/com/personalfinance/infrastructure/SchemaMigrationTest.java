@@ -74,7 +74,8 @@ class SchemaMigrationTest extends PostgresIntegrationTest {
         // DELETE está prohibido por los triggers, y eso es justamente el punto.
         // TRUNCATE no dispara triggers de fila, así que deja la base limpia sin
         // desactivar las protecciones que se están probando.
-        jdbc.execute("TRUNCATE entries, transactions, audit_log, accounts, people CASCADE");
+        jdbc.execute(
+                "TRUNCATE entries, transactions, audit_log, budgets, accounts, people CASCADE");
 
         openAccount(CASH, "ASSET", "Efectivo");
         openAccount(FOOD, "EXPENSE", "Alimentación");
@@ -96,10 +97,10 @@ class SchemaMigrationTest extends PostgresIntegrationTest {
         }
 
         @Test
-        @DisplayName("P2 · con las cinco tablas, la vista y cada uno de sus triggers")
+        @DisplayName("P2 · con las seis tablas, la vista y cada uno de sus triggers")
         void everythingIsThere() {
-            assertThat(tableNames())
-                    .contains("accounts", "transactions", "entries", "audit_log", "people");
+            assertThat(tableNames()).contains(
+                    "accounts", "transactions", "entries", "audit_log", "people", "budgets");
             assertThat(viewNames()).contains("account_eventual_balances");
             // Por nombre y no por cantidad: un número no dice cuál falta, y uno
             // reemplazado por otro con distinto alcance daría el mismo total.
@@ -112,7 +113,9 @@ class SchemaMigrationTest extends PostgresIntegrationTest {
                     "accounts_are_never_deleted",
                     "audit_log_only_grows",
                     "people_keep_their_identity",
-                    "people_are_never_deleted");
+                    "people_are_never_deleted",
+                    "budgets_keep_their_identity",
+                    "budgets_are_never_deleted");
         }
 
         @Test
@@ -820,6 +823,138 @@ class SchemaMigrationTest extends PostgresIntegrationTest {
             return jdbc.queryForObject(
                     "SELECT person_id::text FROM accounts WHERE id = ?::uuid",
                     String.class, accountId);
+        }
+    }
+
+    /**
+     * P59 a P66. La V7: un presupuesto es un hecho, y la red de SQL que lo
+     * sostiene.
+     */
+    @Nested
+    @DisplayName("los presupuestos")
+    class TheBudgets {
+
+        private static final String MARCH = "2026-03-01";
+
+        @Test
+        @DisplayName("P59 · un solo presupuesto vivo por categoría y mes")
+        void onlyOneLivePerCategoryAndMonth() {
+            String first = setBudget(FOOD, MARCH, 50_000_000);
+
+            assertThatThrownBy(() -> setBudget(FOOD, MARCH, 60_000_000))
+                    .hasStackTraceContaining("budgets_one_live_per_category_and_month");
+
+            // Y en cuanto el primero deja de contar, el sitio queda libre.
+            jdbc.update("UPDATE budgets SET superseded_at = now() WHERE id = ?::uuid", first);
+            assertThatNoException().isThrownBy(() -> setBudget(FOOD, MARCH, 60_000_000));
+        }
+
+        @Test
+        @DisplayName("P60 · dos categorías o dos meses no chocan")
+        void differentCategoriesOrMonthsDoNotCollide() {
+            setBudget(FOOD, MARCH, 50_000_000);
+
+            assertThatNoException().isThrownBy(() -> setBudget(CASH, MARCH, 10_000_000));
+            assertThatNoException().isThrownBy(() -> setBudget(FOOD, "2026-04-01", 50_000_000));
+        }
+
+        @Test
+        @DisplayName("P61 · el mes es el día 1, y está dentro del siglo del libro")
+        void thePeriodIsAWholeMonthInRange() {
+            assertThatThrownBy(() -> setBudget(FOOD, "2026-03-15", 50_000_000))
+                    .hasStackTraceContaining("budgets_period_is_a_whole_month");
+
+            assertThatThrownBy(() -> setBudget(FOOD, "1999-12-01", 50_000_000))
+                    .hasStackTraceContaining("budgets_period_in_range");
+
+            assertThatThrownBy(() -> setBudget(FOOD, "2100-01-01", 50_000_000))
+                    .hasStackTraceContaining("budgets_period_in_range");
+        }
+
+        @Test
+        @DisplayName("P62 · el límite es positivo y tiene techo")
+        void theLimitIsPositiveAndBounded() {
+            assertThatThrownBy(() -> setBudget(FOOD, MARCH, 0))
+                    .hasStackTraceContaining("budgets_limit_is_positive");
+
+            assertThatThrownBy(() -> setBudget(FOOD, MARCH, -1))
+                    .hasStackTraceContaining("budgets_limit_is_positive");
+
+            assertThatNoException().isThrownBy(
+                    () -> setBudget(FOOD, "2026-05-01", 1_000_000_000_000L));
+
+            assertThatThrownBy(() -> setBudget(FOOD, MARCH, 1_000_000_000_001L))
+                    .hasStackTraceContaining("budgets_limit_within_range");
+        }
+
+        @Test
+        @DisplayName("P63 · la categoría tiene que existir")
+        void theCategoryHasToExist() {
+            assertThatThrownBy(() -> setBudget(newId(), MARCH, 50_000_000))
+                    .hasStackTraceContaining("budgets_category_exists");
+        }
+
+        @Test
+        @DisplayName("P64 · un presupuesto no se edita")
+        void aBudgetIsNeverEdited() {
+            String id = setBudget(FOOD, MARCH, 50_000_000);
+
+            assertThatThrownBy(() -> jdbc.update(
+                    "UPDATE budgets SET limit_cents = 99 WHERE id = ?::uuid", id))
+                    .hasStackTraceContaining("no se edita");
+
+            assertThatThrownBy(() -> jdbc.update(
+                    "UPDATE budgets SET period = ?::date WHERE id = ?::uuid", "2026-04-01", id))
+                    .hasStackTraceContaining("no se edita");
+
+            assertThatThrownBy(() -> jdbc.update(
+                    "UPDATE budgets SET category_id = ?::uuid WHERE id = ?::uuid", CASH, id))
+                    .hasStackTraceContaining("no se edita");
+        }
+
+        @Test
+        @DisplayName("P65 · y lo que dejó de contar no vuelve")
+        void supersedingIsFinal() {
+            String id = setBudget(FOOD, MARCH, 50_000_000);
+            jdbc.update("UPDATE budgets SET superseded_at = now() WHERE id = ?::uuid", id);
+
+            assertThatThrownBy(() -> jdbc.update(
+                    "UPDATE budgets SET superseded_at = NULL WHERE id = ?::uuid", id))
+                    .hasStackTraceContaining("dejó de contar");
+        }
+
+        @Test
+        @DisplayName("P66 · ni se borra, y cada uno es reemplazado por uno solo")
+        void neverDeletedAndReplacedOnce() {
+            String first = setBudget(FOOD, MARCH, 50_000_000);
+
+            assertThatThrownBy(() -> jdbc.update(
+                    "DELETE FROM budgets WHERE id = ?::uuid", first))
+                    .hasStackTraceContaining("no se borran");
+
+            jdbc.update("UPDATE budgets SET superseded_at = now() WHERE id = ?::uuid", first);
+            replaceBudget(newId(), FOOD, MARCH, 60_000_000, first);
+
+            assertThatThrownBy(() -> replaceBudget(
+                    newId(), FOOD, "2026-04-01", 60_000_000, first))
+                    .hasStackTraceContaining("budgets_one_replacement_each");
+        }
+
+        private String setBudget(String categoryId, String period, long cents) {
+            String id = newId();
+            jdbc.update("INSERT INTO budgets (id, category_id, period, limit_cents) "
+                            + "VALUES (?::uuid, ?::uuid, ?::date, ?)",
+                    id, categoryId, period, cents);
+            return id;
+        }
+
+        private void replaceBudget(
+                String id, String categoryId, String period, long cents, String replaced) {
+
+            jdbc.update("INSERT INTO budgets "
+                            + "(id, category_id, period, limit_cents, replaces_id) "
+                            + "VALUES (?::uuid, ?::uuid, ?::date, ?, ?::uuid)",
+                    id, categoryId, period, cents, replaced);
         }
     }
 

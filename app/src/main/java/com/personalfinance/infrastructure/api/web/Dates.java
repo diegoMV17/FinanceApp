@@ -46,7 +46,20 @@ final class Dates {
      * fecha con la que se contesta y no cambia ni un dato guardado.
      */
     static LocalDate orToday(LocalDate asOf, Clock clock, ZoneId zone) {
-        return asOf != null ? asOf : LocalDate.ofInstant(clock.instant(), zone);
+        return asOf != null ? asOf : today(clock, zone);
+    }
+
+    /**
+     * El día de hoy en el calendario del dueño, para quien no tiene un
+     * {@code asOf} que respetar.
+     *
+     * <p>Los presupuestos preguntan dos cosas a la vez — de qué mes se habla
+     * cuando no se dijo, y hasta qué día se cuenta lo gastado del mes en curso
+     * — y las dos tienen que salir de la misma fecha. Pedirla dos veces a un
+     * reloj de verdad admite que la segunda caiga en el día siguiente.
+     */
+    static LocalDate today(Clock clock, ZoneId zone) {
+        return LocalDate.ofInstant(clock.instant(), zone);
     }
 
     /**

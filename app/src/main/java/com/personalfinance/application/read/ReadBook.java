@@ -244,15 +244,14 @@ public class ReadBook {
      * <p>El orden es el más consumido primero, que es el que pone arriba lo que
      * está a punto de reventar: es la pregunta que se hace frente a esta
      * pantalla.
+     *
+     * @param today la fecha de hoy en el calendario del dueño, que es hasta
+     *              dónde se cuenta el mes en curso
      */
     @Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)
-    public List<BudgetView> budgets(YearMonth month) {
+    public List<BudgetView> budgets(YearMonth month, LocalDate today) {
         Book book = loader.load();
-
-        MovementQuery thatMonth = MovementQuery.everything()
-                .between(month.atDay(1), month.atEndOfMonth());
-        Map<AccountId, Money> spent =
-                book.ledger().totalsByAccount(AccountType.EXPENSE, thatMonth);
+        Map<AccountId, Money> spent = spentDuring(book, month, today);
 
         return book.budgets().liveFor(month).stream()
                 .map(budget -> BudgetView.of(budget.progressWith(
@@ -297,6 +296,39 @@ public class ReadBook {
                 monthFrom,
                 ledger.totalFor(AccountType.INCOME, thatMonth),
                 ledger.totalFor(AccountType.EXPENSE, thatMonth));
+    }
+
+    /**
+     * Lo gastado en cada categoría durante ese mes, que en el mes en curso
+     * llega hasta hoy y no hasta el día 31.
+     *
+     * <p>Es la misma ventana que usa el resumen — del día 1 hasta la fecha con
+     * la que se contesta —, y tiene que serlo: los dos números se leen juntos
+     * en la misma pantalla, y un gasto fechado un 25 hacía que el porcentaje
+     * del límite dijera 80% mientras «gastos del mes» decía 30%. La regla del
+     * libro es que un movimiento futuro no cuenta hasta su fecha, así que el
+     * que estaba mal era el porcentaje.
+     *
+     * <p>Un mes que ya pasó se cuenta entero: acotarlo a hoy le quitaría los
+     * gastos de sus últimos días. Y un mes que todavía no ha empezado no ha
+     * gastado nada, que es lo que dice la misma regla llevada hasta el final;
+     * sin este caso aparte el rango quedaría al revés y una pregunta
+     * perfectamente razonable — cómo va el plan de diciembre — se contestaría
+     * con una queja.
+     */
+    private static Map<AccountId, Money> spentDuring(
+            Book book, YearMonth month, LocalDate today) {
+
+        LocalDate firstDay = month.atDay(1);
+        if (today.isBefore(firstDay)) {
+            return Map.of();
+        }
+
+        LocalDate lastDay = month.atEndOfMonth();
+        MovementQuery thatMonth = MovementQuery.everything()
+                .between(firstDay, today.isBefore(lastDay) ? today : lastDay);
+
+        return book.ledger().totalsByAccount(AccountType.EXPENSE, thatMonth);
     }
 
     private static MovementQuery queryFrom(MovementFilter filter, Book book) {

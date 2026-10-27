@@ -8,6 +8,7 @@ import com.personalfinance.infrastructure.api.dto.response.BudgetsResponse;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Pattern;
 import java.time.Clock;
+import java.time.LocalDate;
 import java.time.YearMonth;
 import java.time.ZoneId;
 import org.springframework.http.MediaType;
@@ -63,16 +64,23 @@ class BudgetsController {
      * dueño: en UTC, a las siete de la tarde de un 31 ya sería el mes
      * siguiente, con todos los límites en cero justo la noche en que se mira el
      * cierre.
+     *
+     * <p>Esa misma fecha baja a la lectura, porque es hasta donde se cuenta lo
+     * gastado del mes en curso: un gasto fechado la semana que viene todavía no
+     * ocurrió y no se come el presupuesto de nadie. Va una sola vez y se usa
+     * para las dos cosas, y se manda siempre, también cuando el mes vino
+     * pedido: la fecha que se pidió es un mes, no un día.
      */
     @GetMapping
     BudgetsResponse budgets(
             @RequestParam(required = false)
             @Pattern(regexp = SetBudgetRequest.MONTH) String month) {
 
+        LocalDate today = Dates.today(clock, timezone);
         YearMonth asked = month == null || month.isBlank()
-                ? YearMonth.from(Dates.orToday(null, clock, timezone))
+                ? YearMonth.from(today)
                 : YearMonth.parse(month);
 
-        return BudgetsResponse.of(asked.toString(), book.budgets(asked));
+        return BudgetsResponse.of(asked.toString(), book.budgets(asked, today));
     }
 }

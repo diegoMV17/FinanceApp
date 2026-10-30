@@ -1,0 +1,35 @@
+# Lo que genera el build de Gradle y las herramientas de Java. Vive aquí y no en
+# la raíz para que ninguno de estos patrones alcance a mobile/.
+
+.gradle
+build/
+!**/src/main/**/build/
+!**/src/test/**/build/
+# El wrapper sí se versiona: sin él, quien clone no puede construir.
+!gradle/wrapper/gradle-wrapper.jar
+
+# La caché de jqwik entre corridas de las propiedades del dominio.
+.jqwik-database
+*.class
+
+### Eclipse ###
+.apt_generated
+.classpath
+.factorypath
+.project
+.settings
+.springBeans
+.sts4-cache
+bin/
+!**/src/main/**/bin/
+!**/src/test/**/bin/
+out/
+!**/src/main/**/out/
+!**/src/test/**/out/
+
+### NetBeans ###
+/nbproject/private/
+/nbbuild/
+/dist/
+/nbdist/
+/.nb-gradle/

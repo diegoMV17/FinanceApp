@@ -8,3 +8,14 @@
 *.cmd text eol=crlf
 
 *.jar binary
+
+# Binarios: sin esto, `* text=auto` puede decidir que un archivo es texto y
+# "arreglarle" los saltos de línea, que en un PNG, una fuente o una biblioteca
+# nativa significa corromperlo. Los trae la app: iconos, fuentes y las .so de
+# SQLite cifrado.
+*.png binary
+*.jpg binary
+*.webp binary
+*.ttf binary
+*.otf binary
+*.so binary

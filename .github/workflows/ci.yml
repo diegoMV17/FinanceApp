@@ -6,8 +6,15 @@ on:
   pull_request:
 
 jobs:
+  # El nombre `test` no se renombra: la protección de main exige ese check, y
+  # cambiarlo bloquea todos los PR sin un mensaje que explique por qué.
   test:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        # El build vive en server/. Aplica a los `run`, no a los `uses`: la
+        # caché de Gradle de setup-java busca los *.gradle* en todo el workspace.
+        working-directory: server
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4

@@ -1,51 +1,29 @@
-.gradle
-build/
-!gradle/wrapper/gradle-wrapper.jar
-!**/src/main/**/build/
-!**/src/test/**/build/
+# Lo común a todo el repo. Lo de cada proyecto va en el .gitignore de su
+# carpeta (server/.gitignore, mobile/.gitignore): un patrón sin anclar escrito
+# aquí es la forma más fácil de ignorar por accidente algo del otro proyecto
+# —"bin/" es ruido de Eclipse en Java y una carpeta de código de verdad en Dart.
 
 # Fuera del repo a propósito: el repositorio es público. CLAUDE.md lleva la hoja
 # de ruta y las decisiones; el archivo de historias, los ejemplos reales del dueño
 # (sus cuentas, sus préstamos, quién le debe). Nunca con git add -f.
+# El patrón sin barra ignora un CLAUDE.md en cualquier carpeta: también los de
+# server/ y mobile/.
 CLAUDE.md
 Historias de usuario propuestas.txt
 
+# Secretos de verdad. example.env (en server/) es la plantilla que sí se versiona.
 .env
+*.jks
+*.keystore
+key.properties
 
-.jqwik-database
-*.class
-### IntelliJ IDEA ###
-.idea/modules.xml
-.idea/jarRepositories.xml
-.idea/compiler.xml
-.idea/libraries/
+### IDE ###
+# IntelliJ abre server/ y VS Code o Android Studio abren mobile/: lo que cada
+# uno escribe es de la máquina de quien edita, no del proyecto.
+.idea/
 *.iws
 *.iml
 *.ipr
-out/
-!**/src/main/**/out/
-!**/src/test/**/out/
-
-### Eclipse ###
-.apt_generated
-.classpath
-.factorypath
-.project
-.settings
-.springBeans
-.sts4-cache
-bin/
-!**/src/main/**/bin/
-!**/src/test/**/bin/
-
-### NetBeans ###
-/nbproject/private/
-/nbbuild/
-/dist/
-/nbdist/
-/.nb-gradle/
-
-### VS Code ###
 .vscode/
 
 ### Mac OS ###

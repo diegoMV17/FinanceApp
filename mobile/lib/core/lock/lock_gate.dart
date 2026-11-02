@@ -5,6 +5,10 @@ import 'app_lock.dart';
 
 /// Nada de lo que hay debajo se ve sin desbloquear.
 ///
+/// Va en `MaterialApp.builder`, por encima del Navigator y no como pantalla de
+/// inicio: así también tapa cualquier pantalla que se haya abierto encima con
+/// `Navigator.push`, que como `home` quedaría a la vista al bloquear.
+///
 /// Pide el desbloqueo solo al abrir y cada vez que la app vuelve al frente; si
 /// el usuario lo cancela, queda la pantalla de bloqueo con un botón para
 /// intentarlo otra vez. En un teléfono sin bloqueo de pantalla deja entrar,
@@ -53,17 +57,32 @@ class _LockGateState extends ConsumerState<LockGate>
 
   @override
   Widget build(BuildContext context) {
-    return switch (ref.watch(appLockProvider)) {
-      AppLockState.unlocked => widget.child,
-      AppLockState.unprotected => Column(
-        children: <Widget>[
-          const _UnprotectedNotice(key: LockGate.unprotectedNoticeKey),
-          Expanded(child: widget.child),
-        ],
-      ),
-      AppLockState.locked ||
-      AppLockState.unlocking => _LockScreen(onUnlock: _unlock),
-    };
+    final AppLockState state = ref.watch(appLockProvider);
+    final bool open =
+        state == AppLockState.unlocked || state == AppLockState.unprotected;
+    // La misma forma de árbol abierta o cerrada: lo de debajo (el Navigator
+    // entero, con las pantallas que haya abiertas) se conserva mientras está
+    // bloqueada, pero fuera de escena: ni se dibuja, ni recibe toques, ni lo
+    // ve la accesibilidad. Al desbloquear, cada pantalla sigue donde estaba.
+    return Stack(
+      fit: StackFit.expand,
+      children: <Widget>[
+        Offstage(
+          offstage: !open,
+          child: TickerMode(
+            enabled: open,
+            child: Column(
+              children: <Widget>[
+                if (state == AppLockState.unprotected)
+                  const _UnprotectedNotice(key: LockGate.unprotectedNoticeKey),
+                Expanded(child: widget.child),
+              ],
+            ),
+          ),
+        ),
+        if (!open) _LockScreen(onUnlock: _unlock),
+      ],
+    );
   }
 }
 

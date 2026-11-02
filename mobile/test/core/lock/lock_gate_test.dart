@@ -68,6 +68,51 @@ void main() {
     expect(find.byKey(LockGate.unlockButtonKey), findsOneWidget);
   });
 
+  testWidgets('una pantalla abierta encima también queda tapada al bloquear', (
+    WidgetTester tester,
+  ) async {
+    // Como en la app: la compuerta por encima del Navigator. Si fuera la
+    // pantalla de inicio, una ruta empujada encima seguiría a la vista.
+    authenticator.next = AuthOutcome.success;
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [authenticatorProvider.overrideWithValue(authenticator)],
+        child: MaterialApp(
+          builder: (BuildContext context, Widget? child) =>
+              LockGate(child: child!),
+          home: Builder(
+            builder: (BuildContext context) => TextButton(
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => const Scaffold(body: Text('Saldo de Juan')),
+                ),
+              ),
+              child: const Text('Abrir'),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Abrir'));
+    await tester.pumpAndSettle();
+    expect(find.text('Saldo de Juan'), findsOneWidget);
+
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.hidden);
+    authenticator.next = AuthOutcome.failed;
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Saldo de Juan'), findsNothing);
+    expect(find.byKey(LockGate.unlockButtonKey), findsOneWidget);
+
+    // Y al desbloquear, la pantalla sigue donde estaba.
+    authenticator.next = AuthOutcome.success;
+    await tester.tap(find.byKey(LockGate.unlockButtonKey));
+    await tester.pumpAndSettle();
+    expect(find.text('Saldo de Juan'), findsOneWidget);
+  });
+
   testWidgets('sin bloqueo de pantalla en el teléfono: entra, con el aviso', (
     WidgetTester tester,
   ) async {

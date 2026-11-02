@@ -29,9 +29,12 @@ class FinanceApp extends StatelessWidget {
       title: 'FinanceApp',
       theme: ThemeData(colorSchemeSeed: _seed, brightness: Brightness.light),
       darkTheme: ThemeData(colorSchemeSeed: _seed, brightness: Brightness.dark),
-      builder: (BuildContext context, Widget? child) =>
-          PrivacyCover(child: child ?? const SizedBox.shrink()),
-      home: const LockGate(child: _DatabaseGate(child: _SettingsGate())),
+      // La cubierta y el bloqueo, por encima del Navigator: tapan también
+      // cualquier pantalla o diálogo que se haya abierto encima.
+      builder: (BuildContext context, Widget? child) => PrivacyCover(
+        child: LockGate(child: child ?? const SizedBox.shrink()),
+      ),
+      home: const _DatabaseGate(child: _SettingsGate()),
     );
   }
 }

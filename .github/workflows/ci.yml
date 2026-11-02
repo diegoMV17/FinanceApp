@@ -24,6 +24,18 @@ jobs:
           cache: gradle
       - run: chmod +x ./gradlew
       - run: ./gradlew test
+      # El contrato que lee mobile/. ContractTest ya pone rojo el build si
+      # contract/openapi.json no coincide con el código (y lo reescribe); este
+      # paso es la segunda red, y la que dice qué hacer. Corre aunque el test
+      # haya fallado, que es justo cuando hace falta el mensaje.
+      - name: El contrato está comiteado
+        if: ${{ !cancelled() }}
+        run: |
+          if [ -n "$(git status --porcelain -- ../contract)" ]; then
+            git diff --stat -- ../contract
+            echo "::error::contract/openapi.json no corresponde al código: corre ./gradlew test en server/ y commitea el contrato"
+            exit 1
+          fi
 
   # El trabajo de la app. Corre siempre, igual que `test` y sin filtros de
   # ruta: con filtros, un check obligatorio que no corre deja el PR esperando
@@ -46,6 +58,18 @@ jobs:
           channel: stable
           cache: true
       - run: flutter pub get
+      # El cliente de lib/data/api/ se genera desde contract/openapi.json y no
+      # se edita a mano. Aquí se regenera con el mismo script que usa una
+      # persona, y si sale distinto de lo comiteado, el PR no pasa: o cambió el
+      # contrato sin regenerar el cliente, o alguien tocó lo generado.
+      - name: El cliente generado corresponde al contrato
+        run: |
+          ./tool/generate_api.sh
+          if [ -n "$(git status --porcelain -- lib/data/api)" ]; then
+            git status --short -- lib/data/api
+            echo "::error::lib/data/api no corresponde a contract/openapi.json: corre mobile/tool/generate_api.sh y commitea el resultado"
+            exit 1
+          fi
       # --fatal-infos: las reglas de analysis_options.yaml avisan en infos. Sin
       # esto, `flutter analyze` pasa en verde con los avisos puestos.
       - run: flutter analyze --fatal-infos

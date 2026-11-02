@@ -15,8 +15,7 @@
             "type" : "string"
           },
           "type" : {
-            "enum" : [ "ASSET", "RECEIVABLE", "PAYABLE", "THIRD_PARTY_FUND", "INCOME", "EXPENSE", "EQUITY" ],
-            "type" : "string"
+            "$ref" : "#/components/schemas/AccountType"
           }
         },
         "type" : "object"
@@ -39,12 +38,15 @@
             "type" : "integer"
           },
           "type" : {
-            "enum" : [ "ASSET", "RECEIVABLE", "PAYABLE", "THIRD_PARTY_FUND", "INCOME", "EXPENSE", "EQUITY" ],
-            "type" : "string"
+            "$ref" : "#/components/schemas/AccountType"
           }
         },
         "required" : [ "totalInCents" ],
         "type" : "object"
+      },
+      "AccountType" : {
+        "enum" : [ "ASSET", "RECEIVABLE", "PAYABLE", "THIRD_PARTY_FUND", "INCOME", "EXPENSE", "EQUITY" ],
+        "type" : "string"
       },
       "AmendMovementRequest" : {
         "properties" : {
@@ -73,8 +75,7 @@
             "type" : "string"
           },
           "type" : {
-            "enum" : [ "ASSET", "RECEIVABLE", "PAYABLE", "THIRD_PARTY_FUND", "INCOME", "EXPENSE", "EQUITY" ],
-            "type" : "string"
+            "$ref" : "#/components/schemas/AccountType"
           }
         },
         "required" : [ "balanceInCents" ],
@@ -242,8 +243,7 @@
             "type" : "string"
           },
           "source" : {
-            "enum" : [ "APP", "BOT", "RECURRING", "SYSTEM" ],
-            "type" : "string"
+            "$ref" : "#/components/schemas/TransactionSource"
           }
         },
         "type" : "object"
@@ -361,8 +361,7 @@
             "type" : "string"
           },
           "source" : {
-            "enum" : [ "APP", "BOT", "RECURRING", "SYSTEM" ],
-            "type" : "string"
+            "$ref" : "#/components/schemas/TransactionSource"
           },
           "valueInCents" : {
             "format" : "int64",
@@ -500,8 +499,7 @@
             "type" : "string"
           },
           "source" : {
-            "enum" : [ "APP", "BOT", "RECURRING", "SYSTEM" ],
-            "type" : "string"
+            "$ref" : "#/components/schemas/TransactionSource"
           }
         },
         "required" : [ "effectInCents" ],
@@ -580,8 +578,7 @@
             "type" : "string"
           },
           "source" : {
-            "enum" : [ "APP", "BOT", "RECURRING", "SYSTEM" ],
-            "type" : "string"
+            "$ref" : "#/components/schemas/TransactionSource"
           }
         },
         "type" : "object"
@@ -626,8 +623,7 @@
             "type" : "string"
           },
           "type" : {
-            "enum" : [ "ASSET", "RECEIVABLE", "PAYABLE", "THIRD_PARTY_FUND", "INCOME", "EXPENSE", "EQUITY" ],
-            "type" : "string"
+            "$ref" : "#/components/schemas/AccountType"
           }
         },
         "required" : [ "id", "name", "type" ],
@@ -1109,6 +1105,10 @@
         },
         "type" : "object"
       },
+      "TransactionSource" : {
+        "enum" : [ "APP", "BOT", "RECURRING", "SYSTEM" ],
+        "type" : "string"
+      },
       "TransferRequest" : {
         "properties" : {
           "amountInCents" : {
@@ -1514,8 +1514,7 @@
           "name" : "type",
           "required" : false,
           "schema" : {
-            "enum" : [ "ASSET", "RECEIVABLE", "PAYABLE", "THIRD_PARTY_FUND", "INCOME", "EXPENSE", "EQUITY" ],
-            "type" : "string"
+            "$ref" : "#/components/schemas/AccountType"
           }
         }, {
           "in" : "query",
@@ -2113,8 +2112,7 @@
           "name" : "type",
           "required" : false,
           "schema" : {
-            "enum" : [ "ASSET", "RECEIVABLE", "PAYABLE", "THIRD_PARTY_FUND", "INCOME", "EXPENSE", "EQUITY" ],
-            "type" : "string"
+            "$ref" : "#/components/schemas/AccountType"
           }
         }, {
           "in" : "query",

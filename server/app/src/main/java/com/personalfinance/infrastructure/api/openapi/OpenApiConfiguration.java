@@ -1,5 +1,6 @@
 package com.personalfinance.infrastructure.api.openapi;
 
+import io.swagger.v3.core.jackson.ModelResolver;
 import io.swagger.v3.oas.models.Components;
 import io.swagger.v3.oas.models.OpenAPI;
 import io.swagger.v3.oas.models.info.Info;
@@ -30,6 +31,14 @@ class OpenApiConfiguration {
 
     @Bean
     OpenAPI financeOpenApi() {
+        // Cada enum, un esquema con el nombre de su clase (AccountType,
+        // TransactionSource) en vez de una copia en línea en cada campo que lo
+        // usa: con copias, el cliente generado tenía cinco enums de tipo de
+        // cuenta y uno llamado Type, que tapa el de dart:core. swagger-core lo
+        // decide con un interruptor estático y springdoc no lo expone como
+        // propiedad; los enums son del dominio, que no puede llevar anotaciones
+        // de swagger.
+        ModelResolver.enumsAsRef = true;
         return new OpenAPI()
                 .info(new Info()
                         .title("FinanceApp API")

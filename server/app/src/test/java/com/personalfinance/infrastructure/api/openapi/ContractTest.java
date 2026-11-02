@@ -231,6 +231,48 @@ class ContractTest extends PostgresIntegrationTest {
     }
 
     @Test
+    @DisplayName("H28 · cada enum es un esquema con su nombre, no una copia en cada uso")
+    void enumsAreNamedSchemas() throws Exception {
+        JsonNode spec = json.readTree(specification());
+        JsonNode schemas = spec.path("components").path("schemas");
+        // AccountType aparecía copiado en cinco respuestas y peticiones, y el
+        // filtro de GET /api/movements generaba en Dart un enum llamado Type,
+        // que tapa el Type de dart:core.
+        assertThat(schemas.path("AccountType").path("enum").toString())
+                .contains("\"ASSET\"", "\"EXPENSE\"");
+        assertThat(schemas.path("TransactionSource").path("enum").isArray()).isTrue();
+        assertThat(schemas.path("AccountResponse").path("properties").path("type")
+                        .path("$ref").asString())
+                .isEqualTo("#/components/schemas/AccountType");
+
+        // Los únicos enum en línea que quedan son los del contrato mismo: el
+        // valor de cada variante de MovementRequest y el type de Problem.
+        List<String> inline = new ArrayList<>();
+        collectInlineEnums(spec.path("paths"), "paths", inline);
+        schemas.properties().forEach(schema -> {
+            if (!schema.getValue().has("enum")) {
+                collectInlineEnums(schema.getValue(), schema.getKey(), inline);
+            }
+        });
+        assertThat(inline).allSatisfy(where -> assertThat(where)
+                .matches(".*Request/properties/type|Problem/properties/type"));
+    }
+
+    private static void collectInlineEnums(JsonNode node, String where, List<String> found) {
+        if (node.isObject()) {
+            if (node.has("enum")) {
+                found.add(where);
+            }
+            node.properties().forEach(child ->
+                    collectInlineEnums(child.getValue(), where + "/" + child.getKey(), found));
+        } else if (node.isArray()) {
+            for (int i = 0; i < node.size(); i++) {
+                collectInlineEnums(node.get(i), where + "/" + i, found);
+            }
+        }
+    }
+
+    @Test
     @DisplayName("H25 · aun encendida, la especificación no se lee sin token")
     void evenWhenOnItNeedsTheToken() throws Exception {
         mvc.perform(get("/v3/api-docs")).andExpect(status().isUnauthorized());

@@ -1,0 +1,109 @@
+# FinanceApp en una máquina: Postgres y la API.
+#
+# Lo mismo corre en la VM local y, después, en Oracle. Los secretos salen de
+# deploy/.env (ignorado por git; lo crea generate-secrets.sh) y ninguno está
+# escrito aquí. Cómo se levanta, se actualiza y se apaga: deploy/README.md.
+#
+# Las dos reglas que sostienen todo lo demás:
+#   - Postgres no publica ningún puerto. Docker publica por delante de ufw, así
+#     que un puerto publicado queda visible en toda la red aunque el firewall
+#     diga «deny». Solo existe en la red `internal`, que no tiene salida.
+#   - La API publica solo en 127.0.0.1. A la red de afuera se llega por
+#     Tailscale Serve, que es quien pone el cifrado.
+#
+# Lo comprueba deploy/test/compose.test.sh.
+
+name: finance
+
+# Rotación de logs igual para los dos: sin tope, el json-file crece hasta
+# llenar el disco, y una base sin disco deja de aceptar escrituras.
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: 10m
+    max-file: "3"
+
+services:
+  db:
+    # Fijada por tag y digest; Dependabot (ecosistema docker-compose) la sube.
+    image: postgres:16-alpine@sha256:0cefaabd882e42bcb2a2f3dc56d3ce4770560ba62fd7f197f1a2e008fd5731ab
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: finance
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?falta en deploy/.env (generate-secrets.sh)}
+      # Los lee postgres/10-roles.sh, una sola vez, al crear el volumen.
+      FINANCE_OWNER_PASSWORD: ${FINANCE_OWNER_PASSWORD:?falta en deploy/.env (generate-secrets.sh)}
+      FINANCE_APP_PASSWORD: ${FINANCE_APP_PASSWORD:?falta en deploy/.env (generate-secrets.sh)}
+    volumes:
+      - db-data:/var/lib/postgresql/data
+      - ./postgres/10-roles.sh:/docker-entrypoint-initdb.d/10-roles.sh:ro
+    # Sin `ports:` y sin `expose:`, a propósito. Ver arriba.
+    networks:
+      - internal
+    healthcheck:
+      # Por TCP y no por el socket: mientras initdb corre los scripts, el
+      # servidor temporal escucha solo por socket, y un pg_isready a secas
+      # daría la base por sana antes de que existan los roles.
+      test: ["CMD", "pg_isready", "-h", "127.0.0.1", "-U", "postgres", "-d", "finance"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 30s
+    # Sin cap_drop: ALL, porque el entrypoint necesita chown y cambiar de
+    # usuario para soltar root. Sí sin escalar privilegios después.
+    security_opt:
+      - no-new-privileges:true
+    deploy:
+      resources:
+        limits:
+          memory: 512m
+    logging: *logging
+
+  api:
+    build:
+      context: ../server
+    image: finance-api:local
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DB_URL: jdbc:postgresql://db:5432/finance
+      DB_USER: finance_app
+      DB_PASSWORD: ${FINANCE_APP_PASSWORD:?falta en deploy/.env (generate-secrets.sh)}
+      # Flyway migra como el dueño del esquema; la app nunca lo es.
+      SPRING_FLYWAY_USER: finance_owner
+      SPRING_FLYWAY_PASSWORD: ${FINANCE_OWNER_PASSWORD:?falta en deploy/.env (generate-secrets.sh)}
+      API_TOKEN: ${API_TOKEN:?falta en deploy/.env (generate-secrets.sh)}
+      # Dentro del contenedor escucha en todas sus interfaces, que son las de
+      # sus redes de Docker. Lo que decide quién llega es la línea de ports.
+      SERVER_ADDRESS: 0.0.0.0
+    ports:
+      - "127.0.0.1:8080:8080"
+    # `internal` para llegar a la base; `edge` porque una red interna no puede
+    # publicar puertos.
+    networks:
+      - internal
+      - edge
+    read_only: true
+    tmpfs:
+      # Tomcat escribe aquí sus archivos de trabajo.
+      - /tmp:size=64m
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    deploy:
+      resources:
+        limits:
+          memory: 768m
+    logging: *logging
+
+networks:
+  internal:
+    internal: true
+  edge: {}
+
+volumes:
+  db-data: {}

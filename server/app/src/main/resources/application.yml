@@ -36,6 +36,17 @@ spring:
       # secreto en el log.
       - org.springframework.boot.security.autoconfigure.UserDetailsServiceAutoConfiguration
 
+  # En el despliegue, Flyway migra como el dueño del esquema (finance_owner) y la
+  # app trabaja como finance_app, que solo tiene SELECT, INSERT y UPDATE: los
+  # crea deploy/postgres/10-roles.sh. El usuario de Flyway llega por
+  # SPRING_FLYWAY_USER y SPRING_FLYWAY_PASSWORD, que Spring lee del entorno sin
+  # que nada lo escriba aquí. A propósito: un "${...}" sin resolver no falla, se
+  # queda como texto, y en los tests Flyway intentaría entrar con un usuario
+  # llamado así. Sin esas dos variables, Flyway usa la conexión de la app, que es
+  # lo que hacen los tests.
+  #
+  # afterMigrate.sql, en la misma carpeta, le quita a todo rol que no sea el
+  # dueño los permisos sobre el historial de migraciones.
   flyway:
     enabled: true
     locations: classpath:db/migration

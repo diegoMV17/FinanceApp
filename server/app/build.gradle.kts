@@ -96,4 +96,12 @@ tasks.test {
     testLogging {
         events("passed", "skipped", "failed")
     }
+
+    // LeastPrivilegeRolesTest prueba el script de roles del despliegue, que
+    // vive fuera de server/. Sin declararlo, Gradle no lo cuenta como entrada:
+    // un cambio solo en el script deja la tarea "al día" y el test no corre.
+    // Lo descubrió una prueba de mutación que salía verde en un segundo.
+    inputs.file(rootProject.layout.projectDirectory.file("../deploy/postgres/10-roles.sh"))
+        .withPropertyName("rolesScript")
+        .withPathSensitivity(PathSensitivity.NONE)
 }

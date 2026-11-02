@@ -12,3 +12,9 @@ targets:
           # las reglas siguen corriendo sobre lo generado.
           ignore_for_file:
             - unused_element
+      drift_dev:
+        options:
+          # Sin los "managers" de Drift: las consultas se escriben a mano, y
+          # con una base sin tablas el manager generado deja un campo sin usar
+          # que el analizador marca.
+          generate_manager: false

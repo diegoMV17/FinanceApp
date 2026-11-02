@@ -97,8 +97,15 @@ void main() {
     });
 
     test('una multiplicación que da la vuelta falla', () {
-      // Dart no tiene multiplyExact: 1e15 * 100000 desborda el int de 64 bits
-      // y el resultado cabría en el tope si solo se mirara el valor.
+      // Dart no tiene multiplyExact. Con este factor el producto desborda el
+      // int de 64 bits y lo que queda —255.926.290.448.384 centavos— cabe
+      // dentro del tope: mirar solo el valor del resultado lo dejaría pasar
+      // por bueno, y el monto sería basura. El tope es 1e15, así que
+      // 1e15 * 18447 se pasa de 2^64 por poco.
+      expect(
+        () => Money.ofCents(Money.maxCents).times(18447),
+        throwsA(isA<MoneyOverflow>()),
+      );
       expect(
         () => Money.ofCents(Money.maxCents).times(100000),
         throwsA(isA<MoneyOverflow>()),

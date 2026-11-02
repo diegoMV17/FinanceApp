@@ -1,0 +1,28 @@
+name: mobile
+description: "FinanceApp para Android e iOS: el cliente de la API. Muestra, valida el formato de lo que se escribe y guarda la cola de pendientes; no decide nada contable."
+# El paquete no se publica en pub.dev: es la app, no una biblioteca.
+publish_to: "none"
+
+# versionName/CFBundleShortVersionString + versionCode/CFBundleVersion.
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.13.7
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # Estado e inyección de dependencias. Es con lo que se escriben los view
+  # models (Notifier / AsyncNotifier) de la arquitectura MVVM por funcionalidad.
+  flutter_riverpod: ^3.4.3
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+  # Las reglas base; las estrictas se agregan en analysis_options.yaml.
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true

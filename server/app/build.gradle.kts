@@ -17,8 +17,8 @@ java {
 dependencies {
     // El BOM de Spring Boot fija las versiones de Spring, JPA, Flyway y el
     // driver de Postgres. Una sola versión que mantener al día para todo eso.
-    implementation(platform("org.springframework.boot:spring-boot-dependencies:4.1.1"))
-    testImplementation(platform("org.springframework.boot:spring-boot-dependencies:4.1.1"))
+    implementation(platform("org.springframework.boot:spring-boot-dependencies:4.1.2"))
+    testImplementation(platform("org.springframework.boot:spring-boot-dependencies:4.1.2"))
 
     // Testcontainers va aparte: el BOM de Spring Boot 4 ya no gestiona las
     // versiones de org.testcontainers, solo su propio módulo de integración.

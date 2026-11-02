@@ -91,6 +91,12 @@ tasks.withType<JavaCompile>().configureEach {
     options.encoding = "UTF-8"
 }
 
+// Un nombre fijo, sin la versión: el Dockerfile lo copia por nombre, y un
+// comodín se llevaría también el jar "-plain" que Gradle deja al lado.
+tasks.bootJar {
+    archiveFileName = "finance-api.jar"
+}
+
 tasks.test {
     useJUnitPlatform()
     testLogging {

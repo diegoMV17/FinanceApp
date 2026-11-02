@@ -1,3 +1,5 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import 'secure_store.dart';
 import 'server_settings.dart';
 
@@ -42,3 +44,15 @@ class ServerSettingsStore {
     await _secure.delete(tokenKey);
   }
 }
+
+final Provider<ServerSettingsStore> serverSettingsStoreProvider =
+    Provider<ServerSettingsStore>(
+      (Ref ref) => ServerSettingsStore(ref.watch(secureStoreProvider)),
+    );
+
+/// La configuración vigente, o `null` si todavía no hay. Quien la cambie la
+/// invalida, y la app pasa sola de la pantalla de conexión a la de adentro.
+final FutureProvider<ServerSettings?> serverSettingsProvider =
+    FutureProvider<ServerSettings?>(
+      (Ref ref) => ref.watch(serverSettingsStoreProvider).read(),
+    );

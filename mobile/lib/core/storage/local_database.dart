@@ -3,6 +3,8 @@ import 'dart:math';
 
 import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:sqlite3/sqlite3.dart';
 
 import 'secure_store.dart';
@@ -142,6 +144,25 @@ class LocalDatabaseOpener {
     return generated;
   }
 }
+
+final Provider<LocalDatabaseOpener> localDatabaseOpenerProvider =
+    Provider<LocalDatabaseOpener>(
+      (Ref ref) => LocalDatabaseOpener(
+        ref.watch(secureStoreProvider),
+        getApplicationSupportDirectory,
+      ),
+    );
+
+/// La base abierta y comprobada. Si falla —sin cifrado, o ilegible—, la app
+/// muestra por qué y no continúa.
+final FutureProvider<LocalDatabase> localDatabaseProvider =
+    FutureProvider<LocalDatabase>((Ref ref) async {
+      final LocalDatabase db = await ref
+          .watch(localDatabaseOpenerProvider)
+          .open();
+      ref.onDispose(db.close);
+      return db;
+    });
 
 class _Sqlite implements RawDatabase {
   _Sqlite(this._db);

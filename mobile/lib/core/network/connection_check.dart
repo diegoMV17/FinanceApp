@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:dio/dio.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../storage/server_settings.dart';
 import 'api_client.dart';
@@ -74,3 +75,6 @@ class ConnectionCheck {
           failure.error is HttpException,
   };
 }
+
+final Provider<ConnectionCheck> connectionCheckProvider =
+    Provider<ConnectionCheck>((Ref ref) => const ConnectionCheck());

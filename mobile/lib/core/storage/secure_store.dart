@@ -1,3 +1,4 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 /// Lo que la app guarda en el almacenamiento seguro del sistema: la dirección
@@ -40,3 +41,7 @@ class FlutterSecureStore implements SecureStore {
   @override
   Future<void> delete(String key) => _storage.delete(key: key);
 }
+
+final Provider<SecureStore> secureStoreProvider = Provider<SecureStore>(
+  (Ref ref) => const FlutterSecureStore(),
+);

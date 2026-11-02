@@ -17,12 +17,34 @@ dependencies:
   # models (Notifier / AsyncNotifier) de la arquitectura MVVM por funcionalidad.
   flutter_riverpod: ^3.4.3
 
+  # El cliente de la API, generado desde ../contract/openapi.json en
+  # lib/data/api/ (tool/generate_api.sh). Lo que el código generado importa:
+  # - dio: el transporte HTTP. En el 7b lleva el token por un interceptor, y
+  #   nunca un interceptor de logs: imprimiría la cabecera y los cuerpos.
+  # - retrofit: las anotaciones del cliente tipado (@GET, @POST, @Body).
+  # - json_annotation: las de los modelos (@JsonSerializable).
+  dio: ^5.11.1
+  json_annotation: ^4.12.0
+  retrofit: ^4.10.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
 
   # Las reglas base; las estrictas se agregan en analysis_options.yaml.
   flutter_lints: ^6.0.0
+
+  # La generación del cliente, solo en desarrollo y en CI; nada de esto viaja
+  # en la app.
+  # - swagger_parser: lee el contrato y escribe el cliente y los modelos. Es
+  #   Dart puro (no pide Java en CI) y convierte el oneOf de MovementRequest en
+  #   una sealed class que se lee y se escribe por su type.
+  # - build_runner, retrofit_generator y json_serializable: los .g.dart del
+  #   cliente y de los modelos. build_runner lo necesitará también Drift (7b).
+  swagger_parser: ^1.45.1
+  build_runner: ^2.17.1
+  retrofit_generator: ^10.3.3
+  json_serializable: ^6.15.2
 
 flutter:
   uses-material-design: true

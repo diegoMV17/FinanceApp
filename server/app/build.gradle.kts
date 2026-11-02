@@ -23,7 +23,7 @@ dependencies {
     // Testcontainers va aparte: el BOM de Spring Boot 4 ya no gestiona las
     // versiones de org.testcontainers, solo su propio módulo de integración.
     // Sin este BOM, Gradle pide "org.testcontainers:junit-jupiter:" sin versión.
-    testImplementation(platform("org.testcontainers:testcontainers-bom:1.21.4"))
+    testImplementation(platform("org.testcontainers:testcontainers-bom:2.0.5"))
 
     implementation(project(":domain"))
 

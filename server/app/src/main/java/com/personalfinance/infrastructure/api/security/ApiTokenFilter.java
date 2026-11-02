@@ -93,26 +93,34 @@ final class ApiTokenFilter extends OncePerRequestFilter {
             HttpServletRequest request, HttpServletResponse response, FilterChain chain)
             throws ServletException, IOException {
 
-        String address = addressOf(request);
+        // El token se mira antes que el bloqueo. Detrás del NAT de Docker y de
+        // Tailscale Serve todas las peticiones llegan con la misma dirección,
+        // así que un bloqueo que mirara primero dejaría que diez tokens malos
+        // de cualquiera dejaran fuera al dueño. El bloqueo existe para frenar
+        // a quien adivina, y quien trae el token no está adivinando.
+        //
+        // Y un acierto no borra la cuenta de fallos, por lo mismo: con la
+        // dirección compartida, cada petición del teléfono le levantaría el
+        // bloqueo a quien está probando y le regalaría otra tanda de intentos.
+        String presented = bearerTokenIn(request.getHeader(HttpHeaders.AUTHORIZATION));
+        if (presented != null && digest.matches(presented)) {
+            authenticate(request, response);
+            chain.doFilter(request, response);
+            return;
+        }
 
-        // El bloqueo se mira antes del token: a quien está insistiendo no se le
-        // comprueba nada, se le dice que espere.
+        // A quien ya está bloqueado no se le cuenta nada más: se le dice que
+        // espere, y el bloqueo vence a su hora en vez de alargarse con cada
+        // intento.
+        String address = addressOf(request);
         if (attempts.isBlocked(address)) {
             Duration remaining = attempts.blockRemaining(address);
             problems.write(response, ApiError.TOO_MANY_ATTEMPTS, remaining);
             return;
         }
 
-        String presented = bearerTokenIn(request.getHeader(HttpHeaders.AUTHORIZATION));
-        if (presented == null || !digest.matches(presented)) {
-            attempts.recordFailure(address);
-            problems.write(response, ApiError.UNAUTHORIZED);
-            return;
-        }
-
-        attempts.recordSuccess(address);
-        authenticate(request, response);
-        chain.doFilter(request, response);
+        attempts.recordFailure(address);
+        problems.write(response, ApiError.UNAUTHORIZED);
     }
 
     /**

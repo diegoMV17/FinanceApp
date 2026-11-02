@@ -183,8 +183,12 @@ class ApiTokenFilterTest {
         }
 
         @Test
-        @DisplayName("S7 · y el bloqueo tampoco mira el token correcto")
-        void theBlockAppliesEvenToTheRightToken() throws Exception {
+        @DisplayName("S7 · el token correcto entra aunque su dirección esté bloqueada")
+        void theRightTokenGetsInEvenFromABlockedAddress() throws Exception {
+            // Detrás del NAT de Docker y de Tailscale Serve todas las
+            // peticiones llegan con la misma dirección: si el bloqueo mirara
+            // antes que el token, diez tokens malos de cualquiera dejarían
+            // fuera al dueño. El bloqueo frena a quien adivina, no a quien sabe.
             for (int i = 0; i < MAX_ATTEMPTS; i++) {
                 filter.doFilter(requestWith("Bearer malo"),
                         new MockHttpServletResponse(), new MockFilterChain());
@@ -194,14 +198,17 @@ class ApiTokenFilterTest {
             MockHttpServletResponse response = new MockHttpServletResponse();
             filter.doFilter(requestWith("Bearer " + SECRET), response, chain);
 
-            assertThat(response.getStatus()).isEqualTo(HttpStatus.TOO_MANY_REQUESTS.value());
-            assertThat(chain.getRequest()).isNull();
+            assertThat(response.getStatus()).isEqualTo(HttpStatus.OK.value());
+            assertThat(chain.getRequest()).as("siguió la cadena").isNotNull();
         }
 
         @Test
-        @DisplayName("S7 · entrar bien borra la cuenta de fallos")
-        void gettingItRightClearsTheCount() throws Exception {
-            for (int i = 0; i < MAX_ATTEMPTS - 1; i++) {
+        @DisplayName("S7 · y entrar bien no le levanta el bloqueo a los tokens malos")
+        void gettingItRightDoesNotLiftTheBlock() throws Exception {
+            // Con la dirección compartida, un acierto que borrara la cuenta le
+            // regalaría al que adivina diez intentos más cada vez que el
+            // teléfono del dueño sincroniza.
+            for (int i = 0; i < MAX_ATTEMPTS; i++) {
                 filter.doFilter(requestWith("Bearer malo"),
                         new MockHttpServletResponse(), new MockFilterChain());
             }
@@ -212,7 +219,7 @@ class ApiTokenFilterTest {
             MockHttpServletResponse afterwards = new MockHttpServletResponse();
             filter.doFilter(requestWith("Bearer malo"), afterwards, new MockFilterChain());
 
-            assertThat(afterwards.getStatus()).isEqualTo(HttpStatus.UNAUTHORIZED.value());
+            assertThat(afterwards.getStatus()).isEqualTo(HttpStatus.TOO_MANY_REQUESTS.value());
         }
     }
 

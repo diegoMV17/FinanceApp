@@ -20,6 +20,13 @@ import java.util.concurrent.ConcurrentHashMap;
  * saltarse el limitador rotando un valor inventado, y llenar este mapa con
  * claves que nadie puede acotar.
  *
+ * <p>El bloqueo solo frena a los tokens equivocados: el filtro mira el token
+ * antes de preguntar aquí, porque detrás del NAT de Docker todas las
+ * peticiones comparten dirección y el dueño no puede quedar fuera por lo que
+ * haga otro. Por lo mismo no hay «un acierto borra la cuenta»: los fallos se
+ * olvidan solos cuando pasa {@code blockFor} desde el último, que es lo que
+ * hace que cuenten los seguidos y no los de toda la vida.
+ *
  * <p>El mapa está acotado porque si no, el limitador sería el agujero: con
  * direcciones que rotar, cualquiera podría tumbar el proceso por memoria. Al
  * llenarse se barre primero lo caducado; si aún no cabe, se descarta antes una
@@ -75,17 +82,6 @@ final class FailedAttempts {
         });
 
         makeRoomIfNeeded(now);
-    }
-
-    /**
-     * Entrar bien borra la cuenta.
-     *
-     * <p>Sin esto, el dueño que se equivoca unas cuantas veces a lo largo de una
-     * semana quedaría a un fallo del bloqueo para siempre: lo que importa son
-     * los fallos seguidos, no los de toda la vida.
-     */
-    void recordSuccess(String address) {
-        byAddress.remove(address);
     }
 
     int trackedAddresses() {

@@ -12,7 +12,7 @@
 # El build corre en la arquitectura de quien construye, nunca emulado: el jar
 # es bytecode y es el mismo para amd64 que para arm64. Compilar bajo QEMU para
 # Ampere tardaría diez veces más para producir exactamente el mismo archivo.
-FROM --platform=$BUILDPLATFORM eclipse-temurin:21-jdk@sha256:ebfbb18d11ff163ee83b21258acf12248af48d22a0fdfdc68fa1a1516c05976a AS build
+FROM --platform=$BUILDPLATFORM eclipse-temurin:25-jdk@sha256:83f4a7fc27df94dcc7b8de04d14cbbba8da14406f921e966969c3b09000aa507 AS build
 WORKDIR /src
 
 # Primero solo lo que decide las dependencias, para que la capa que las baja
@@ -31,7 +31,7 @@ COPY app/src app/src
 RUN --mount=type=cache,target=/root/.gradle \
     sh ./gradlew --no-daemon --quiet :app:bootJar
 
-FROM eclipse-temurin:21-jre@sha256:0b99b3376fbb50dbf9c0af8535fdd5b8eb0d3fdfc8b1e4967f383b6919f6901a
+FROM eclipse-temurin:25-jre@sha256:ecdc0adb37bde1a281c4d245a3cd535004b1fc8322d560f5b09463b248c81df0
 
 # Un usuario propio, sin shell ni casa, con un UID fijo y alto: fijo para que
 # el compose y quien audite sepan cuál es, y alto para que no coincida con

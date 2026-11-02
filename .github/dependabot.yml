@@ -1,0 +1,26 @@
+# Tres ecosistemas, cada uno en su carpeta: en un monorepo, Dependabot no
+# busca hacia abajo. Sin el `directory` correcto no hay alertas, y el silencio
+# se parece demasiado a "no hay nada que actualizar".
+version: 2
+updates:
+  # La API: Gradle multi-módulo en server/.
+  - package-ecosystem: gradle
+    directory: /server
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+
+  # La app: pub en mobile/. Necesita mobile/pubspec.lock comiteado; sin él,
+  # las alertas no ven las dependencias transitivas.
+  - package-ecosystem: pub
+    directory: /mobile
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+
+  # Las acciones de los workflows: una acción es código de terceros con acceso
+  # al token del repositorio.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly

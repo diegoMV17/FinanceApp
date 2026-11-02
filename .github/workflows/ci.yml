@@ -24,3 +24,29 @@ jobs:
           cache: gradle
       - run: chmod +x ./gradlew
       - run: ./gradlew test
+
+  # El trabajo de la app. Corre siempre, igual que `test` y sin filtros de
+  # ruta: con filtros, un check obligatorio que no corre deja el PR esperando
+  # para siempre. No compila para Android ni para iOS —eso pide un SDK nativo
+  # y, en iOS, un Mac—: corre el analizador y los tests, que no dependen de
+  # ninguna plataforma.
+  mobile:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mobile
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          # Fijada: con `channel: stable` a secas, el día que Flutter saque una
+          # versión el build cambia sin que nadie toque el repo, y un fallo así
+          # se busca primero en el código.
+          flutter-version: 3.47.9
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      # --fatal-infos: las reglas de analysis_options.yaml avisan en infos. Sin
+      # esto, `flutter analyze` pasa en verde con los avisos puestos.
+      - run: flutter analyze --fatal-infos
+      - run: flutter test

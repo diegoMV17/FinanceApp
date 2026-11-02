@@ -1,0 +1,34 @@
+# El analizador es la primera prueba del proyecto. CI corre
+# `flutter analyze --fatal-infos`: aquí no hay avisos, solo errores.
+
+include: package:flutter_lints/flutter.yaml
+
+analyzer:
+  language:
+    # Sin dynamic implícito ni casts implícitos: un dato que llega de la API
+    # con otro tipo tiene que explotar donde se lee, no tres capas más allá.
+    strict-casts: true
+    strict-inference: true
+    strict-raw-types: true
+  exclude:
+    # Lo que no es Dart del proyecto. El código generado (cliente de la API,
+    # Drift) sí se analiza: si deja de compilar, hay que saberlo.
+    - build/**
+    - android/**
+    - ios/**
+
+linter:
+  rules:
+    - always_declare_return_types
+    - avoid_dynamic_calls
+    - avoid_slow_async_io
+    - cancel_subscriptions
+    - close_sinks
+    - directives_ordering
+    - prefer_final_locals
+    - prefer_single_quotes
+    - require_trailing_commas
+    - test_types_in_equals
+    - throw_in_finally
+    - unawaited_futures
+    - use_super_parameters

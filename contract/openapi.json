@@ -1,0 +1,2272 @@
+{
+  "components" : {
+    "schemas" : {
+      "AccountResponse" : {
+        "properties" : {
+          "archivedAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "id" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "type" : {
+            "enum" : [ "ASSET", "RECEIVABLE", "PAYABLE", "THIRD_PARTY_FUND", "INCOME", "EXPENSE", "EQUITY" ],
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "AccountTotalResponse" : {
+        "properties" : {
+          "archivedAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "id" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "totalInCents" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "type" : {
+            "enum" : [ "ASSET", "RECEIVABLE", "PAYABLE", "THIRD_PARTY_FUND", "INCOME", "EXPENSE", "EQUITY" ],
+            "type" : "string"
+          }
+        },
+        "required" : [ "totalInCents" ],
+        "type" : "object"
+      },
+      "AmendMovementRequest" : {
+        "properties" : {
+          "correction" : {
+            "$ref" : "#/components/schemas/MovementRequest"
+          }
+        },
+        "required" : [ "correction" ],
+        "type" : "object"
+      },
+      "BalanceResponse" : {
+        "properties" : {
+          "archivedAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "balanceInCents" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "id" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "type" : {
+            "enum" : [ "ASSET", "RECEIVABLE", "PAYABLE", "THIRD_PARTY_FUND", "INCOME", "EXPENSE", "EQUITY" ],
+            "type" : "string"
+          }
+        },
+        "required" : [ "balanceInCents" ],
+        "type" : "object"
+      },
+      "BalancesResponse" : {
+        "properties" : {
+          "accounts" : {
+            "items" : {
+              "$ref" : "#/components/schemas/BalanceResponse"
+            },
+            "type" : "array"
+          },
+          "asOf" : {
+            "format" : "date",
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "BorrowRequest" : {
+        "properties" : {
+          "amountInCents" : {
+            "exclusiveMinimum" : true,
+            "format" : "int64",
+            "maximum" : 1000000000000,
+            "minimum" : 0,
+            "type" : "integer"
+          },
+          "date" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "description" : {
+            "maxLength" : 200,
+            "minLength" : 0,
+            "type" : "string"
+          },
+          "id" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "lender" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "receivedInto" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "type" : {
+            "enum" : [ "BORROW" ],
+            "type" : "string"
+          }
+        },
+        "required" : [ "amountInCents", "date", "description", "id", "lender", "receivedInto", "type" ],
+        "type" : "object"
+      },
+      "BudgetProgressResponse" : {
+        "properties" : {
+          "category" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "categoryName" : {
+            "type" : "string"
+          },
+          "exceeded" : {
+            "type" : "boolean"
+          },
+          "id" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "limitInCents" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "month" : {
+            "type" : "string"
+          },
+          "nearTheLimit" : {
+            "type" : "boolean"
+          },
+          "percentageUsed" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "remainingInCents" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "spentInCents" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        },
+        "required" : [ "exceeded", "limitInCents", "nearTheLimit", "percentageUsed", "remainingInCents", "spentInCents" ],
+        "type" : "object"
+      },
+      "BudgetResponse" : {
+        "properties" : {
+          "category" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "categoryName" : {
+            "type" : "string"
+          },
+          "id" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "limitInCents" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "month" : {
+            "type" : "string"
+          },
+          "replaces" : {
+            "format" : "uuid",
+            "type" : "string"
+          }
+        },
+        "required" : [ "limitInCents" ],
+        "type" : "object"
+      },
+      "BudgetsResponse" : {
+        "properties" : {
+          "budgets" : {
+            "items" : {
+              "$ref" : "#/components/schemas/BudgetProgressResponse"
+            },
+            "type" : "array"
+          },
+          "month" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "CancelMovementRequest" : {
+        "properties" : {
+          "reason" : {
+            "maxLength" : 200,
+            "minLength" : 0,
+            "type" : "string"
+          }
+        },
+        "required" : [ "reason" ],
+        "type" : "object"
+      },
+      "CancellationResponse" : {
+        "properties" : {
+          "at" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "movement" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "reason" : {
+            "type" : "string"
+          },
+          "source" : {
+            "enum" : [ "APP", "BOT", "RECURRING", "SYSTEM" ],
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "CollectLoanRequest" : {
+        "properties" : {
+          "amountInCents" : {
+            "exclusiveMinimum" : true,
+            "format" : "int64",
+            "maximum" : 1000000000000,
+            "minimum" : 0,
+            "type" : "integer"
+          },
+          "borrower" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "date" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "description" : {
+            "maxLength" : 200,
+            "minLength" : 0,
+            "type" : "string"
+          },
+          "id" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "receivedInto" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "type" : {
+            "enum" : [ "COLLECT_LOAN" ],
+            "type" : "string"
+          }
+        },
+        "required" : [ "amountInCents", "borrower", "date", "description", "id", "receivedInto", "type" ],
+        "type" : "object"
+      },
+      "EntryResponse" : {
+        "properties" : {
+          "account" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "accountName" : {
+            "type" : "string"
+          },
+          "amountInCents" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        },
+        "required" : [ "amountInCents" ],
+        "type" : "object"
+      },
+      "ExpenseRequest" : {
+        "properties" : {
+          "amountInCents" : {
+            "exclusiveMinimum" : true,
+            "format" : "int64",
+            "maximum" : 1000000000000,
+            "minimum" : 0,
+            "type" : "integer"
+          },
+          "category" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "date" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "description" : {
+            "maxLength" : 200,
+            "minLength" : 0,
+            "type" : "string"
+          },
+          "id" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "paidFrom" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "type" : {
+            "enum" : [ "EXPENSE" ],
+            "type" : "string"
+          }
+        },
+        "required" : [ "amountInCents", "category", "date", "description", "id", "paidFrom", "type" ],
+        "type" : "object"
+      },
+      "HistoryLineResponse" : {
+        "properties" : {
+          "date" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "description" : {
+            "type" : "string"
+          },
+          "entries" : {
+            "items" : {
+              "$ref" : "#/components/schemas/EntryResponse"
+            },
+            "type" : "array"
+          },
+          "id" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "source" : {
+            "enum" : [ "APP", "BOT", "RECURRING", "SYSTEM" ],
+            "type" : "string"
+          },
+          "valueInCents" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        },
+        "required" : [ "valueInCents" ],
+        "type" : "object"
+      },
+      "HistoryResponse" : {
+        "properties" : {
+          "movements" : {
+            "items" : {
+              "$ref" : "#/components/schemas/HistoryLineResponse"
+            },
+            "type" : "array"
+          },
+          "page" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "size" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "total" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        },
+        "required" : [ "page", "size", "total" ],
+        "type" : "object"
+      },
+      "IncomeRequest" : {
+        "properties" : {
+          "amountInCents" : {
+            "exclusiveMinimum" : true,
+            "format" : "int64",
+            "maximum" : 1000000000000,
+            "minimum" : 0,
+            "type" : "integer"
+          },
+          "category" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "date" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "description" : {
+            "maxLength" : 200,
+            "minLength" : 0,
+            "type" : "string"
+          },
+          "id" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "receivedInto" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "type" : {
+            "enum" : [ "INCOME" ],
+            "type" : "string"
+          }
+        },
+        "required" : [ "amountInCents", "category", "date", "description", "id", "receivedInto", "type" ],
+        "type" : "object"
+      },
+      "LendRequest" : {
+        "properties" : {
+          "amountInCents" : {
+            "exclusiveMinimum" : true,
+            "format" : "int64",
+            "maximum" : 1000000000000,
+            "minimum" : 0,
+            "type" : "integer"
+          },
+          "borrower" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "date" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "description" : {
+            "maxLength" : 200,
+            "minLength" : 0,
+            "type" : "string"
+          },
+          "id" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "paidFrom" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "type" : {
+            "enum" : [ "LEND" ],
+            "type" : "string"
+          }
+        },
+        "required" : [ "amountInCents", "borrower", "date", "description", "id", "paidFrom", "type" ],
+        "type" : "object"
+      },
+      "LinkAccountRequest" : {
+        "properties" : {
+          "account" : {
+            "format" : "uuid",
+            "type" : "string"
+          }
+        },
+        "required" : [ "account" ],
+        "type" : "object"
+      },
+      "MovementLineResponse" : {
+        "properties" : {
+          "date" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "description" : {
+            "type" : "string"
+          },
+          "effectInCents" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "id" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "source" : {
+            "enum" : [ "APP", "BOT", "RECURRING", "SYSTEM" ],
+            "type" : "string"
+          }
+        },
+        "required" : [ "effectInCents" ],
+        "type" : "object"
+      },
+      "MovementRequest" : {
+        "description" : "Un movimiento, uno de once tipos según el campo type.",
+        "discriminator" : {
+          "mapping" : {
+            "BORROW" : "#/components/schemas/BorrowRequest",
+            "COLLECT_LOAN" : "#/components/schemas/CollectLoanRequest",
+            "EXPENSE" : "#/components/schemas/ExpenseRequest",
+            "INCOME" : "#/components/schemas/IncomeRequest",
+            "LEND" : "#/components/schemas/LendRequest",
+            "OPENING_BALANCE" : "#/components/schemas/OpeningBalanceRequest",
+            "RECEIVE_THIRD_PARTY_MONEY" : "#/components/schemas/ReceiveThirdPartyMoneyRequest",
+            "REPAY_DEBT" : "#/components/schemas/RepayDebtRequest",
+            "RETURN_THIRD_PARTY_MONEY" : "#/components/schemas/ReturnThirdPartyMoneyRequest",
+            "SPEND_THIRD_PARTY_MONEY" : "#/components/schemas/SpendThirdPartyMoneyRequest",
+            "TRANSFER" : "#/components/schemas/TransferRequest"
+          },
+          "propertyName" : "type"
+        },
+        "oneOf" : [ {
+          "$ref" : "#/components/schemas/OpeningBalanceRequest"
+        }, {
+          "$ref" : "#/components/schemas/IncomeRequest"
+        }, {
+          "$ref" : "#/components/schemas/ExpenseRequest"
+        }, {
+          "$ref" : "#/components/schemas/TransferRequest"
+        }, {
+          "$ref" : "#/components/schemas/LendRequest"
+        }, {
+          "$ref" : "#/components/schemas/CollectLoanRequest"
+        }, {
+          "$ref" : "#/components/schemas/BorrowRequest"
+        }, {
+          "$ref" : "#/components/schemas/RepayDebtRequest"
+        }, {
+          "$ref" : "#/components/schemas/ReceiveThirdPartyMoneyRequest"
+        }, {
+          "$ref" : "#/components/schemas/SpendThirdPartyMoneyRequest"
+        }, {
+          "$ref" : "#/components/schemas/ReturnThirdPartyMoneyRequest"
+        } ]
+      },
+      "MovementResponse" : {
+        "properties" : {
+          "cancellationReason" : {
+            "type" : "string"
+          },
+          "cancelledAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "date" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "description" : {
+            "type" : "string"
+          },
+          "entries" : {
+            "items" : {
+              "$ref" : "#/components/schemas/EntryResponse"
+            },
+            "type" : "array"
+          },
+          "id" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "replaces" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "source" : {
+            "enum" : [ "APP", "BOT", "RECURRING", "SYSTEM" ],
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "MovementsResponse" : {
+        "properties" : {
+          "account" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "movements" : {
+            "items" : {
+              "$ref" : "#/components/schemas/MovementLineResponse"
+            },
+            "type" : "array"
+          },
+          "page" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "size" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "total" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        },
+        "required" : [ "page", "size", "total" ],
+        "type" : "object"
+      },
+      "OpenAccountRequest" : {
+        "properties" : {
+          "id" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "name" : {
+            "maxLength" : 60,
+            "minLength" : 0,
+            "type" : "string"
+          },
+          "type" : {
+            "enum" : [ "ASSET", "RECEIVABLE", "PAYABLE", "THIRD_PARTY_FUND", "INCOME", "EXPENSE", "EQUITY" ],
+            "type" : "string"
+          }
+        },
+        "required" : [ "id", "name", "type" ],
+        "type" : "object"
+      },
+      "OpenPersonRequest" : {
+        "properties" : {
+          "id" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "name" : {
+            "maxLength" : 60,
+            "minLength" : 0,
+            "type" : "string"
+          }
+        },
+        "required" : [ "id", "name" ],
+        "type" : "object"
+      },
+      "OpeningBalanceRequest" : {
+        "properties" : {
+          "account" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "amountInCents" : {
+            "exclusiveMinimum" : true,
+            "format" : "int64",
+            "maximum" : 1000000000000,
+            "minimum" : 0,
+            "type" : "integer"
+          },
+          "date" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "equity" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "id" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "type" : {
+            "enum" : [ "OPENING_BALANCE" ],
+            "type" : "string"
+          }
+        },
+        "required" : [ "account", "amountInCents", "date", "equity", "id", "type" ],
+        "type" : "object"
+      },
+      "OverTimeResponse" : {
+        "properties" : {
+          "from" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "points" : {
+            "items" : {
+              "$ref" : "#/components/schemas/SummaryResponse"
+            },
+            "type" : "array"
+          },
+          "to" : {
+            "format" : "date",
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "PeopleResponse" : {
+        "properties" : {
+          "asOf" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "people" : {
+            "items" : {
+              "$ref" : "#/components/schemas/PersonPositionResponse"
+            },
+            "type" : "array"
+          }
+        },
+        "type" : "object"
+      },
+      "PersonDetailResponse" : {
+        "properties" : {
+          "asOf" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "person" : {
+            "$ref" : "#/components/schemas/PersonPositionResponse"
+          }
+        },
+        "type" : "object"
+      },
+      "PersonPositionResponse" : {
+        "properties" : {
+          "accounts" : {
+            "items" : {
+              "$ref" : "#/components/schemas/BalanceResponse"
+            },
+            "type" : "array"
+          },
+          "archivedAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "id" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "netOwedToYouInCents" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "owedToYouInCents" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "theirFundInCents" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "youOweInCents" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        },
+        "required" : [ "netOwedToYouInCents", "owedToYouInCents", "theirFundInCents", "youOweInCents" ],
+        "type" : "object"
+      },
+      "PersonResponse" : {
+        "properties" : {
+          "archivedAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "id" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "name" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "Problem" : {
+        "description" : "Un error de la API (RFC 9457). El detail es un texto fijo por type: nunca trae datos del libro.",
+        "properties" : {
+          "detail" : {
+            "type" : "string"
+          },
+          "errorId" : {
+            "description" : "Solo en un error inesperado (500): con qué preguntar en el log del servidor.",
+            "type" : "string"
+          },
+          "status" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "title" : {
+            "type" : "string"
+          },
+          "type" : {
+            "enum" : [ "urn:finance:error:unauthorized", "urn:finance:error:forbidden", "urn:finance:error:too-many-attempts", "urn:finance:error:malformed-request", "urn:finance:error:invalid-request", "urn:finance:error:invalid-path", "urn:finance:error:rejected-request", "urn:finance:error:unsafe-text", "urn:finance:error:range-too-wide", "urn:finance:error:unsupported-media-type", "urn:finance:error:method-not-allowed", "urn:finance:error:not-found", "urn:finance:error:content-too-large", "urn:finance:error:duplicate-id", "urn:finance:error:duplicate-account-name", "urn:finance:error:duplicate-person-name", "urn:finance:error:already-cancelled", "urn:finance:error:already-archived", "urn:finance:error:account-still-holds-money", "urn:finance:error:person-already-archived", "urn:finance:error:person-still-has-open-accounts", "urn:finance:error:budget-already-superseded", "urn:finance:error:unexpected-account-type", "urn:finance:error:same-account-transfer", "urn:finance:error:account-needs-name", "urn:finance:error:person-needs-name", "urn:finance:error:account-cannot-belong-to-a-person", "urn:finance:error:archived-person", "urn:finance:error:archived-account", "urn:finance:error:date-out-of-range", "urn:finance:error:reversed-range", "urn:finance:error:rule-violated", "urn:finance:error:book-busy", "urn:finance:error:internal-error" ],
+            "type" : "string"
+          }
+        },
+        "required" : [ "detail", "status", "title", "type" ],
+        "type" : "object",
+        "x-status-by-type" : {
+          "urn:finance:error:account-cannot-belong-to-a-person" : 422,
+          "urn:finance:error:account-needs-name" : 422,
+          "urn:finance:error:account-still-holds-money" : 409,
+          "urn:finance:error:already-archived" : 409,
+          "urn:finance:error:already-cancelled" : 409,
+          "urn:finance:error:archived-account" : 422,
+          "urn:finance:error:archived-person" : 422,
+          "urn:finance:error:book-busy" : 503,
+          "urn:finance:error:budget-already-superseded" : 409,
+          "urn:finance:error:content-too-large" : 413,
+          "urn:finance:error:date-out-of-range" : 422,
+          "urn:finance:error:duplicate-account-name" : 409,
+          "urn:finance:error:duplicate-id" : 409,
+          "urn:finance:error:duplicate-person-name" : 409,
+          "urn:finance:error:forbidden" : 403,
+          "urn:finance:error:internal-error" : 500,
+          "urn:finance:error:invalid-path" : 400,
+          "urn:finance:error:invalid-request" : 400,
+          "urn:finance:error:malformed-request" : 400,
+          "urn:finance:error:method-not-allowed" : 405,
+          "urn:finance:error:not-found" : 404,
+          "urn:finance:error:person-already-archived" : 409,
+          "urn:finance:error:person-needs-name" : 422,
+          "urn:finance:error:person-still-has-open-accounts" : 409,
+          "urn:finance:error:range-too-wide" : 400,
+          "urn:finance:error:rejected-request" : 400,
+          "urn:finance:error:reversed-range" : 422,
+          "urn:finance:error:rule-violated" : 422,
+          "urn:finance:error:same-account-transfer" : 422,
+          "urn:finance:error:too-many-attempts" : 429,
+          "urn:finance:error:unauthorized" : 401,
+          "urn:finance:error:unexpected-account-type" : 422,
+          "urn:finance:error:unsafe-text" : 400,
+          "urn:finance:error:unsupported-media-type" : 415
+        }
+      },
+      "ReceiveThirdPartyMoneyRequest" : {
+        "properties" : {
+          "amountInCents" : {
+            "exclusiveMinimum" : true,
+            "format" : "int64",
+            "maximum" : 1000000000000,
+            "minimum" : 0,
+            "type" : "integer"
+          },
+          "date" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "description" : {
+            "maxLength" : 200,
+            "minLength" : 0,
+            "type" : "string"
+          },
+          "fund" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "heldIn" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "id" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "type" : {
+            "enum" : [ "RECEIVE_THIRD_PARTY_MONEY" ],
+            "type" : "string"
+          }
+        },
+        "required" : [ "amountInCents", "date", "description", "fund", "heldIn", "id", "type" ],
+        "type" : "object"
+      },
+      "RenameAccountRequest" : {
+        "properties" : {
+          "newName" : {
+            "maxLength" : 60,
+            "minLength" : 0,
+            "type" : "string"
+          }
+        },
+        "required" : [ "newName" ],
+        "type" : "object"
+      },
+      "RenamePersonRequest" : {
+        "properties" : {
+          "newName" : {
+            "maxLength" : 60,
+            "minLength" : 0,
+            "type" : "string"
+          }
+        },
+        "required" : [ "newName" ],
+        "type" : "object"
+      },
+      "RepayDebtRequest" : {
+        "properties" : {
+          "amountInCents" : {
+            "exclusiveMinimum" : true,
+            "format" : "int64",
+            "maximum" : 1000000000000,
+            "minimum" : 0,
+            "type" : "integer"
+          },
+          "date" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "description" : {
+            "maxLength" : 200,
+            "minLength" : 0,
+            "type" : "string"
+          },
+          "id" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "lender" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "paidFrom" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "type" : {
+            "enum" : [ "REPAY_DEBT" ],
+            "type" : "string"
+          }
+        },
+        "required" : [ "amountInCents", "date", "description", "id", "lender", "paidFrom", "type" ],
+        "type" : "object"
+      },
+      "ReturnThirdPartyMoneyRequest" : {
+        "properties" : {
+          "amountInCents" : {
+            "exclusiveMinimum" : true,
+            "format" : "int64",
+            "maximum" : 1000000000000,
+            "minimum" : 0,
+            "type" : "integer"
+          },
+          "date" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "description" : {
+            "maxLength" : 200,
+            "minLength" : 0,
+            "type" : "string"
+          },
+          "fund" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "id" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "paidFrom" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "type" : {
+            "enum" : [ "RETURN_THIRD_PARTY_MONEY" ],
+            "type" : "string"
+          }
+        },
+        "required" : [ "amountInCents", "date", "description", "fund", "id", "paidFrom", "type" ],
+        "type" : "object"
+      },
+      "RevisionsResponse" : {
+        "properties" : {
+          "movement" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "revisions" : {
+            "items" : {
+              "$ref" : "#/components/schemas/MovementResponse"
+            },
+            "type" : "array"
+          }
+        },
+        "type" : "object"
+      },
+      "SetBudgetRequest" : {
+        "properties" : {
+          "category" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "id" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "limitInCents" : {
+            "exclusiveMinimum" : true,
+            "format" : "int64",
+            "maximum" : 1000000000000,
+            "minimum" : 0,
+            "type" : "integer"
+          },
+          "month" : {
+            "pattern" : "[0-9]{4}-(0[1-9]|1[0-2])",
+            "type" : "string"
+          }
+        },
+        "required" : [ "category", "id", "limitInCents", "month" ],
+        "type" : "object"
+      },
+      "SpendThirdPartyMoneyRequest" : {
+        "properties" : {
+          "amountInCents" : {
+            "exclusiveMinimum" : true,
+            "format" : "int64",
+            "maximum" : 1000000000000,
+            "minimum" : 0,
+            "type" : "integer"
+          },
+          "date" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "description" : {
+            "maxLength" : 200,
+            "minLength" : 0,
+            "type" : "string"
+          },
+          "fund" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "id" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "paidFrom" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "type" : {
+            "enum" : [ "SPEND_THIRD_PARTY_MONEY" ],
+            "type" : "string"
+          }
+        },
+        "required" : [ "amountInCents", "date", "description", "fund", "id", "paidFrom", "type" ],
+        "type" : "object"
+      },
+      "SummaryResponse" : {
+        "properties" : {
+          "asOf" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "expensesThatMonthInCents" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "incomeThatMonthInCents" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "moneyReallyMineInCents" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "monthFrom" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "totalsByTypeInCents" : {
+            "additionalProperties" : {
+              "format" : "int64",
+              "type" : "integer"
+            },
+            "type" : "object"
+          }
+        },
+        "required" : [ "expensesThatMonthInCents", "incomeThatMonthInCents", "moneyReallyMineInCents" ],
+        "type" : "object"
+      },
+      "TotalsByAccountResponse" : {
+        "properties" : {
+          "accounts" : {
+            "items" : {
+              "$ref" : "#/components/schemas/AccountTotalResponse"
+            },
+            "type" : "array"
+          },
+          "from" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "to" : {
+            "format" : "date",
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "TransferRequest" : {
+        "properties" : {
+          "amountInCents" : {
+            "exclusiveMinimum" : true,
+            "format" : "int64",
+            "maximum" : 1000000000000,
+            "minimum" : 0,
+            "type" : "integer"
+          },
+          "date" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "description" : {
+            "maxLength" : 200,
+            "minLength" : 0,
+            "type" : "string"
+          },
+          "from" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "id" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "to" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "type" : {
+            "enum" : [ "TRANSFER" ],
+            "type" : "string"
+          }
+        },
+        "required" : [ "amountInCents", "date", "description", "from", "id", "to", "type" ],
+        "type" : "object"
+      }
+    },
+    "securitySchemes" : {
+      "bearer" : {
+        "scheme" : "bearer",
+        "type" : "http"
+      }
+    }
+  },
+  "info" : {
+    "description" : "El libro de finanzas personales, en partida doble. Toda ruta exige el token.",
+    "title" : "FinanceApp API",
+    "version" : "1"
+  },
+  "openapi" : "3.0.1",
+  "paths" : {
+    "/api/accounts" : {
+      "post" : {
+        "operationId" : "accountsOpen",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/OpenAccountRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/AccountResponse"
+                }
+              }
+            },
+            "description" : "Ya estaba aplicado: el mismo cuerpo, sin escribir nada."
+          },
+          "201" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/AccountResponse"
+                }
+              }
+            },
+            "description" : "Aplicado: se escribió ahora."
+          },
+          "default" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description" : "Cualquier error, como RFC 9457. El type es uno de la lista cerrada."
+          }
+        },
+        "tags" : [ "accounts" ]
+      }
+    },
+    "/api/accounts/{id}/archivals" : {
+      "post" : {
+        "operationId" : "accountsArchive",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "format" : "uuid",
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/AccountResponse"
+                }
+              }
+            },
+            "description" : "Ya estaba aplicado: el mismo cuerpo, sin escribir nada."
+          },
+          "201" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/AccountResponse"
+                }
+              }
+            },
+            "description" : "Aplicado: se escribió ahora."
+          },
+          "default" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description" : "Cualquier error, como RFC 9457. El type es uno de la lista cerrada."
+          }
+        },
+        "tags" : [ "accounts" ]
+      }
+    },
+    "/api/accounts/{id}/movements" : {
+      "get" : {
+        "operationId" : "accountsMovements",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "format" : "uuid",
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "page",
+          "required" : false,
+          "schema" : {
+            "format" : "int32",
+            "minimum" : 0,
+            "type" : "integer"
+          }
+        }, {
+          "in" : "query",
+          "name" : "size",
+          "required" : false,
+          "schema" : {
+            "format" : "int32",
+            "maximum" : 200,
+            "minimum" : 1,
+            "type" : "integer"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/MovementsResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description" : "Cualquier error, como RFC 9457. El type es uno de la lista cerrada."
+          }
+        },
+        "tags" : [ "accounts" ]
+      }
+    },
+    "/api/accounts/{id}/renames" : {
+      "post" : {
+        "operationId" : "accountsRename",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "format" : "uuid",
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/RenameAccountRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/AccountResponse"
+                }
+              }
+            },
+            "description" : "Ya estaba aplicado: el mismo cuerpo, sin escribir nada."
+          },
+          "201" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/AccountResponse"
+                }
+              }
+            },
+            "description" : "Aplicado: se escribió ahora."
+          },
+          "default" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description" : "Cualquier error, como RFC 9457. El type es uno de la lista cerrada."
+          }
+        },
+        "tags" : [ "accounts" ]
+      }
+    },
+    "/api/balances" : {
+      "get" : {
+        "operationId" : "bookBalances",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "asOf",
+          "required" : false,
+          "schema" : {
+            "format" : "date",
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/BalancesResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description" : "Cualquier error, como RFC 9457. El type es uno de la lista cerrada."
+          }
+        },
+        "tags" : [ "book" ]
+      }
+    },
+    "/api/budgets" : {
+      "get" : {
+        "operationId" : "budgetsBudgets",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "month",
+          "required" : false,
+          "schema" : {
+            "pattern" : "[0-9]{4}-(0[1-9]|1[0-2])",
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/BudgetsResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description" : "Cualquier error, como RFC 9457. El type es uno de la lista cerrada."
+          }
+        },
+        "tags" : [ "budgets" ]
+      },
+      "post" : {
+        "operationId" : "budgetsSet",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/SetBudgetRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/BudgetResponse"
+                }
+              }
+            },
+            "description" : "Ya estaba aplicado: el mismo cuerpo, sin escribir nada."
+          },
+          "201" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/BudgetResponse"
+                }
+              }
+            },
+            "description" : "Aplicado: se escribió ahora."
+          },
+          "default" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description" : "Cualquier error, como RFC 9457. El type es uno de la lista cerrada."
+          }
+        },
+        "tags" : [ "budgets" ]
+      }
+    },
+    "/api/movements" : {
+      "get" : {
+        "operationId" : "movementsHistory",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "from",
+          "required" : false,
+          "schema" : {
+            "format" : "date",
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "to",
+          "required" : false,
+          "schema" : {
+            "format" : "date",
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "type",
+          "required" : false,
+          "schema" : {
+            "enum" : [ "ASSET", "RECEIVABLE", "PAYABLE", "THIRD_PARTY_FUND", "INCOME", "EXPENSE", "EQUITY" ],
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "account",
+          "required" : false,
+          "schema" : {
+            "items" : {
+              "format" : "uuid",
+              "type" : "string"
+            },
+            "maxItems" : 10,
+            "minItems" : 0,
+            "type" : "array"
+          }
+        }, {
+          "in" : "query",
+          "name" : "person",
+          "required" : false,
+          "schema" : {
+            "format" : "uuid",
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "minInCents",
+          "required" : false,
+          "schema" : {
+            "format" : "int64",
+            "maximum" : 1000000000000,
+            "minimum" : 0,
+            "type" : "integer"
+          }
+        }, {
+          "in" : "query",
+          "name" : "maxInCents",
+          "required" : false,
+          "schema" : {
+            "format" : "int64",
+            "maximum" : 1000000000000,
+            "minimum" : 0,
+            "type" : "integer"
+          }
+        }, {
+          "in" : "query",
+          "name" : "page",
+          "required" : false,
+          "schema" : {
+            "format" : "int32",
+            "minimum" : 0,
+            "type" : "integer"
+          }
+        }, {
+          "in" : "query",
+          "name" : "size",
+          "required" : false,
+          "schema" : {
+            "format" : "int32",
+            "maximum" : 200,
+            "minimum" : 1,
+            "type" : "integer"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/HistoryResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description" : "Cualquier error, como RFC 9457. El type es uno de la lista cerrada."
+          }
+        },
+        "tags" : [ "movements" ]
+      },
+      "post" : {
+        "operationId" : "movementsRecord",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/MovementRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/MovementResponse"
+                }
+              }
+            },
+            "description" : "Ya estaba aplicado: el mismo cuerpo, sin escribir nada."
+          },
+          "201" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/MovementResponse"
+                }
+              }
+            },
+            "description" : "Aplicado: se escribió ahora."
+          },
+          "default" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description" : "Cualquier error, como RFC 9457. El type es uno de la lista cerrada."
+          }
+        },
+        "tags" : [ "movements" ]
+      }
+    },
+    "/api/movements/{id}/amendments" : {
+      "post" : {
+        "operationId" : "movementsAmend",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "format" : "uuid",
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/AmendMovementRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/MovementResponse"
+                }
+              }
+            },
+            "description" : "Ya estaba aplicado: el mismo cuerpo, sin escribir nada."
+          },
+          "201" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/MovementResponse"
+                }
+              }
+            },
+            "description" : "Aplicado: se escribió ahora."
+          },
+          "default" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description" : "Cualquier error, como RFC 9457. El type es uno de la lista cerrada."
+          }
+        },
+        "tags" : [ "movements" ]
+      }
+    },
+    "/api/movements/{id}/cancellations" : {
+      "post" : {
+        "operationId" : "movementsCancel",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "format" : "uuid",
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/CancelMovementRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/CancellationResponse"
+                }
+              }
+            },
+            "description" : "Ya estaba aplicado: el mismo cuerpo, sin escribir nada."
+          },
+          "201" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/CancellationResponse"
+                }
+              }
+            },
+            "description" : "Aplicado: se escribió ahora."
+          },
+          "default" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description" : "Cualquier error, como RFC 9457. El type es uno de la lista cerrada."
+          }
+        },
+        "tags" : [ "movements" ]
+      }
+    },
+    "/api/movements/{id}/revisions" : {
+      "get" : {
+        "operationId" : "movementsRevisions",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "format" : "uuid",
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/RevisionsResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description" : "Cualquier error, como RFC 9457. El type es uno de la lista cerrada."
+          }
+        },
+        "tags" : [ "movements" ]
+      }
+    },
+    "/api/people" : {
+      "get" : {
+        "operationId" : "peoplePeople",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "asOf",
+          "required" : false,
+          "schema" : {
+            "format" : "date",
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PeopleResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description" : "Cualquier error, como RFC 9457. El type es uno de la lista cerrada."
+          }
+        },
+        "tags" : [ "people" ]
+      },
+      "post" : {
+        "operationId" : "peopleOpen",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/OpenPersonRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PersonResponse"
+                }
+              }
+            },
+            "description" : "Ya estaba aplicado: el mismo cuerpo, sin escribir nada."
+          },
+          "201" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PersonResponse"
+                }
+              }
+            },
+            "description" : "Aplicado: se escribió ahora."
+          },
+          "default" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description" : "Cualquier error, como RFC 9457. El type es uno de la lista cerrada."
+          }
+        },
+        "tags" : [ "people" ]
+      }
+    },
+    "/api/people/{id}" : {
+      "get" : {
+        "operationId" : "peoplePerson",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "format" : "uuid",
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "asOf",
+          "required" : false,
+          "schema" : {
+            "format" : "date",
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PersonDetailResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description" : "Cualquier error, como RFC 9457. El type es uno de la lista cerrada."
+          }
+        },
+        "tags" : [ "people" ]
+      }
+    },
+    "/api/people/{id}/accounts" : {
+      "post" : {
+        "operationId" : "peopleLink",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "format" : "uuid",
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/LinkAccountRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/AccountResponse"
+                }
+              }
+            },
+            "description" : "Ya estaba aplicado: el mismo cuerpo, sin escribir nada."
+          },
+          "201" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/AccountResponse"
+                }
+              }
+            },
+            "description" : "Aplicado: se escribió ahora."
+          },
+          "default" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description" : "Cualquier error, como RFC 9457. El type es uno de la lista cerrada."
+          }
+        },
+        "tags" : [ "people" ]
+      }
+    },
+    "/api/people/{id}/archivals" : {
+      "post" : {
+        "operationId" : "peopleArchive",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "format" : "uuid",
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PersonResponse"
+                }
+              }
+            },
+            "description" : "Ya estaba aplicado: el mismo cuerpo, sin escribir nada."
+          },
+          "201" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PersonResponse"
+                }
+              }
+            },
+            "description" : "Aplicado: se escribió ahora."
+          },
+          "default" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description" : "Cualquier error, como RFC 9457. El type es uno de la lista cerrada."
+          }
+        },
+        "tags" : [ "people" ]
+      }
+    },
+    "/api/people/{id}/renames" : {
+      "post" : {
+        "operationId" : "peopleRename",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "format" : "uuid",
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/RenamePersonRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PersonResponse"
+                }
+              }
+            },
+            "description" : "Ya estaba aplicado: el mismo cuerpo, sin escribir nada."
+          },
+          "201" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PersonResponse"
+                }
+              }
+            },
+            "description" : "Aplicado: se escribió ahora."
+          },
+          "default" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description" : "Cualquier error, como RFC 9457. El type es uno de la lista cerrada."
+          }
+        },
+        "tags" : [ "people" ]
+      }
+    },
+    "/api/stats/by-account" : {
+      "get" : {
+        "operationId" : "statsByAccount",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "from",
+          "required" : false,
+          "schema" : {
+            "format" : "date",
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "to",
+          "required" : false,
+          "schema" : {
+            "format" : "date",
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "type",
+          "required" : false,
+          "schema" : {
+            "enum" : [ "ASSET", "RECEIVABLE", "PAYABLE", "THIRD_PARTY_FUND", "INCOME", "EXPENSE", "EQUITY" ],
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "account",
+          "required" : false,
+          "schema" : {
+            "items" : {
+              "format" : "uuid",
+              "type" : "string"
+            },
+            "maxItems" : 10,
+            "minItems" : 0,
+            "type" : "array"
+          }
+        }, {
+          "in" : "query",
+          "name" : "person",
+          "required" : false,
+          "schema" : {
+            "format" : "uuid",
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "minInCents",
+          "required" : false,
+          "schema" : {
+            "format" : "int64",
+            "maximum" : 1000000000000,
+            "minimum" : 0,
+            "type" : "integer"
+          }
+        }, {
+          "in" : "query",
+          "name" : "maxInCents",
+          "required" : false,
+          "schema" : {
+            "format" : "int64",
+            "maximum" : 1000000000000,
+            "minimum" : 0,
+            "type" : "integer"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/TotalsByAccountResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description" : "Cualquier error, como RFC 9457. El type es uno de la lista cerrada."
+          }
+        },
+        "tags" : [ "stats" ]
+      }
+    },
+    "/api/stats/over-time" : {
+      "get" : {
+        "operationId" : "statsOverTime",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "from",
+          "required" : false,
+          "schema" : {
+            "format" : "date",
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "to",
+          "required" : false,
+          "schema" : {
+            "format" : "date",
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/OverTimeResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description" : "Cualquier error, como RFC 9457. El type es uno de la lista cerrada."
+          }
+        },
+        "tags" : [ "stats" ]
+      }
+    },
+    "/api/summary" : {
+      "get" : {
+        "operationId" : "bookSummary",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "asOf",
+          "required" : false,
+          "schema" : {
+            "format" : "date",
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SummaryResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description" : "Cualquier error, como RFC 9457. El type es uno de la lista cerrada."
+          }
+        },
+        "tags" : [ "book" ]
+      }
+    }
+  },
+  "security" : [ {
+    "bearer" : [ ]
+  } ]
+}

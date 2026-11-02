@@ -117,4 +117,11 @@ tasks.test {
     inputs.file(rootProject.layout.projectDirectory.file("../deploy/postgres/10-roles.sh"))
         .withPropertyName("rolesScript")
         .withPathSensitivity(PathSensitivity.NONE)
+
+    // Y ContractTest compara la especificación con ../contract/openapi.json.
+    // `files` y no `file`: el archivo puede no existir todavía, y entonces el
+    // test lo escribe y falla.
+    inputs.files(rootProject.layout.projectDirectory.file("../contract/openapi.json"))
+        .withPropertyName("contract")
+        .withPathSensitivity(PathSensitivity.NONE)
 }

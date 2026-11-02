@@ -1,0 +1,38 @@
+# Lo que no entra al contexto de build no puede acabar en una capa de la
+# imagen, ni en la caché del daemon, ni en un `docker history`. Cada patrón va
+# también con **/ delante: sin él solo alcanza la raíz del contexto, y un .env
+# dentro de app/ pasaría.
+#
+# Lo prueba deploy/test/image.test.sh con señuelos en las dos alturas.
+
+# Secretos.
+.env
+**/.env
+*.env
+**/*.env
+
+# Las notas del proyecto, que no se publican (el repositorio es público y la
+# imagen también podría serlo).
+CLAUDE.md
+**/CLAUDE.md
+
+# Lo que genera Gradle en la máquina de quien construye. La imagen compila
+# desde el código, no desde lo que haya quedado a medias aquí. En Windows,
+# además, el daemon de Gradle tiene estos archivos bloqueados y el envío del
+# contexto se corta.
+build
+**/build
+.gradle
+**/.gradle
+.jqwik-database
+**/.jqwik-database
+
+# El IDE.
+.idea
+**/.idea
+*.iml
+**/*.iml
+
+# Este mismo archivo y el Dockerfile no hacen falta dentro de la imagen.
+.dockerignore
+Dockerfile

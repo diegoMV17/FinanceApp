@@ -1,4 +1,4 @@
-# Tres ecosistemas, cada uno en su carpeta: en un monorepo, Dependabot no
+# Cinco ecosistemas, cada uno en su carpeta: en un monorepo, Dependabot no
 # busca hacia abajo. Sin el `directory` correcto no hay alertas, y el silencio
 # se parece demasiado a "no hay nada que actualizar".
 version: 2
@@ -22,5 +22,18 @@ updates:
   # al token del repositorio.
   - package-ecosystem: github-actions
     directory: /
+    schedule:
+      interval: weekly
+
+  # Las imágenes base del Dockerfile de la API (JDK para compilar, JRE para
+  # correr). Van fijadas por tag y digest: esto es lo que las mantiene al día.
+  - package-ecosystem: docker
+    directory: /server
+    schedule:
+      interval: weekly
+
+  # La imagen de Postgres del compose, fijada igual.
+  - package-ecosystem: docker-compose
+    directory: /deploy
     schedule:
       interval: weekly

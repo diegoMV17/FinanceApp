@@ -72,15 +72,18 @@ class FailedAttemptsTest {
         }
 
         @Test
-        @DisplayName("S4 · un acierto borra la cuenta")
-        void aSuccessClearsTheCount() {
+        @DisplayName("S4 · los fallos sueltos no se acumulan")
+        void looseFailuresDoNotAddUp() {
+            // Cuentan los fallos seguidos, no los de toda la vida: quien se
+            // equivoca dos veces hoy y una el mes que viene no queda bloqueado.
+            // Un acierto ya no borra la cuenta (detrás de una dirección
+            // compartida le levantaría el bloqueo al que adivina), así que es
+            // la caducidad la que hace este trabajo.
             attempts.recordFailure(ONE);
             attempts.recordFailure(ONE);
 
-            attempts.recordSuccess(ONE);
+            clock.advance(BLOCK_FOR.plusSeconds(1));
 
-            // Si el acierto no borrara, el dueño que se equivoca dos veces y
-            // luego entra bien quedaría a un fallo del bloqueo para siempre.
             attempts.recordFailure(ONE);
             assertThat(attempts.isBlocked(ONE)).isFalse();
         }

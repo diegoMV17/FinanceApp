@@ -50,3 +50,70 @@ jobs:
       # esto, `flutter analyze` pasa en verde con los avisos puestos.
       - run: flutter analyze --fatal-infos
       - run: flutter test
+
+  # La imagen y el despliegue (deploy/). Corre siempre, como los otros dos.
+  # El orden importa: los tests que necesitan la imagen en el Docker local van
+  # antes de setup-buildx, porque desde ahí `docker build` pasa al constructor
+  # en contenedor y deja de cargar las imágenes donde `docker run` las busca.
+  image:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+
+      # Los scripts de deploy/ se ejecutan con secretos en el entorno: un
+      # error de comillas en uno de ellos es un secreto partido en dos.
+      - run: shellcheck -x deploy/*.sh deploy/postgres/*.sh deploy/test/*.sh
+      - run: deploy/test/compose.test.sh
+      - run: deploy/test/generate-secrets.test.sh
+      - run: deploy/test/image.test.sh
+
+      # El compose de verdad, con secretos generados en el momento: levanta,
+      # pasa la prueba de humo y comprueba que Postgres no quedó publicado.
+      - name: El compose levanta y pasa la prueba de humo
+        working-directory: deploy
+        run: |
+          ./generate-secrets.sh
+          docker compose up -d --build --wait
+          for _ in $(seq 1 60); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8080/api/balances || true)
+            [ "$code" = 401 ] && break
+            sleep 2
+          done
+          token=$(grep '^API_TOKEN=' .env | cut -d= -f2-)
+          echo "::add-mask::$token"
+          printf '%s\n%s\nsi\n' http://127.0.0.1:8080 "$token" | ./smoke-test.sh
+          bindings=$(docker inspect --format '{{json .HostConfig.PortBindings}}' "$(docker compose ps -q db)")
+          [ "$bindings" = "{}" ] || { echo "db publica puertos: $bindings"; exit 1; }
+          if (exec 3<> /dev/tcp/127.0.0.1/5432) 2> /dev/null; then
+            echo "algo responde en 127.0.0.1:5432"; exit 1
+          fi
+      - name: Apagar el compose
+        if: always()
+        working-directory: deploy
+        run: docker compose down -v || true
+
+      # Ampere (Oracle) es arm64: una imagen construida solo en x86 no arranca
+      # allá. Se construyen las dos, sin publicar nada, y la de arm64 se
+      # arranca bajo QEMU para saber que su JVM corre, no solo que se armó.
+      - uses: docker/setup-qemu-action@v4
+      - uses: docker/setup-buildx-action@v4
+      - name: Imagen para linux/amd64 y linux/arm64
+        uses: docker/build-push-action@v7
+        with:
+          context: server
+          platforms: linux/amd64,linux/arm64
+          push: false
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      - name: Cargar la de arm64
+        uses: docker/build-push-action@v7
+        with:
+          context: server
+          platforms: linux/arm64
+          load: true
+          tags: finance-api:arm64
+          cache-from: type=gha
+      - run: docker run --rm --platform linux/arm64 --entrypoint java finance-api:arm64 -version

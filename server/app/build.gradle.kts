@@ -91,9 +91,23 @@ tasks.withType<JavaCompile>().configureEach {
     options.encoding = "UTF-8"
 }
 
+// Un nombre fijo, sin la versión: el Dockerfile lo copia por nombre, y un
+// comodín se llevaría también el jar "-plain" que Gradle deja al lado.
+tasks.bootJar {
+    archiveFileName = "finance-api.jar"
+}
+
 tasks.test {
     useJUnitPlatform()
     testLogging {
         events("passed", "skipped", "failed")
     }
+
+    // LeastPrivilegeRolesTest prueba el script de roles del despliegue, que
+    // vive fuera de server/. Sin declararlo, Gradle no lo cuenta como entrada:
+    // un cambio solo en el script deja la tarea "al día" y el test no corre.
+    // Lo descubrió una prueba de mutación que salía verde en un segundo.
+    inputs.file(rootProject.layout.projectDirectory.file("../deploy/postgres/10-roles.sh"))
+        .withPropertyName("rolesScript")
+        .withPathSensitivity(PathSensitivity.NONE)
 }

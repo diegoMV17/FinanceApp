@@ -32,7 +32,8 @@ class InvalidServerAddress implements Exception {
   String toString() => 'InvalidServerAddress(${problem.name})';
 }
 
-/// El origen del servidor: `https://host[:puerto]`, nada más.
+/// El origen del servidor: esquema https, host y, si hace falta, puerto. Nada
+/// más.
 ///
 /// Imposible de construir inválida: el único camino es [ServerAddress.parse].
 final class ServerAddress {
@@ -70,7 +71,7 @@ final class ServerAddress {
     return ServerAddress._(uri.origin);
   }
 
-  /// `https://host` o `https://host:puerto`, sin barra final.
+  /// Esquema, host y puerto si lo hay, sin barra final.
   final String origin;
 
   @override

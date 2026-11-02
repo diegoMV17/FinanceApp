@@ -43,18 +43,29 @@ plantilla; el archivo con los valores de verdad nunca entra al repositorio.
 
 ## La app
 
-Desde `mobile/`:
+Hoy es el esqueleto: arranque y tema, el analizador estricto, el test que
+impone la arquitectura de los imports y `Money` en centavos. Todavía no hay
+pantallas ni red. Desde `mobile/`:
 
 ```bash
-flutter analyze
+flutter pub get
+flutter analyze --fatal-infos   # en CI un aviso es un error
 flutter test
 ```
+
+Hace falta Flutter estable 3.47.9, la versión que fija CI. El proyecto nace
+con Android e iOS; compilar para iOS exige un Mac, pero el analizador y los
+tests no dependen de ninguna plataforma.
 
 ## CI
 
 Un workflow con un trabajo por proyecto, los dos corriendo siempre y sin
-filtros de ruta: `test` (Gradle, dentro de `server/`) y, en cuanto exista el
-esqueleto de la app, `mobile` (`flutter analyze` y `flutter test`).
+filtros de ruta: `test` (Gradle, dentro de `server/`) y `mobile`
+(`flutter analyze --fatal-infos` y `flutter test`, dentro de `mobile/`). Con
+filtros, un check obligatorio que no corre no sale rojo: deja el PR esperando.
+
+Dependabot vigila tres ecosistemas, cada uno en su carpeta: `gradle` en
+`/server`, `pub` en `/mobile` y `github-actions` en `/`.
 
 ## Licencia
 

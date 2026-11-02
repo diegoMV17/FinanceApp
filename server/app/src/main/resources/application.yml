@@ -108,6 +108,16 @@ spring:
       # un 405 o un 415: un solo formato de error para toda la API.
       enabled: true
 
+# springdoc está en el classpath solo para que ContractTest escriba
+# ../contract/openapi.json. En el servidor no publica nada: una descripción
+# completa de la API (cada ruta, cada campo, cada código de error) es una
+# herramienta de administración, y esas no se exponen. Aunque esto se encendiera
+# por error, Spring Security la dejaría detrás del token; esa es la segunda red,
+# no la primera. S20 (ApiDocsAreOffTest) lo exige con token en la mano.
+springdoc:
+  api-docs:
+    enabled: false
+
 # Cuánto espera una escritura su turno antes de rendirse con un 503.
 #
 # El valor por defecto (5 s) vive en BookLockProperties, no aquí: una sola

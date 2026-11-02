@@ -66,6 +66,13 @@ dependencies {
 
     runtimeOnly("org.postgresql:postgresql")
 
+    // springdoc, solo para escribir ../contract/openapi.json desde un test
+    // (ContractTest). La 3.x es la línea de Spring Boot 4: la 2.x es de Boot 3 y
+    // no arranca aquí. El starter -api, sin interfaz: nunca el -ui. Y sus rutas
+    // quedan apagadas en application.yml, porque una descripción completa de la
+    // API es una herramienta de administración.
+    implementation("org.springdoc:springdoc-openapi-starter-webmvc-api:3.2.0")
+
     // La arquitectura, probada: application no puede importar infrastructure.
     // Gradle ya impide que el dominio vea Spring porque son módulos distintos,
     // pero application e infrastructure viven en el mismo módulo y ahí la única

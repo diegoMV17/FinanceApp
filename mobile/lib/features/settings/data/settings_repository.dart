@@ -21,6 +21,11 @@ class SettingsRepository {
     }
     return result;
   }
+
+  /// Prueba lo que ya está guardado. Solo pregunta: una falla de red no es
+  /// razón para tocar la configuración.
+  Future<ConnectionResult> check(ServerSettings settings) =>
+      _check.run(settings);
 }
 
 final Provider<SettingsRepository> settingsRepositoryProvider =

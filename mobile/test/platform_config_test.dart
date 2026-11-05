@@ -55,6 +55,16 @@ void main() {
     });
   });
 
+  test('Android: release también tiene red', () {
+    // La plantilla de Flutter lo declara solo en src/debug y src/profile, y
+    // ningún plugin lo trae. Sin esto, todo funciona hasta el primer APK
+    // firmado, que siempre diría que no llega al servidor.
+    expect(
+      manifest,
+      contains('<uses-permission android:name="android.permission.INTERNET"/>'),
+    );
+  });
+
   test('Android: nada de HTTP en claro', () {
     expect(manifest, contains('android:usesCleartextTraffic="false"'));
   });

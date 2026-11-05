@@ -43,15 +43,25 @@ class _PrivacyCoverState extends State<PrivacyCover>
 
   @override
   Widget build(BuildContext context) {
-    if (!_covered) {
-      return widget.child;
-    }
-    // La cubierta reemplaza al contenido en vez de ponerse encima: así no hay
-    // un cuadro en el que el contenido se alcance a ver debajo.
-    return ColoredBox(
-      key: PrivacyCover.coverKey,
-      color: Theme.of(context).colorScheme.surface,
-      child: const Center(child: Icon(Icons.lock_outline, size: 48)),
+    // La misma forma de árbol cubierta o no. El contenido sale de escena (no se
+    // dibuja: no hay un cuadro en el que se alcance a ver) pero sigue vivo. Si
+    // la cubierta lo reemplazara, lo destruiría cada vez que la app pierde el
+    // foco: el bloqueo de abajo dejaría de escuchar y la app no se cerraría al
+    // irse, y las pantallas abiertas se perderían.
+    return Stack(
+      fit: StackFit.expand,
+      children: <Widget>[
+        Offstage(
+          offstage: _covered,
+          child: TickerMode(enabled: !_covered, child: widget.child),
+        ),
+        if (_covered)
+          ColoredBox(
+            key: PrivacyCover.coverKey,
+            color: Theme.of(context).colorScheme.surface,
+            child: const Center(child: Icon(Icons.lock_outline, size: 48)),
+          ),
+      ],
     );
   }
 }

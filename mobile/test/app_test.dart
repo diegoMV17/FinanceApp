@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -10,6 +12,7 @@ import 'package:mobile/core/storage/local_database.dart';
 import 'package:mobile/core/storage/secure_store.dart';
 import 'package:mobile/core/storage/server_settings.dart';
 import 'package:mobile/core/storage/server_settings_store.dart';
+import 'package:mobile/features/settings/ui/connection_status_view.dart';
 import 'package:mobile/features/settings/ui/server_setup_screen.dart';
 
 import 'core/lock/app_lock_test.dart' show FakeAuthenticator;
@@ -156,6 +159,111 @@ void main() {
     // Los saldos los decide el servidor y llegan con las pantallas (7d): una
     // cifra aquí solo podría ser inventada.
     expect(find.textContaining(r'$'), findsNothing);
+  });
+
+  group('adentro, la conexión con el servidor', () {
+    void answerLikeTheApi() => adapter.answer(200, <String, Object?>{
+      'asOf': '2026-11-02',
+      'balances': <Object?>[],
+    });
+
+    testWidgets('dice «conectada» solo porque el servidor respondió', (
+      WidgetTester tester,
+    ) async {
+      await saveSettings();
+      answerLikeTheApi();
+
+      await pumpApp(tester);
+
+      expect(adapter.requests, hasLength(1));
+      expect(adapter.last.uri.path, '/api/balances');
+      expect(find.textContaining('Conectada a'), findsOneWidget);
+      expect(find.textContaining(token), findsNothing);
+    });
+
+    testWidgets(
+      'sin llegar al servidor: lo dice, no se cae y conserva la configuración',
+      (WidgetTester tester) async {
+        await saveSettings();
+        final Map<String, String> before = Map<String, String>.of(
+          secure.values,
+        );
+        adapter.fail(const SocketException('sin red'));
+
+        await pumpApp(tester);
+
+        expect(find.textContaining('Conectada a'), findsNothing);
+        expect(find.textContaining('Tailscale'), findsOneWidget);
+        expect(find.textContaining('finanzas.ejemplo.invalid'), findsOneWidget);
+        expect(find.byType(ServerSetupScreen), findsNothing);
+        expect(secure.values, before);
+      },
+    );
+
+    testWidgets('reintentar vuelve a probar, y al responder dice conectada', (
+      WidgetTester tester,
+    ) async {
+      await saveSettings();
+      adapter.fail(const SocketException('sin red'));
+      await pumpApp(tester);
+
+      answerLikeTheApi();
+      await tester.tap(find.byKey(ConnectionStatusView.retryButtonKey));
+      await tester.pumpAndSettle();
+
+      expect(adapter.requests, hasLength(2));
+      expect(find.textContaining('Conectada a'), findsOneWidget);
+      expect(find.byKey(ConnectionStatusView.retryButtonKey), findsNothing);
+    });
+
+    testWidgets(
+      'un token que el servidor ya no acepta se dice, y no se borra',
+      (WidgetTester tester) async {
+        await saveSettings();
+        adapter.answer(401, <String, Object?>{});
+
+        await pumpApp(tester);
+
+        expect(find.textContaining('Conectada a'), findsNothing);
+        expect(find.textContaining('token'), findsOneWidget);
+        expect(secure.values[ServerSettingsStore.tokenKey], token);
+      },
+    );
+
+    testWidgets('bloqueada, el token no sale a la red', (
+      WidgetTester tester,
+    ) async {
+      await saveSettings();
+      answerLikeTheApi();
+      authenticator.next = AuthOutcome.failed;
+
+      await pumpApp(tester);
+      expect(adapter.requests, isEmpty);
+
+      authenticator.next = AuthOutcome.success;
+      await tester.tap(find.text('Desbloquear'));
+      await tester.pumpAndSettle();
+      expect(adapter.requests, hasLength(1));
+    });
+
+    testWidgets('cada vuelta de segundo plano la comprueba de nuevo', (
+      WidgetTester tester,
+    ) async {
+      await saveSettings();
+      answerLikeTheApi();
+      await pumpApp(tester);
+      expect(find.textContaining('Conectada a'), findsOneWidget);
+
+      // Se fue a apagar Tailscale. «Conectada» ya no sería verdad.
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+      adapter.fail(const SocketException('sin red'));
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pumpAndSettle();
+
+      expect(adapter.requests, hasLength(2));
+      expect(find.textContaining('Conectada a'), findsNothing);
+      expect(find.textContaining('Tailscale'), findsOneWidget);
+    });
   });
 
   testWidgets('sin el motor que cifra, la app no continúa', (

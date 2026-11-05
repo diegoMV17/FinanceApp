@@ -564,6 +564,20 @@ void main() {
     });
   });
 
+  test(
+    'si la base falla a mitad, no revienta y lo vuelve a intentar',
+    () async {
+      await unlockAndSend();
+      await db.close();
+
+      await sender().wake();
+
+      expect(adapter.requests, isEmpty);
+      expect(pause(), PauseReason.unexpected);
+      expect(timer.scheduled, isNotNull);
+    },
+  );
+
   test('al cerrarse, cancela el reintento', () async {
     await store.enqueue(expense(first));
     adapter.handler = (_) async => throw const SocketException('sin red');

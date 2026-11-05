@@ -80,6 +80,24 @@ void main() {
     });
   });
 
+  test('si no se pudo guardar, el error no trae el cuerpo', () async {
+    // El error de SQLite imprime los parámetros de la sentencia, y entre ellos
+    // estaría el cuerpo: montos y descripciones camino a un log.
+    await store
+        .waiting(); // Drift abre al primer uso: cerrarla antes no hace nada.
+    await db.close();
+
+    Object? failure;
+    try {
+      await store.enqueue(expense(first));
+    } on Object catch (caught) {
+      failure = caught;
+    }
+
+    expect(failure, isA<PendingMovementNotSaved>());
+    expect(failure.toString(), isNot(contains('Almuerzo')));
+  });
+
   test('sale de la cola al quitarlo, y los demás siguen en orden', () async {
     await store.enqueue(expense(first));
     await store.enqueue(expense(second));

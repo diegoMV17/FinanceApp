@@ -131,6 +131,8 @@ Duration? _retryAfter(Response<Object?>? response) {
   if (seconds == null || seconds <= 0) {
     return null;
   }
-  final Duration wanted = Duration(seconds: seconds);
-  return wanted > maxRetryAfter ? maxRetryAfter : wanted;
+  // Se compara antes de armar el Duration: uno enorme desborda y queda negativo.
+  return seconds > maxRetryAfter.inSeconds
+      ? maxRetryAfter
+      : Duration(seconds: seconds);
 }

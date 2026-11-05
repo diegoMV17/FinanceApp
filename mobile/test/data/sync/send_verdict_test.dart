@@ -150,6 +150,11 @@ void main() {
       expect(maxRetryAfter, const Duration(hours: 1));
     });
 
+    test('un número que desborda el Duration también se queda en el tope', () {
+      // Sin esto daría una espera negativa: reintentar de inmediato, sin parar.
+      expect(busy(<String>['18446744073709']).retryAfter, maxRetryAfter);
+    });
+
     for (final (String name, List<String>? value) in <(String, List<String>?)>[
       ('sin cabecera', null),
       ('una fecha', <String>['Wed, 21 Oct 2026 07:28:00 GMT']),

@@ -79,6 +79,18 @@ void main() {
       );
     });
 
+    test('lo que se enviaría no es lo que se guardó: un campo de más', () {
+      // Tras actualizar la app, el modelo puede no conocer un campo guardado.
+      // Enviarlo sin él sería otro contenido con el mismo id: un 409.
+      expect(
+        () => PendingMovement.restored(
+          sampleId,
+          jsonEncode(<String, Object?>{...expense, 'campoNuevo': 7}),
+        ),
+        throwsFormatException,
+      );
+    });
+
     test('un id en el cuerpo que no es un UUID v4', () {
       expect(
         () => PendingMovement.of(
@@ -87,6 +99,18 @@ void main() {
         throwsFormatException,
       );
     });
+  });
+
+  test('los once tipos son planos: comparar campo por campo alcanza', () {
+    for (final Object? schema in movementTypes(schemas).values) {
+      final Map<String, Object?> json = sampleOf(
+        schemas,
+        (schema! as String).split('/').last,
+      );
+
+      expect(json.values.whereType<Map<Object?, Object?>>(), isEmpty);
+      expect(json.values.whereType<List<Object?>>(), isEmpty);
+    }
   });
 
   test('su texto no dice montos ni descripciones', () {

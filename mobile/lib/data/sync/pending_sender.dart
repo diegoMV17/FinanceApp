@@ -96,7 +96,17 @@ class PendingSender extends Notifier<PauseReason?> {
     bool paused;
     do {
       _wakeAgain = false;
-      paused = await _pass();
+      try {
+        paused = await _pass();
+      } on Object {
+        // La base falló a mitad. Lo que no se pudo marcar se reenvía con su
+        // mismo id, y el servidor contesta 200: reintentar es seguro.
+        if (!ref.mounted) {
+          return;
+        }
+        _pauseFor(const Paused(PauseReason.unexpected));
+        paused = true;
+      }
     } while (_wakeAgain && !paused && ref.mounted);
   }
 

@@ -38,6 +38,16 @@ class ConflictingPendingMovement implements Exception {
   String toString() => 'ConflictingPendingMovement';
 }
 
+/// No se pudo guardar en la cola. Sin detalles a propósito: el error de SQLite
+/// imprime los parámetros de la sentencia, y entre ellos está el cuerpo, con
+/// montos y descripciones.
+class PendingMovementNotSaved implements Exception {
+  const PendingMovementNotSaved();
+
+  @override
+  String toString() => 'PendingMovementNotSaved';
+}
+
 /// La cola en la base local. Solo guarda y lee: lo que significa cada respuesta
 /// del servidor se decide en `data/sync`.
 ///
@@ -50,24 +60,32 @@ class PendingMovementsStore {
   $PendingMovementsTable get _table => _db.pendingMovements;
 
   /// Lo mismo dos veces es un doble toque, y queda uno.
-  Future<void> enqueue(PendingMovement movement) => _db.transaction(() async {
-    final PendingMovementRow? existing = await _row(movement.id);
-    if (existing != null) {
-      if (existing.body != movement.body) {
-        throw const ConflictingPendingMovement();
-      }
-      return;
+  Future<void> enqueue(PendingMovement movement) async {
+    try {
+      await _db.transaction(() async {
+        final PendingMovementRow? existing = await _row(movement.id);
+        if (existing != null) {
+          if (existing.body != movement.body) {
+            throw const ConflictingPendingMovement();
+          }
+          return;
+        }
+        await _db
+            .into(_table)
+            .insert(
+              PendingMovementsCompanion.insert(
+                id: movement.id.value,
+                body: movement.body,
+                status: PendingStatus.waiting,
+              ),
+            );
+      });
+    } on ConflictingPendingMovement {
+      rethrow;
+    } on Object {
+      throw const PendingMovementNotSaved();
     }
-    await _db
-        .into(_table)
-        .insert(
-          PendingMovementsCompanion.insert(
-            id: movement.id.value,
-            body: movement.body,
-            status: PendingStatus.waiting,
-          ),
-        );
-  });
+  }
 
   /// Lo que hay que enviar, en orden de llegada.
   ///

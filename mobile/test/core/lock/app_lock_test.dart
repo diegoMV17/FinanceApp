@@ -81,6 +81,32 @@ void main() {
     },
   );
 
+  test(
+    'irse con el diálogo abierto y que pase igual: al volver, se pide otra vez',
+    () async {
+      // Desbloqueó en segundo plano, así que `unlocked` no dice nada de quién
+      // tiene el teléfono ahora. Lo que la cierra es que el framework traduce
+      // volver desde `paused` a estos tres estados, en este orden: este test
+      // deja escrita esa dependencia.
+      final Completer<AuthOutcome> pending = Completer<AuthOutcome>();
+      authenticator.pending = pending;
+      final Future<void> unlocking = lock().unlock();
+      lock().onLifecycle(AppLifecycleState.paused);
+      pending.complete(AuthOutcome.success);
+      await unlocking;
+
+      authenticator.next = AuthOutcome.failed;
+      lock()
+        ..onLifecycle(AppLifecycleState.hidden)
+        ..onLifecycle(AppLifecycleState.inactive)
+        ..onLifecycle(AppLifecycleState.resumed);
+      await Future<void>.delayed(Duration.zero);
+
+      expect(authenticator.calls, 2);
+      expect(state(), AppLockState.locked);
+    },
+  );
+
   test('pedir desbloquear dos veces a la vez abre un solo diálogo', () async {
     final Completer<AuthOutcome> pending = Completer<AuthOutcome>();
     authenticator.pending = pending;

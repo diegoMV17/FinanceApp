@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -66,6 +68,62 @@ void main() {
     expect(authenticator.calls, 2);
     expect(find.text('Dentro'), findsNothing);
     expect(find.byKey(LockGate.unlockButtonKey), findsOneWidget);
+  });
+
+  group('cancelar no vuelve a pedir', () {
+    // Visto en un teléfono: el diálogo del sistema le quita el foco a la app, y
+    // al cerrarse se lo devuelve con un `resumed`. Si ese `resumed` pidiera el
+    // desbloqueo, cancelar abriría otro diálogo y nunca se llegaría a la
+    // pantalla de bloqueo.
+    testWidgets('el diálogo se cierra y la app recupera el foco', (
+      WidgetTester tester,
+    ) async {
+      authenticator.next = AuthOutcome.failed;
+      await pumpGate(tester);
+      expect(authenticator.calls, 1);
+
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pumpAndSettle();
+
+      expect(authenticator.calls, 1);
+      expect(find.byKey(LockGate.unlockButtonKey), findsOneWidget);
+    });
+
+    testWidgets('el PIN abrió otra actividad y la app pasó a segundo plano', (
+      WidgetTester tester,
+    ) async {
+      final Completer<AuthOutcome> pending = Completer<AuthOutcome>();
+      authenticator.pending = pending;
+      await pumpGate(tester);
+
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+      pending.complete(AuthOutcome.failed);
+      await tester.pump();
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pumpAndSettle();
+
+      expect(authenticator.calls, 1);
+      expect(find.byKey(LockGate.unlockButtonKey), findsOneWidget);
+    });
+
+    testWidgets('pero irse de verdad y volver sí pide, una sola vez', (
+      WidgetTester tester,
+    ) async {
+      authenticator.next = AuthOutcome.failed;
+      await pumpGate(tester);
+
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pumpAndSettle();
+      expect(authenticator.calls, 2);
+
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pumpAndSettle();
+      expect(authenticator.calls, 2);
+      expect(find.byKey(LockGate.unlockButtonKey), findsOneWidget);
+    });
   });
 
   testWidgets('una pantalla abierta encima también queda tapada al bloquear', (

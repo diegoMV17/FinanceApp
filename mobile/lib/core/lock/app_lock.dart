@@ -25,6 +25,7 @@ enum AppLockState {
 /// así que cerrarla ahí haría que el desbloqueo no terminara nunca.
 class AppLock extends Notifier<AppLockState> {
   Future<void>? _unlocking;
+  bool _wentAway = false;
 
   @override
   AppLockState build() => AppLockState.locked;
@@ -50,12 +51,25 @@ class AppLock extends Notifier<AppLockState> {
     };
   }
 
+  /// Al volver, pide el desbloqueo solo si la app se había ido de verdad. Un
+  /// `resumed` a secas no basta: es también lo que llega cuando se cierra el
+  /// diálogo del sistema, y pedir ahí haría que cancelar abriera otro diálogo,
+  /// sin llegar nunca a la pantalla de bloqueo. Lo que pase mientras se
+  /// desbloquea es del diálogo y no cuenta como irse.
   void onLifecycle(AppLifecycleState lifecycle) {
-    final bool away =
-        lifecycle == AppLifecycleState.hidden ||
-        lifecycle == AppLifecycleState.paused;
-    if (away && state != AppLockState.unlocking) {
-      state = AppLockState.locked;
+    switch (lifecycle) {
+      case AppLifecycleState.hidden || AppLifecycleState.paused:
+        if (state != AppLockState.unlocking) {
+          state = AppLockState.locked;
+          _wentAway = true;
+        }
+      case AppLifecycleState.resumed:
+        if (_wentAway) {
+          _wentAway = false;
+          unlock();
+        }
+      case AppLifecycleState.inactive || AppLifecycleState.detached:
+        break;
     }
   }
 }

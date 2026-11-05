@@ -42,11 +42,7 @@ class _LockGateState extends ConsumerState<LockGate>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    final AppLock lock = ref.read(appLockProvider.notifier)..onLifecycle(state);
-    if (state == AppLifecycleState.resumed &&
-        ref.read(appLockProvider) == AppLockState.locked) {
-      lock.unlock();
-    }
+    ref.read(appLockProvider.notifier).onLifecycle(state);
   }
 
   void _unlock() {

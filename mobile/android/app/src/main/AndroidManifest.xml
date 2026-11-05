@@ -2,6 +2,9 @@
     <!-- El bloqueo de la app con huella, rostro o el PIN del sistema
          (local_auth). -->
     <uses-permission android:name="android.permission.USE_BIOMETRIC"/>
+    <!-- La plantilla de Flutter solo lo declara en src/debug y src/profile:
+         sin esto, un APK de release no tiene red. -->
+    <uses-permission android:name="android.permission.INTERNET"/>
     <!-- usesCleartextTraffic="false" explícito: la API se alcanza por
          Tailscale y siempre cifrada. Sin esto, el valor por omisión
          depende del targetSdk, y un día que baje vuelve a permitir HTTP

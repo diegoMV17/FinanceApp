@@ -49,7 +49,7 @@ class ConnectionCheck {
           _ => ConnectionResult.unexpected,
         };
       }
-      return _noAnswer(failure)
+      return noAnswer(failure)
           ? ConnectionResult.unreachable
           : ConnectionResult.unexpected;
     } on Object {
@@ -63,7 +63,7 @@ class ConnectionCheck {
   /// Lo que es «no se llegó»: los tiempos de espera, la conexión rechazada o
   /// caída, y el certificado que no pasó la verificación. Todo lo demás —un
   /// cuerpo que no es de la API, por ejemplo— llegó, y es otra cosa.
-  static bool _noAnswer(DioException failure) => switch (failure.type) {
+  static bool noAnswer(DioException failure) => switch (failure.type) {
     DioExceptionType.connectionTimeout ||
     DioExceptionType.sendTimeout ||
     DioExceptionType.receiveTimeout ||

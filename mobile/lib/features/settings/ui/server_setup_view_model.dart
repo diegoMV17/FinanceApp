@@ -4,6 +4,7 @@ import '../../../core/network/connection_check.dart';
 import '../../../core/storage/server_settings.dart';
 import '../../../core/storage/server_settings_store.dart';
 import '../data/settings_repository.dart';
+import 'connection_messages.dart';
 
 /// Lo que muestra la pantalla de conexión. Nunca guarda lo que se escribió:
 /// ni la dirección ni, sobre todo, el token.
@@ -22,19 +23,7 @@ class ServerSetupState {
   final bool connected;
   final ConnectionResult? failure;
 
-  String? get failureMessage => switch (failure) {
-    null || ConnectionResult.connected => null,
-    ConnectionResult.wrongToken =>
-      'El servidor respondió, pero ese token no es el suyo.',
-    ConnectionResult.tooManyAttempts =>
-      'Demasiados intentos fallidos desde esta red. Espera un minuto y vuelve '
-          'a intentarlo.',
-    ConnectionResult.unreachable =>
-      'No se pudo llegar al servidor. Revisa la dirección y que Tailscale '
-          'esté conectado.',
-    ConnectionResult.unexpected =>
-      'En esa dirección respondió algo que no es la API de FinanceApp.',
-  };
+  String? get failureMessage => failure?.message;
 
   @override
   String toString() =>

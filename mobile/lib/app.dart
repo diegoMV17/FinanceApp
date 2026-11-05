@@ -6,6 +6,7 @@ import 'core/lock/privacy_cover.dart';
 import 'core/storage/local_database.dart';
 import 'core/storage/server_settings.dart';
 import 'core/storage/server_settings_store.dart';
+import 'features/settings/ui/connection_status_view.dart';
 import 'features/settings/ui/server_setup_screen.dart';
 
 /// Arranque, tema y la compuerta de la app.
@@ -88,8 +89,7 @@ class _SettingsGate extends ConsumerWidget {
 
 /// Adentro. Todavía sin datos: las pantallas llegan en el 7d. No pinta
 /// ninguna cifra, porque los saldos los decide el servidor y una cifra aquí
-/// solo podría ser inventada. Dice a qué servidor está conectada; el token,
-/// nunca.
+/// solo podría ser inventada. Dice si el servidor responde; el token, nunca.
 class _HomeScreen extends StatelessWidget {
   const _HomeScreen({required this.settings});
 
@@ -108,11 +108,7 @@ class _HomeScreen extends StatelessWidget {
               children: <Widget>[
                 Text('FinanceApp', style: text.headlineMedium),
                 const SizedBox(height: 8),
-                Text(
-                  'Conectada a ${settings.address.origin}',
-                  style: text.bodyMedium,
-                  textAlign: TextAlign.center,
-                ),
+                ConnectionStatusView(origin: settings.address.origin),
               ],
             ),
           ),

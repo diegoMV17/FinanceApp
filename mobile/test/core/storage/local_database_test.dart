@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:drift/drift.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile/core/storage/local_database.dart';
+import 'package:mobile/data/local/local_database.dart';
 
 import '../../support/fake_secure_store.dart';
 
@@ -18,7 +19,7 @@ void main() {
   final List<LocalDatabase> opened = <LocalDatabase>[];
 
   Future<LocalDatabase> open() async {
-    final LocalDatabase db = await opener.open();
+    final LocalDatabase db = await opener.open(LocalDatabase.new);
     opened.add(db);
     return db;
   }
@@ -107,7 +108,7 @@ void main() {
     final LocalDatabase db = await LocalDatabaseOpener(
       other,
       () async => otherDir,
-    ).open();
+    ).open(LocalDatabase.new);
     await db.close();
     otherDir.deleteSync(recursive: true);
 

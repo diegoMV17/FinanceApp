@@ -28,6 +28,10 @@ class RecordingAdapter implements HttpClientAdapter {
   /// La próxima petición no llega: lanza esto, como lo haría la red.
   void fail(Object failure) => _failure = failure;
 
+  /// Contestar según la petición, por encima de lo demás. Puede quedarse
+  /// esperando, para ver qué pasa mientras una petición está en curso.
+  Future<ResponseBody> Function(RequestOptions)? handler;
+
   @override
   Future<ResponseBody> fetch(
     RequestOptions options,
@@ -35,6 +39,10 @@ class RecordingAdapter implements HttpClientAdapter {
     Future<void>? cancelFuture,
   ) async {
     requests.add(options);
+    final Future<ResponseBody> Function(RequestOptions)? custom = handler;
+    if (custom != null) {
+      return custom(options);
+    }
     final Object? failure = _failure;
     if (failure != null) {
       throw failure;

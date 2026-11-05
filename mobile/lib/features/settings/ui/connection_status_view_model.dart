@@ -17,10 +17,7 @@ class ConnectionStatusViewModel extends AsyncNotifier<ConnectionResult?> {
   @override
   Future<ConnectionResult?> build() async {
     final bool open = ref.watch(
-      appLockProvider.select(
-        (AppLockState state) =>
-            state == AppLockState.unlocked || state == AppLockState.unprotected,
-      ),
+      appLockProvider.select((AppLockState state) => state.isOpen),
     );
     if (!open) {
       return null;

@@ -66,6 +66,13 @@ dependencies {
 
     runtimeOnly("org.postgresql:postgresql")
 
+    // springdoc, solo para escribir ../contract/openapi.json desde un test
+    // (ContractTest). La 3.x es la línea de Spring Boot 4: la 2.x es de Boot 3 y
+    // no arranca aquí. El starter -api, sin interfaz: nunca el -ui. Y sus rutas
+    // quedan apagadas en application.yml, porque una descripción completa de la
+    // API es una herramienta de administración.
+    implementation("org.springdoc:springdoc-openapi-starter-webmvc-api:3.2.0")
+
     // La arquitectura, probada: application no puede importar infrastructure.
     // Gradle ya impide que el dominio vea Spring porque son módulos distintos,
     // pero application e infrastructure viven en el mismo módulo y ahí la única
@@ -109,5 +116,12 @@ tasks.test {
     // Lo descubrió una prueba de mutación que salía verde en un segundo.
     inputs.file(rootProject.layout.projectDirectory.file("../deploy/postgres/10-roles.sh"))
         .withPropertyName("rolesScript")
+        .withPathSensitivity(PathSensitivity.NONE)
+
+    // Y ContractTest compara la especificación con ../contract/openapi.json.
+    // `files` y no `file`: el archivo puede no existir todavía, y entonces el
+    // test lo escribe y falla.
+    inputs.files(rootProject.layout.projectDirectory.file("../contract/openapi.json"))
+        .withPropertyName("contract")
         .withPathSensitivity(PathSensitivity.NONE)
 }

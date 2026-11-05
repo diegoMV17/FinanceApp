@@ -17,12 +17,62 @@ dependencies:
   # models (Notifier / AsyncNotifier) de la arquitectura MVVM por funcionalidad.
   flutter_riverpod: ^3.4.3
 
+  # El cliente de la API, generado desde ../contract/openapi.json en
+  # lib/data/api/ (tool/generate_api.sh). Lo que el código generado importa:
+  # - dio: el transporte HTTP. En el 7b lleva el token por un interceptor, y
+  #   nunca un interceptor de logs: imprimiría la cabecera y los cuerpos.
+  # - retrofit: las anotaciones del cliente tipado (@GET, @POST, @Body).
+  # - json_annotation: las de los modelos (@JsonSerializable).
+  dio: ^5.11.1
+  json_annotation: ^4.12.0
+  retrofit: ^4.10.0
+
+  # La base segura (7b):
+  # - flutter_secure_storage: Keystore en Android y Keychain en iOS. Ahí, y en
+  #   ningún otro sitio, viven la dirección del servidor, el token y la clave de
+  #   la base local.
+  # - local_auth: el bloqueo con huella, rostro o el PIN del sistema.
+  # - drift y sqlite3: la base local, cifrada con SQLite3MultipleCiphers (ver
+  #   `hooks` abajo). sqlite3 va directo y no solo como dependencia de drift
+  #   porque la apertura habla con la base cruda (PRAGMA hexkey y cipher).
+  # - path_provider: dónde va el archivo de la base (el directorio de soporte
+  #   de la app, no documentos: no lo ve el usuario ni otras apps).
+  flutter_secure_storage: ^11.2.0
+  local_auth: ^3.0.2
+  drift: ^2.35.3
+  sqlite3: ^3.8.0
+  path_provider: ^2.1.6
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
 
   # Las reglas base; las estrictas se agregan en analysis_options.yaml.
   flutter_lints: ^6.0.0
+
+  # La generación del cliente, solo en desarrollo y en CI; nada de esto viaja
+  # en la app.
+  # - swagger_parser: lee el contrato y escribe el cliente y los modelos. Es
+  #   Dart puro (no pide Java en CI) y convierte el oneOf de MovementRequest en
+  #   una sealed class que se lee y se escribe por su type.
+  # - build_runner, retrofit_generator y json_serializable: los .g.dart del
+  #   cliente y de los modelos. build_runner también corre el de Drift.
+  swagger_parser: ^1.45.1
+  build_runner: ^2.17.1
+  retrofit_generator: ^10.3.3
+  json_serializable: ^6.15.2
+  # El generador de Drift: el .g.dart de la base local.
+  drift_dev: ^2.35.2
+
+# La base local va cifrada: el paquete sqlite3 empaqueta SQLite3MultipleCiphers
+# en vez del SQLite de siempre (desde drift 2.32 ya no hace falta
+# sqlcipher_flutter_libs). Si esto falta, PRAGMA key se ignora sin un error y la
+# base queda en claro: por eso core/storage/local_database.dart comprueba
+# PRAGMA cipher al abrir y la app no continúa si no responde.
+hooks:
+  user_defines:
+    sqlite3:
+      source: sqlite3mc
 
 flutter:
   uses-material-design: true

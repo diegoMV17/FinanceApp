@@ -1,3 +1,16 @@
+import java.io.FileInputStream
+import java.util.Properties
+
+// La llave de release vive fuera del repo: android/key.properties (ignorado
+// por git) dice dónde está el .jks y sus contraseñas. Quien tenga la llave
+// puede publicar una actualización que el teléfono acepta como de esta app.
+val keystorePropertiesFile = rootProject.file("key.properties")
+val keystoreProperties = Properties().apply {
+    if (keystorePropertiesFile.exists()) {
+        FileInputStream(keystorePropertiesFile).use { load(it) }
+    }
+}
+
 plugins {
     id("com.android.application")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
@@ -29,11 +42,36 @@ android {
         versionName = flutter.versionName
     }
 
+    signingConfigs {
+        create("release") {
+            if (keystorePropertiesFile.exists()) {
+                keyAlias = keystoreProperties.getProperty("keyAlias")
+                keyPassword = keystoreProperties.getProperty("keyPassword")
+                storeFile = file(keystoreProperties.getProperty("storeFile"))
+                storePassword = keystoreProperties.getProperty("storePassword")
+            }
+        }
+    }
+
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("debug")
+            // Nunca la llave de depuración: esa la tiene cualquier máquina con
+            // el SDK. Sin key.properties, el build de release falla (abajo).
+            signingConfig = signingConfigs.getByName("release")
+        }
+    }
+}
+
+// Sin la llave, un build de release falla diciendo por qué, en vez de salir
+// sin firmar o con un error de Gradle que no explica nada.
+tasks.configureEach {
+    if (name == "preReleaseBuild" && !keystorePropertiesFile.exists()) {
+        doFirst {
+            throw GradleException(
+                "Falta android/key.properties: el build de release se firma " +
+                    "con la llave de la app, nunca con la de depuración. " +
+                    "Los pasos están en mobile/CLAUDE.md."
+            )
         }
     }
 }

@@ -1,0 +1,21 @@
+# El cliente de la API se genera desde el contrato que escribe el servidor
+# (server/.../ContractTest). Lo generado vive en lib/data/api/ y no se edita a
+# mano: se regenera con tool/generate_api.sh, que es lo mismo que corre CI para
+# comprobar que lo comiteado corresponde al contrato.
+swagger_parser:
+  # No lee ../contract/openapi.json directo: tool/generate_api.sh lo ajusta antes
+  # (las fechas de calendario) y lo deja aquí.
+  schema_path: build/contract/openapi.json
+  output_directory: lib/data/api
+  language: dart
+  # json_serializable y no freezed: el oneOf de MovementRequest sale como una
+  # sealed class con su propio fromJson, sin traer otro generador más.
+  json_serializer: json_serializable
+  root_client: true
+  root_client_name: FinanceApi
+  export_file: true
+  put_clients_in_folder: true
+  # Nada de constantes con rutas ni de una dirección por omisión: la dirección
+  # del servidor es privada y se escribe en la app (paso 7b).
+  generate_urls_constants: false
+  mark_files_as_generated: true

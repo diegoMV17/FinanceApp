@@ -1,0 +1,20 @@
+# Opciones de build_runner para el código generado.
+targets:
+  $default:
+    builders:
+      source_gen|combining_builder:
+        options:
+          # Solo en los .g.dart, que nadie escribe a mano. json_serializable
+          # genera un _$MovementRequestToJson para la sealed class del oneOf
+          # que nadie llama (cada variante tiene el suyo), y el analizador lo
+          # marca como unused_element: con --fatal-infos, CI no pasaría por
+          # algo que no se puede arreglar sin editar lo generado. El resto de
+          # las reglas siguen corriendo sobre lo generado.
+          ignore_for_file:
+            - unused_element
+      drift_dev:
+        options:
+          # Sin los "managers" de Drift: las consultas se escriben a mano, y
+          # con una base sin tablas el manager generado deja un campo sin usar
+          # que el analizador marca.
+          generate_manager: false

@@ -63,6 +63,22 @@ void main() {
   });
 
   test(
+    'abrir ya deja el archivo escrito y cifrado, sin tablas ni datos',
+    () async {
+      // Visto en un teléfono: abierta de forma perezosa, la base medía 0 bytes.
+      // Un archivo vacío no es cifrado: mirar su cabecera no probaba nada, y el
+      // motor del isolate de la base no había corrido todavía.
+      await open();
+      await closeAll();
+
+      final List<int> bytes = opener.file(dir).readAsBytesSync();
+
+      expect(bytes, isNotEmpty);
+      expect(latin1.decode(bytes.sublist(0, 15)), isNot('SQLite format 3'));
+    },
+  );
+
+  test(
     'la clave son 32 bytes al azar, se genera una vez y se reutiliza',
     () async {
       final LocalDatabase first = await open();

@@ -106,12 +106,17 @@ class LocalDatabaseOpener {
     } finally {
       check.close();
     }
-    return LocalDatabase(
+    final LocalDatabase db = LocalDatabase(
       NativeDatabase.createInBackground(
         database,
         setup: (Database raw) => unlock(_Sqlite(raw), key),
       ),
     );
+    // Drift abre al primer uso: sin esto, la base del isolate no ha corrido y
+    // el archivo mide 0 bytes. La primera apertura escribe el esquema, ya
+    // cifrado.
+    await db.customSelect('SELECT 1').get();
+    return db;
   }
 
   /// Borra la base local y su clave. Solo cuando el usuario lo confirmó: se

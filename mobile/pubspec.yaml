@@ -57,7 +57,7 @@ dev_dependencies:
   #   una sealed class que se lee y se escribe por su type.
   # - build_runner, retrofit_generator y json_serializable: los .g.dart del
   #   cliente y de los modelos. build_runner también corre el de Drift.
-  swagger_parser: ^1.45.1
+  swagger_parser: ^1.46.0
   build_runner: ^2.17.1
   retrofit_generator: ^10.3.3
   json_serializable: ^6.15.2

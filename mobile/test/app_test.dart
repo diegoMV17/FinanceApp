@@ -12,6 +12,9 @@ import 'package:mobile/core/storage/local_database.dart';
 import 'package:mobile/core/storage/secure_store.dart';
 import 'package:mobile/core/storage/server_settings.dart';
 import 'package:mobile/core/storage/server_settings_store.dart';
+import 'package:mobile/data/local/local_database.dart';
+import 'package:mobile/data/sync/pending_sender.dart';
+import 'package:mobile/features/movements/data/pending_movements_repository.dart';
 import 'package:mobile/features/settings/ui/connection_status_view.dart';
 import 'package:mobile/features/settings/ui/server_setup_screen.dart';
 
@@ -30,9 +33,13 @@ void main() {
   late FakeSecureStore secure;
   late FakeAuthenticator authenticator;
   late RecordingAdapter adapter;
+  late _RecordingSender sender;
+  late PendingSummary summary;
   Object? databaseFailure;
 
   setUp(() {
+    sender = _RecordingSender();
+    summary = const PendingSummary(0, 0, null);
     secure = FakeSecureStore();
     authenticator = FakeAuthenticator()..next = AuthOutcome.success;
     adapter = RecordingAdapter();
@@ -59,6 +66,14 @@ void main() {
             ref.onDispose(db.close);
             return db;
           }),
+          // Drift no corre bajo el reloj falso de testWidgets: un stream suyo
+          // deja un temporizador pendiente y cerrar la base se queda esperando.
+          // Lo que hace el envío de verdad, con la base de verdad, está en
+          // pending_sender_test.dart; aquí importa cuándo lo despierta la app.
+          pendingSenderProvider.overrideWith(() => sender),
+          pendingSummaryProvider.overrideWith(
+            (Ref ref) => Stream<PendingSummary>.value(summary),
+          ),
         ],
         child: const FinanceApp(),
       ),
@@ -266,6 +281,71 @@ void main() {
     });
   });
 
+  group('la cola de pendientes, con la app entera', () {
+    testWidgets('adentro se ve el número de pendientes', (
+      WidgetTester tester,
+    ) async {
+      await saveSettings();
+      summary = const PendingSummary(3, 1, null);
+
+      await pumpApp(tester);
+
+      expect(find.text('3 pendientes de enviar'), findsOneWidget);
+      expect(find.text('1 necesita atención'), findsOneWidget);
+    });
+
+    testWidgets('bloqueada, no se ven', (WidgetTester tester) async {
+      await saveSettings();
+      summary = const PendingSummary(3, 0, null);
+      authenticator.next = AuthOutcome.failed;
+
+      await pumpApp(tester);
+
+      expect(find.textContaining('pendientes'), findsNothing);
+    });
+
+    testWidgets('al entrar, la raíz despierta el envío una vez', (
+      WidgetTester tester,
+    ) async {
+      await saveSettings();
+
+      await pumpApp(tester);
+
+      expect(sender.wakes, 1);
+    });
+
+    testWidgets('bloqueada no lo despierta, y al desbloquear sí', (
+      WidgetTester tester,
+    ) async {
+      await saveSettings();
+      authenticator.next = AuthOutcome.failed;
+
+      await pumpApp(tester);
+      expect(sender.wakes, 0);
+
+      authenticator.next = AuthOutcome.success;
+      await tester.tap(find.text('Desbloquear'));
+      await tester.pumpAndSettle();
+
+      expect(sender.wakes, 1);
+    });
+
+    testWidgets('al irse y volver lo despierta otra vez', (
+      WidgetTester tester,
+    ) async {
+      await saveSettings();
+      await pumpApp(tester);
+      expect(sender.wakes, 1);
+
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+      await tester.pump();
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pumpAndSettle();
+
+      expect(sender.wakes, 2);
+    });
+  });
+
   testWidgets('sin el motor que cifra, la app no continúa', (
     WidgetTester tester,
   ) async {
@@ -307,4 +387,13 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byKey(FinanceApp.unreadableDatabaseKey), findsOneWidget);
   });
+}
+
+/// El envío de verdad escuchando el bloqueo, sin enviar: cuenta cuántas veces se
+/// lo piden.
+class _RecordingSender extends PendingSender {
+  int wakes = 0;
+
+  @override
+  Future<void> wake() async => wakes++;
 }

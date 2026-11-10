@@ -12,7 +12,10 @@ enum AppLockState {
 
   /// El teléfono no tiene bloqueo de pantalla: se deja entrar con un aviso
   /// permanente, y se vuelve a preguntar cada vez que la app vuelve.
-  unprotected,
+  unprotected;
+
+  /// Se puede mostrar lo de adentro y usar el token.
+  bool get isOpen => this == unlocked || this == unprotected;
 }
 
 /// El bloqueo de la app: cerrada al abrir y cada vez que vuelve de segundo

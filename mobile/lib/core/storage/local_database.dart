@@ -9,21 +9,6 @@ import 'package:sqlite3/sqlite3.dart';
 
 import 'secure_store.dart';
 
-part 'local_database.g.dart';
-
-/// La base local de la app, cifrada.
-///
-/// Todavía sin tablas: la cola de pendientes llega en el 7c y la última copia
-/// de lo leído después. Lo que existe desde ya es lo que no se puede agregar
-/// más tarde sin migrar datos en claro: que el archivo nazca cifrado.
-@DriftDatabase(tables: <Type>[])
-class LocalDatabase extends _$LocalDatabase {
-  LocalDatabase(super.executor);
-
-  @override
-  int get schemaVersion => 1;
-}
-
 /// El motor no es SQLite3MultipleCiphers: `PRAGMA key` se ignoraría sin un
 /// error y la base quedaría en claro. La app no continúa.
 class EncryptionUnavailable implements Exception {
@@ -91,13 +76,16 @@ class LocalDatabaseOpener {
   File file(Directory directory) => File('${directory.path}/$fileName');
 
   /// La base abierta y comprobada: si algo falla, falla aquí, antes de que
-  /// nadie la use.
+  /// nadie la use. [build] arma la base de Drift sobre la conexión cifrada: las
+  /// tablas son de `data/local`, y `core/` no las conoce.
   ///
   /// La comprobación corre primero en este isolate con una conexión cruda, y
   /// después la base de verdad se abre en segundo plano, donde [unlock] vuelve
   /// a correr. Así los errores llegan con su tipo y no envueltos por el
   /// isolate.
-  Future<LocalDatabase> open() async {
+  Future<D> open<D extends GeneratedDatabase>(
+    D Function(QueryExecutor) build,
+  ) async {
     final String key = await _key();
     final File database = file(await _directory());
     final Database check = sqlite3.open(database.path);
@@ -106,7 +94,7 @@ class LocalDatabaseOpener {
     } finally {
       check.close();
     }
-    final LocalDatabase db = LocalDatabase(
+    final D db = build(
       NativeDatabase.createInBackground(
         database,
         setup: (Database raw) => unlock(_Sqlite(raw), key),
@@ -157,17 +145,6 @@ final Provider<LocalDatabaseOpener> localDatabaseOpenerProvider =
         getApplicationSupportDirectory,
       ),
     );
-
-/// La base abierta y comprobada. Si falla —sin cifrado, o ilegible—, la app
-/// muestra por qué y no continúa.
-final FutureProvider<LocalDatabase> localDatabaseProvider =
-    FutureProvider<LocalDatabase>((Ref ref) async {
-      final LocalDatabase db = await ref
-          .watch(localDatabaseOpenerProvider)
-          .open();
-      ref.onDispose(db.close);
-      return db;
-    });
 
 class _Sqlite implements RawDatabase {
   _Sqlite(this._db);

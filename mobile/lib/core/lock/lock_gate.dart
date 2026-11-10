@@ -54,8 +54,7 @@ class _LockGateState extends ConsumerState<LockGate>
   @override
   Widget build(BuildContext context) {
     final AppLockState state = ref.watch(appLockProvider);
-    final bool open =
-        state == AppLockState.unlocked || state == AppLockState.unprotected;
+    final bool open = state.isOpen;
     // La misma forma de árbol abierta o cerrada: lo de debajo (el Navigator
     // entero, con las pantallas que haya abiertas) se conserva mientras está
     // bloqueada, pero fuera de escena: ni se dibuja, ni recibe toques, ni lo

@@ -6,6 +6,9 @@ import 'core/lock/privacy_cover.dart';
 import 'core/storage/local_database.dart';
 import 'core/storage/server_settings.dart';
 import 'core/storage/server_settings_store.dart';
+import 'data/local/local_database.dart';
+import 'data/sync/pending_sender.dart';
+import 'features/movements/ui/pending_status_view.dart';
 import 'features/settings/ui/connection_status_view.dart';
 import 'features/settings/ui/server_setup_screen.dart';
 
@@ -15,7 +18,7 @@ import 'features/settings/ui/server_setup_screen.dart';
 /// frente; el bloqueo con huella o PIN; la base local, que tiene que abrir
 /// cifrada o la app no continúa; y la configuración: sin dirección y token,
 /// la pantalla de conexión.
-class FinanceApp extends StatelessWidget {
+class FinanceApp extends ConsumerWidget {
   const FinanceApp({super.key});
 
   static const Key encryptionUnavailableKey = Key('encryption-unavailable');
@@ -25,7 +28,11 @@ class FinanceApp extends StatelessWidget {
   static const Color _seed = Color(0xFF1B6B50);
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    // El envío de la cola se escucha aquí, en la raíz, y no en una pantalla: lo
+    // que queda debajo del bloqueo lo pausa Riverpod, y el envío tiene que oír
+    // justo cuándo se desbloquea. Que bloqueada no salga nada lo decide él.
+    ref.listen(pendingSenderProvider, (_, _) {});
     return MaterialApp(
       title: 'FinanceApp',
       theme: ThemeData(colorSchemeSeed: _seed, brightness: Brightness.light),
@@ -109,6 +116,8 @@ class _HomeScreen extends StatelessWidget {
                 Text('FinanceApp', style: text.headlineMedium),
                 const SizedBox(height: 8),
                 ConnectionStatusView(origin: settings.address.origin),
+                const SizedBox(height: 24),
+                const PendingStatusView(),
               ],
             ),
           ),

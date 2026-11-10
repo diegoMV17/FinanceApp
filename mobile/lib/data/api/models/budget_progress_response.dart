@@ -9,27 +9,27 @@ part 'budget_progress_response.g.dart';
 @JsonSerializable()
 class BudgetProgressResponse {
   const BudgetProgressResponse({
+    required this.category,
+    required this.categoryName,
     required this.exceeded,
+    required this.id,
     required this.limitInCents,
+    required this.month,
     required this.nearTheLimit,
     required this.percentageUsed,
     required this.remainingInCents,
     required this.spentInCents,
-    this.category,
-    this.categoryName,
-    this.id,
-    this.month,
   });
 
   factory BudgetProgressResponse.fromJson(Map<String, Object?> json) =>
       _$BudgetProgressResponseFromJson(json);
 
-  final String? category;
-  final String? categoryName;
+  final String category;
+  final String categoryName;
   final bool exceeded;
-  final String? id;
+  final String id;
   final int limitInCents;
-  final String? month;
+  final String month;
   final bool nearTheLimit;
   final int percentageUsed;
   final int remainingInCents;

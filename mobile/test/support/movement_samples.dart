@@ -52,3 +52,13 @@ Object _sampleValue(Map<String, Object?> property) {
     _ => throw StateError('campo sin muestra: $property'),
   };
 }
+
+/// El cuerpo con el que el servidor contesta un movimiento aplicado: todos los
+/// campos que el contrato dice que siempre vienen.
+Map<String, Object?> movementResponseBody(String id) => <String, Object?>{
+  'id': id,
+  'date': '2026-11-02',
+  'description': 'Prueba',
+  'source': 'APP',
+  'entries': <Object?>[],
+};

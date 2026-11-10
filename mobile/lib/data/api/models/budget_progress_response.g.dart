@@ -11,16 +11,16 @@ part of 'budget_progress_response.dart';
 BudgetProgressResponse _$BudgetProgressResponseFromJson(
   Map<String, dynamic> json,
 ) => BudgetProgressResponse(
+  category: json['category'] as String,
+  categoryName: json['categoryName'] as String,
   exceeded: json['exceeded'] as bool,
+  id: json['id'] as String,
   limitInCents: (json['limitInCents'] as num).toInt(),
+  month: json['month'] as String,
   nearTheLimit: json['nearTheLimit'] as bool,
   percentageUsed: (json['percentageUsed'] as num).toInt(),
   remainingInCents: (json['remainingInCents'] as num).toInt(),
   spentInCents: (json['spentInCents'] as num).toInt(),
-  category: json['category'] as String?,
-  categoryName: json['categoryName'] as String?,
-  id: json['id'] as String?,
-  month: json['month'] as String?,
 );
 
 Map<String, dynamic> _$BudgetProgressResponseToJson(

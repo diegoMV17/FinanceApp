@@ -11,21 +11,21 @@ part 'movement_line_response.g.dart';
 @JsonSerializable()
 class MovementLineResponse {
   const MovementLineResponse({
+    required this.date,
+    required this.description,
     required this.effectInCents,
-    this.date,
-    this.description,
-    this.id,
-    this.source,
+    required this.id,
+    required this.source,
   });
 
   factory MovementLineResponse.fromJson(Map<String, Object?> json) =>
       _$MovementLineResponseFromJson(json);
 
-  final String? date;
-  final String? description;
+  final String date;
+  final String description;
   final int effectInCents;
-  final String? id;
-  final TransactionSource? source;
+  final String id;
+  final TransactionSource source;
 
   Map<String, Object?> toJson() => _$MovementLineResponseToJson(this);
 }

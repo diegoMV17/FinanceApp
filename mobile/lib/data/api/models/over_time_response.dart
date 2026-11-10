@@ -10,14 +10,18 @@ part 'over_time_response.g.dart';
 
 @JsonSerializable()
 class OverTimeResponse {
-  const OverTimeResponse({this.from, this.points, this.to});
+  const OverTimeResponse({
+    required this.from,
+    required this.points,
+    required this.to,
+  });
 
   factory OverTimeResponse.fromJson(Map<String, Object?> json) =>
       _$OverTimeResponseFromJson(json);
 
-  final String? from;
-  final List<SummaryResponse>? points;
-  final String? to;
+  final String from;
+  final List<SummaryResponse> points;
+  final String to;
 
   Map<String, Object?> toJson() => _$OverTimeResponseToJson(this);
 }

@@ -6,14 +6,18 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile/app.dart';
 import 'package:mobile/core/lock/authenticator.dart';
+import 'package:mobile/core/money/money.dart';
 import 'package:mobile/core/network/api_client.dart';
 import 'package:mobile/core/network/connection_check.dart';
+import 'package:mobile/core/reading/reading.dart';
 import 'package:mobile/core/storage/local_database.dart';
 import 'package:mobile/core/storage/secure_store.dart';
 import 'package:mobile/core/storage/server_settings.dart';
 import 'package:mobile/core/storage/server_settings_store.dart';
 import 'package:mobile/data/local/local_database.dart';
 import 'package:mobile/data/sync/pending_sender.dart';
+import 'package:mobile/features/dashboard/data/dashboard.dart';
+import 'package:mobile/features/dashboard/ui/dashboard_screen.dart';
 import 'package:mobile/features/movements/data/pending_movements_repository.dart';
 import 'package:mobile/features/settings/ui/connection_status_view.dart';
 import 'package:mobile/features/settings/ui/server_setup_screen.dart';
@@ -21,6 +25,7 @@ import 'package:mobile/features/settings/ui/server_setup_screen.dart';
 import 'core/lock/app_lock_test.dart' show FakeAuthenticator;
 import 'support/fake_secure_store.dart';
 import 'support/recording_adapter.dart';
+import 'support/screen_doubles.dart';
 
 /// La app entera, de la compuerta hacia dentro, sin teléfono: almacenamiento
 /// seguro en memoria, desbloqueo falso, la base en memoria y un transporte
@@ -74,10 +79,25 @@ void main() {
           pendingSummaryProvider.overrideWith(
             (Ref ref) => Stream<PendingSummary>.value(summary),
           ),
+          // Las lecturas de adentro, fijas: sus reglas están probadas sin
+          // widgets, y aquí lo único que sale a la red es la prueba de la
+          // conexión.
+          ...fixedScreens(
+            dashboard: Reading<Dashboard>(
+              emptyDashboard(mine: Money.ofCents(150000000)),
+              readAt,
+            ),
+          ),
         ],
         child: const FinanceApp(),
       ),
     );
+    await tester.pumpAndSettle();
+  }
+
+  /// La conexión se ve en la pestaña de ajustes.
+  Future<void> goToSettings(WidgetTester tester) async {
+    await tester.tap(find.text('Ajustes'));
     await tester.pumpAndSettle();
   }
 
@@ -126,7 +146,7 @@ void main() {
   ) async {
     adapter.answer(200, <String, Object?>{
       'asOf': '2026-11-02',
-      'balances': <Object?>[],
+      'accounts': <Object?>[],
     });
     await pumpApp(tester);
 
@@ -139,6 +159,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byType(ServerSetupScreen), findsNothing);
+    await goToSettings(tester);
     expect(find.textContaining('finanzas.ejemplo.invalid'), findsOneWidget);
     expect(find.textContaining(token), findsNothing);
   });
@@ -162,24 +183,26 @@ void main() {
     expect(secure.values, isEmpty);
   });
 
-  testWidgets('ya configurada, entra directo y no muestra cifras inventadas', (
-    WidgetTester tester,
-  ) async {
+  testWidgets('ya configurada, entra directo al tablero, con las cifras '
+      'del servidor', (WidgetTester tester) async {
     await saveSettings();
 
     await pumpApp(tester);
 
     expect(find.byType(ServerSetupScreen), findsNothing);
+    expect(find.byType(DashboardScreen), findsOneWidget);
+    expect(
+      tester.widget<Text>(find.byKey(DashboardScreen.moneyReallyMineKey)).data,
+      r'$ 1.500.000,00',
+    );
+    await goToSettings(tester);
     expect(find.textContaining('finanzas.ejemplo.invalid'), findsOneWidget);
-    // Los saldos los decide el servidor y llegan con las pantallas (7d): una
-    // cifra aquí solo podría ser inventada.
-    expect(find.textContaining(r'$'), findsNothing);
   });
 
   group('adentro, la conexión con el servidor', () {
     void answerLikeTheApi() => adapter.answer(200, <String, Object?>{
       'asOf': '2026-11-02',
-      'balances': <Object?>[],
+      'accounts': <Object?>[],
     });
 
     testWidgets('dice «conectada» solo porque el servidor respondió', (
@@ -189,6 +212,7 @@ void main() {
       answerLikeTheApi();
 
       await pumpApp(tester);
+      await goToSettings(tester);
 
       expect(adapter.requests, hasLength(1));
       expect(adapter.last.uri.path, '/api/balances');
@@ -206,6 +230,7 @@ void main() {
         adapter.fail(const SocketException('sin red'));
 
         await pumpApp(tester);
+        await goToSettings(tester);
 
         expect(find.textContaining('Conectada a'), findsNothing);
         expect(find.textContaining('Tailscale'), findsOneWidget);
@@ -221,6 +246,7 @@ void main() {
       await saveSettings();
       adapter.fail(const SocketException('sin red'));
       await pumpApp(tester);
+      await goToSettings(tester);
 
       answerLikeTheApi();
       await tester.tap(find.byKey(ConnectionStatusView.retryButtonKey));
@@ -238,6 +264,7 @@ void main() {
         adapter.answer(401, <String, Object?>{});
 
         await pumpApp(tester);
+        await goToSettings(tester);
 
         expect(find.textContaining('Conectada a'), findsNothing);
         expect(find.textContaining('token'), findsOneWidget);
@@ -267,6 +294,7 @@ void main() {
       await saveSettings();
       answerLikeTheApi();
       await pumpApp(tester);
+      await goToSettings(tester);
       expect(find.textContaining('Conectada a'), findsOneWidget);
 
       // Se fue a apagar Tailscale. «Conectada» ya no sería verdad.

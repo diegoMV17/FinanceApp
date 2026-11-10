@@ -11,21 +11,19 @@ part of 'cancellation_response.dart';
 CancellationResponse _$CancellationResponseFromJson(
   Map<String, dynamic> json,
 ) => CancellationResponse(
-  at: json['at'] == null ? null : DateTime.parse(json['at'] as String),
-  movement: json['movement'] as String?,
-  reason: json['reason'] as String?,
-  source: json['source'] == null
-      ? null
-      : TransactionSource.fromJson(json['source'] as String),
+  at: DateTime.parse(json['at'] as String),
+  movement: json['movement'] as String,
+  reason: json['reason'] as String,
+  source: TransactionSource.fromJson(json['source'] as String),
 );
 
 Map<String, dynamic> _$CancellationResponseToJson(
   CancellationResponse instance,
 ) => <String, dynamic>{
-  'at': instance.at?.toIso8601String(),
+  'at': instance.at.toIso8601String(),
   'movement': instance.movement,
   'reason': instance.reason,
-  'source': _$TransactionSourceEnumMap[instance.source],
+  'source': _$TransactionSourceEnumMap[instance.source]!,
 };
 
 const _$TransactionSourceEnumMap = {

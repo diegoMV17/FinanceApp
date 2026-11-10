@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/ledger/book_changes.dart';
 import '../../core/lock/app_lock.dart';
 import '../../core/storage/server_settings.dart';
 import '../../core/storage/server_settings_store.dart';
@@ -142,6 +143,8 @@ class PendingSender extends Notifier<PauseReason?> {
       switch (verdict) {
         case Accepted():
           await store.remove(movement.id);
+          // Ahora sí cuenta en las cifras: las lecturas se vuelven a pedir.
+          ref.read(bookChangesProvider.notifier).changed();
         case Conflict(:final String problemType):
           await store.markConflict(movement.id, problemType);
         case Rejected(:final String problemType):

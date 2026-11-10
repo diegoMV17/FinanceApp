@@ -6,6 +6,8 @@ import 'package:mobile/data/api/export.dart';
 import 'package:mobile/data/sync/movement_id.dart';
 import 'package:mobile/data/sync/send_verdict.dart';
 
+import '../../support/movement_samples.dart';
+
 /// Qué significa cada respuesta del servidor para un movimiento de la cola. Es
 /// donde se decide si un gasto se da por registrado, así que cada caso va aquí,
 /// sin red y sin base.
@@ -42,7 +44,10 @@ void main() {
   group('un 201 o un 200', () {
     test('con el id del movimiento: aceptado', () {
       expect(
-        verdictForResponse(id, MovementResponse(id: id.value)),
+        verdictForResponse(
+          id,
+          MovementResponse.fromJson(movementResponseBody(id.value)),
+        ),
         isA<Accepted>(),
       );
     });
@@ -50,15 +55,13 @@ void main() {
     test('con otro id no es la respuesta a esta petición', () {
       final SendVerdict verdict = verdictForResponse(
         id,
-        const MovementResponse(id: '0a3c0f5e-2b1d-4c8e-9f00-000000000002'),
+        MovementResponse.fromJson(
+          movementResponseBody('0a3c0f5e-2b1d-4c8e-9f00-000000000002'),
+        ),
       );
 
       expect(verdict, isA<Paused>());
       expect((verdict as Paused).reason, PauseReason.unexpected);
-    });
-
-    test('sin id tampoco: un portal de Wi-Fi también responde 200', () {
-      expect(verdictForResponse(id, const MovementResponse()), isA<Paused>());
     });
   });
 

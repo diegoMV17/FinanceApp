@@ -77,6 +77,11 @@ class OpenApiConfiguration {
     }
 
     @Bean
+    OpenApiCustomizer requiredResponseFieldsContract() {
+        return new RequiredResponseFieldsContract();
+    }
+
+    @Bean
     OperationsContract operationsContract() {
         return new OperationsContract();
     }

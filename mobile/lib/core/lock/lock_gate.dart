@@ -66,12 +66,20 @@ class _LockGateState extends ConsumerState<LockGate>
           offstage: !open,
           child: TickerMode(
             enabled: open,
-            child: Column(
-              children: <Widget>[
-                if (state == AppLockState.unprotected)
-                  const _UnprotectedNotice(key: LockGate.unprotectedNoticeKey),
-                Expanded(child: widget.child),
-              ],
+            // Offstage no quita el foco: sin esto, un campo de un formulario
+            // abierto seguiría recibiendo lo que se teclea con la app
+            // bloqueada.
+            child: ExcludeFocus(
+              excluding: !open,
+              child: Column(
+                children: <Widget>[
+                  if (state == AppLockState.unprotected)
+                    const _UnprotectedNotice(
+                      key: LockGate.unprotectedNoticeKey,
+                    ),
+                  Expanded(child: widget.child),
+                ],
+              ),
             ),
           ),
         ),

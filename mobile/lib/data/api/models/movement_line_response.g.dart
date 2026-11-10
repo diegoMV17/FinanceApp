@@ -11,13 +11,11 @@ part of 'movement_line_response.dart';
 MovementLineResponse _$MovementLineResponseFromJson(
   Map<String, dynamic> json,
 ) => MovementLineResponse(
+  date: json['date'] as String,
+  description: json['description'] as String,
   effectInCents: (json['effectInCents'] as num).toInt(),
-  date: json['date'] as String?,
-  description: json['description'] as String?,
-  id: json['id'] as String?,
-  source: json['source'] == null
-      ? null
-      : TransactionSource.fromJson(json['source'] as String),
+  id: json['id'] as String,
+  source: TransactionSource.fromJson(json['source'] as String),
 );
 
 Map<String, dynamic> _$MovementLineResponseToJson(
@@ -27,7 +25,7 @@ Map<String, dynamic> _$MovementLineResponseToJson(
   'description': instance.description,
   'effectInCents': instance.effectInCents,
   'id': instance.id,
-  'source': _$TransactionSourceEnumMap[instance.source],
+  'source': _$TransactionSourceEnumMap[instance.source]!,
 };
 
 const _$TransactionSourceEnumMap = {

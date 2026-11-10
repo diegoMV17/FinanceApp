@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'core/lock/lock_gate.dart';
@@ -8,9 +9,8 @@ import 'core/storage/server_settings.dart';
 import 'core/storage/server_settings_store.dart';
 import 'data/local/local_database.dart';
 import 'data/sync/pending_sender.dart';
-import 'features/movements/ui/pending_status_view.dart';
-import 'features/settings/ui/connection_status_view.dart';
 import 'features/settings/ui/server_setup_screen.dart';
+import 'home.dart';
 
 /// Arranque, tema y la compuerta de la app.
 ///
@@ -37,6 +37,11 @@ class FinanceApp extends ConsumerWidget {
       title: 'FinanceApp',
       theme: ThemeData(colorSchemeSeed: _seed, brightness: Brightness.light),
       darkTheme: ThemeData(colorSchemeSeed: _seed, brightness: Brightness.dark),
+      // En español de Colombia: el selector de fecha, los textos de Material
+      // y la semana empezando en lunes.
+      locale: const Locale('es', 'CO'),
+      supportedLocales: const <Locale>[Locale('es', 'CO'), Locale('es')],
+      localizationsDelegates: GlobalMaterialLocalizations.delegates,
       // La cubierta y el bloqueo, por encima del Navigator: tapan también
       // cualquier pantalla o diálogo que se haya abierto encima.
       builder: (BuildContext context, Widget? child) => PrivacyCover(
@@ -87,43 +92,10 @@ class _SettingsGate extends ConsumerWidget {
         .when(
           data: (ServerSettings? settings) => settings == null
               ? const ServerSetupScreen()
-              : _HomeScreen(settings: settings),
+              : HomeShell(settings: settings),
           loading: () => const _Waiting(),
           error: (Object failure, _) => const ServerSetupScreen(),
         );
-  }
-}
-
-/// Adentro. Todavía sin datos: las pantallas llegan en el 7d. No pinta
-/// ninguna cifra, porque los saldos los decide el servidor y una cifra aquí
-/// solo podría ser inventada. Dice si el servidor responde; el token, nunca.
-class _HomeScreen extends StatelessWidget {
-  const _HomeScreen({required this.settings});
-
-  final ServerSettings settings;
-
-  @override
-  Widget build(BuildContext context) {
-    final TextTheme text = Theme.of(context).textTheme;
-    return Scaffold(
-      body: SafeArea(
-        child: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: <Widget>[
-                Text('FinanceApp', style: text.headlineMedium),
-                const SizedBox(height: 8),
-                ConnectionStatusView(origin: settings.address.origin),
-                const SizedBox(height: 24),
-                const PendingStatusView(),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
   }
 }
 

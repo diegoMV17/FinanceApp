@@ -10,16 +10,14 @@ part of 'history_line_response.dart';
 
 HistoryLineResponse _$HistoryLineResponseFromJson(Map<String, dynamic> json) =>
     HistoryLineResponse(
-      valueInCents: (json['valueInCents'] as num).toInt(),
-      date: json['date'] as String?,
-      description: json['description'] as String?,
-      entries: (json['entries'] as List<dynamic>?)
-          ?.map((e) => EntryResponse.fromJson(e as Map<String, dynamic>))
+      date: json['date'] as String,
+      description: json['description'] as String,
+      entries: (json['entries'] as List<dynamic>)
+          .map((e) => EntryResponse.fromJson(e as Map<String, dynamic>))
           .toList(),
-      id: json['id'] as String?,
-      source: json['source'] == null
-          ? null
-          : TransactionSource.fromJson(json['source'] as String),
+      id: json['id'] as String,
+      source: TransactionSource.fromJson(json['source'] as String),
+      valueInCents: (json['valueInCents'] as num).toInt(),
     );
 
 Map<String, dynamic> _$HistoryLineResponseToJson(
@@ -29,7 +27,7 @@ Map<String, dynamic> _$HistoryLineResponseToJson(
   'description': instance.description,
   'entries': instance.entries,
   'id': instance.id,
-  'source': _$TransactionSourceEnumMap[instance.source],
+  'source': _$TransactionSourceEnumMap[instance.source]!,
   'valueInCents': instance.valueInCents,
 };
 

@@ -22,6 +22,7 @@ import '../../core/lock/app_lock_test.dart' show FakeAuthenticator;
 import '../../data/sync/pending_sender_test.dart'
     show FakeSendTimer, untilSettled;
 import '../../support/fake_secure_store.dart';
+import '../../support/movement_samples.dart';
 import '../../support/recording_adapter.dart';
 
 /// Registrar un movimiento y lo que la interfaz ve de la cola, sin widgets.
@@ -66,9 +67,10 @@ void main() {
     final FakeSecureStore secure = FakeSecureStore();
     authenticator = FakeAuthenticator();
     adapter = RecordingAdapter()
-      ..handler = (RequestOptions o) async => reply(201, <String, Object?>{
-        'id': (o.data as Map<String, Object?>)['id'],
-      });
+      ..handler = (RequestOptions o) async => reply(
+        201,
+        movementResponseBody((o.data as Map<String, Object?>)['id']! as String),
+      );
     db = LocalDatabase(NativeDatabase.memory());
     container = ProviderContainer(
       overrides: [
@@ -186,7 +188,7 @@ void main() {
 
       adapter.handler = (RequestOptions o) async => reply(
         201,
-        <String, Object?>{'id': (o.data as Map<String, Object?>)['id']},
+        movementResponseBody((o.data as Map<String, Object?>)['id']! as String),
       );
       await container.read(pendingSenderProvider.notifier).wake();
       await untilSettled(() async => (await summary()).problem == null);

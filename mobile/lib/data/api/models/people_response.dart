@@ -10,13 +10,13 @@ part 'people_response.g.dart';
 
 @JsonSerializable()
 class PeopleResponse {
-  const PeopleResponse({this.asOf, this.people});
+  const PeopleResponse({required this.asOf, required this.people});
 
   factory PeopleResponse.fromJson(Map<String, Object?> json) =>
       _$PeopleResponseFromJson(json);
 
-  final String? asOf;
-  final List<PersonPositionResponse>? people;
+  final String asOf;
+  final List<PersonPositionResponse> people;
 
   Map<String, Object?> toJson() => _$PeopleResponseToJson(this);
 }

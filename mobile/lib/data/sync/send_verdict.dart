@@ -3,6 +3,7 @@ import 'dart:math';
 import 'package:dio/dio.dart';
 
 import '../../core/network/connection_check.dart';
+import '../../core/network/server_gateway.dart';
 import '../api/export.dart';
 import 'movement_id.dart';
 
@@ -65,10 +66,6 @@ const Duration maxRetryAfter = Duration(hours: 1);
 const Duration _firstBackoff = Duration(seconds: 5);
 const Duration _maxBackoff = Duration(minutes: 15);
 
-/// El prefijo del `type` de todo error de la API. Un 4xx sin esto no lo escribió
-/// el servidor: un proxy no puede rechazar un movimiento.
-const String _apiProblemPrefix = 'urn:finance:error:';
-
 /// El servidor respondió con éxito. Cuenta solo si la respuesta es de este
 /// movimiento: sin eso, una página cualquiera con un 200 borraría un gasto sin
 /// que estuviera registrado.
@@ -92,7 +89,9 @@ SendVerdict verdictForFailure(Object failure) {
   }
   final Response<Object?>? response = failure.response;
   final int? status = response?.statusCode;
-  final String? problemType = _apiProblemType(response?.data);
+  // Un 4xx sin un `Problem` de la API no lo escribió el servidor: un proxy no
+  // puede rechazar un movimiento.
+  final String? problemType = apiProblemTypeOf(response?.data);
   return switch (status) {
     401 => const Paused(PauseReason.unauthorized),
     429 => Paused(PauseReason.tooManyAttempts, _retryAfter(response)),
@@ -110,14 +109,6 @@ Duration backoffAfter(int failures) {
   final int doublings = min(failures - 1, 10);
   final Duration wait = _firstBackoff * (1 << doublings);
   return wait > _maxBackoff ? _maxBackoff : wait;
-}
-
-String? _apiProblemType(Object? body) {
-  if (body is! Map<String, Object?>) {
-    return null;
-  }
-  final Object? type = body['type'];
-  return type is String && type.startsWith(_apiProblemPrefix) ? type : null;
 }
 
 /// El servidor manda segundos. Lo que no sea un solo número positivo se ignora,

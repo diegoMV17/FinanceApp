@@ -11,19 +11,19 @@ part 'cancellation_response.g.dart';
 @JsonSerializable()
 class CancellationResponse {
   const CancellationResponse({
-    this.at,
-    this.movement,
-    this.reason,
-    this.source,
+    required this.at,
+    required this.movement,
+    required this.reason,
+    required this.source,
   });
 
   factory CancellationResponse.fromJson(Map<String, Object?> json) =>
       _$CancellationResponseFromJson(json);
 
-  final DateTime? at;
-  final String? movement;
-  final String? reason;
-  final TransactionSource? source;
+  final DateTime at;
+  final String movement;
+  final String reason;
+  final TransactionSource source;
 
   Map<String, Object?> toJson() => _$CancellationResponseToJson(this);
 }

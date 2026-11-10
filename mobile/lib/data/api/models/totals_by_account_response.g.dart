@@ -11,11 +11,11 @@ part of 'totals_by_account_response.dart';
 TotalsByAccountResponse _$TotalsByAccountResponseFromJson(
   Map<String, dynamic> json,
 ) => TotalsByAccountResponse(
-  accounts: (json['accounts'] as List<dynamic>?)
-      ?.map((e) => AccountTotalResponse.fromJson(e as Map<String, dynamic>))
+  accounts: (json['accounts'] as List<dynamic>)
+      .map((e) => AccountTotalResponse.fromJson(e as Map<String, dynamic>))
       .toList(),
-  from: json['from'] as String?,
-  to: json['to'] as String?,
+  from: json['from'] as String,
+  to: json['to'] as String,
 );
 
 Map<String, dynamic> _$TotalsByAccountResponseToJson(

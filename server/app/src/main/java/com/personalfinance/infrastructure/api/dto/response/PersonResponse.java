@@ -3,6 +3,7 @@ package com.personalfinance.infrastructure.api.dto.response;
 import com.personalfinance.domain.ledger.Person;
 import java.time.Instant;
 import java.util.UUID;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Una persona, como la ve un cliente. Lo que responden las escrituras.
@@ -18,7 +19,7 @@ import java.util.UUID;
  * <p>El {@code archivedAt} viene nulo cuando sigue abierta, y se escribe igual
  * en el JSON. Omitirlo según el caso daría dos formas para la misma cosa.
  */
-public record PersonResponse(UUID id, String name, Instant archivedAt) {
+public record PersonResponse(UUID id, String name, @Nullable Instant archivedAt) {
 
     public static PersonResponse of(Person person) {
         return new PersonResponse(

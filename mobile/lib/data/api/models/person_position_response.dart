@@ -11,23 +11,23 @@ part 'person_position_response.g.dart';
 @JsonSerializable()
 class PersonPositionResponse {
   const PersonPositionResponse({
+    required this.accounts,
+    required this.id,
+    required this.name,
     required this.netOwedToYouInCents,
     required this.owedToYouInCents,
     required this.theirFundInCents,
     required this.youOweInCents,
-    this.accounts,
     this.archivedAt,
-    this.id,
-    this.name,
   });
 
   factory PersonPositionResponse.fromJson(Map<String, Object?> json) =>
       _$PersonPositionResponseFromJson(json);
 
-  final List<BalanceResponse>? accounts;
+  final List<BalanceResponse> accounts;
   final DateTime? archivedAt;
-  final String? id;
-  final String? name;
+  final String id;
+  final String name;
   final int netOwedToYouInCents;
   final int owedToYouInCents;
   final int theirFundInCents;

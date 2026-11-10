@@ -8,17 +8,18 @@ part of 'summary_response.dart';
 // JsonSerializableGenerator
 // **************************************************************************
 
-SummaryResponse _$SummaryResponseFromJson(
-  Map<String, dynamic> json,
-) => SummaryResponse(
-  expensesThatMonthInCents: (json['expensesThatMonthInCents'] as num).toInt(),
-  incomeThatMonthInCents: (json['incomeThatMonthInCents'] as num).toInt(),
-  moneyReallyMineInCents: (json['moneyReallyMineInCents'] as num).toInt(),
-  asOf: json['asOf'] as String?,
-  monthFrom: json['monthFrom'] as String?,
-  totalsByTypeInCents: (json['totalsByTypeInCents'] as Map<String, dynamic>?)
-      ?.map((k, e) => MapEntry(k, (e as num).toInt())),
-);
+SummaryResponse _$SummaryResponseFromJson(Map<String, dynamic> json) =>
+    SummaryResponse(
+      asOf: json['asOf'] as String,
+      expensesThatMonthInCents: (json['expensesThatMonthInCents'] as num)
+          .toInt(),
+      incomeThatMonthInCents: (json['incomeThatMonthInCents'] as num).toInt(),
+      moneyReallyMineInCents: (json['moneyReallyMineInCents'] as num).toInt(),
+      monthFrom: json['monthFrom'] as String,
+      totalsByTypeInCents: Map<String, int>.from(
+        json['totalsByTypeInCents'] as Map,
+      ),
+    );
 
 Map<String, dynamic> _$SummaryResponseToJson(SummaryResponse instance) =>
     <String, dynamic>{

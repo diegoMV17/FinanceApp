@@ -12,14 +12,14 @@ part 'movement_response.g.dart';
 @JsonSerializable()
 class MovementResponse {
   const MovementResponse({
+    required this.date,
+    required this.description,
+    required this.entries,
+    required this.id,
+    required this.source,
     this.cancellationReason,
     this.cancelledAt,
-    this.date,
-    this.description,
-    this.entries,
-    this.id,
     this.replaces,
-    this.source,
   });
 
   factory MovementResponse.fromJson(Map<String, Object?> json) =>
@@ -27,12 +27,12 @@ class MovementResponse {
 
   final String? cancellationReason;
   final DateTime? cancelledAt;
-  final String? date;
-  final String? description;
-  final List<EntryResponse>? entries;
-  final String? id;
+  final String date;
+  final String description;
+  final List<EntryResponse> entries;
+  final String id;
   final String? replaces;
-  final TransactionSource? source;
+  final TransactionSource source;
 
   Map<String, Object?> toJson() => _$MovementResponseToJson(this);
 }

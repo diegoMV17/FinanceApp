@@ -10,13 +10,13 @@ part 'revisions_response.g.dart';
 
 @JsonSerializable()
 class RevisionsResponse {
-  const RevisionsResponse({this.movement, this.revisions});
+  const RevisionsResponse({required this.movement, required this.revisions});
 
   factory RevisionsResponse.fromJson(Map<String, Object?> json) =>
       _$RevisionsResponseFromJson(json);
 
-  final String? movement;
-  final List<MovementResponse>? revisions;
+  final String movement;
+  final List<MovementResponse> revisions;
 
   Map<String, Object?> toJson() => _$RevisionsResponseToJson(this);
 }

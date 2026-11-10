@@ -10,12 +10,12 @@ part of 'history_response.dart';
 
 HistoryResponse _$HistoryResponseFromJson(Map<String, dynamic> json) =>
     HistoryResponse(
+      movements: (json['movements'] as List<dynamic>)
+          .map((e) => HistoryLineResponse.fromJson(e as Map<String, dynamic>))
+          .toList(),
       page: (json['page'] as num).toInt(),
       size: (json['size'] as num).toInt(),
       total: (json['total'] as num).toInt(),
-      movements: (json['movements'] as List<dynamic>?)
-          ?.map((e) => HistoryLineResponse.fromJson(e as Map<String, dynamic>))
-          .toList(),
     );
 
 Map<String, dynamic> _$HistoryResponseToJson(HistoryResponse instance) =>

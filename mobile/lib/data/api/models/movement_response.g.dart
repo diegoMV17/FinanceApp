@@ -10,20 +10,18 @@ part of 'movement_response.dart';
 
 MovementResponse _$MovementResponseFromJson(Map<String, dynamic> json) =>
     MovementResponse(
+      date: json['date'] as String,
+      description: json['description'] as String,
+      entries: (json['entries'] as List<dynamic>)
+          .map((e) => EntryResponse.fromJson(e as Map<String, dynamic>))
+          .toList(),
+      id: json['id'] as String,
+      source: TransactionSource.fromJson(json['source'] as String),
       cancellationReason: json['cancellationReason'] as String?,
       cancelledAt: json['cancelledAt'] == null
           ? null
           : DateTime.parse(json['cancelledAt'] as String),
-      date: json['date'] as String?,
-      description: json['description'] as String?,
-      entries: (json['entries'] as List<dynamic>?)
-          ?.map((e) => EntryResponse.fromJson(e as Map<String, dynamic>))
-          .toList(),
-      id: json['id'] as String?,
       replaces: json['replaces'] as String?,
-      source: json['source'] == null
-          ? null
-          : TransactionSource.fromJson(json['source'] as String),
     );
 
 Map<String, dynamic> _$MovementResponseToJson(MovementResponse instance) =>
@@ -35,7 +33,7 @@ Map<String, dynamic> _$MovementResponseToJson(MovementResponse instance) =>
       'entries': instance.entries,
       'id': instance.id,
       'replaces': instance.replaces,
-      'source': _$TransactionSourceEnumMap[instance.source],
+      'source': _$TransactionSourceEnumMap[instance.source]!,
     };
 
 const _$TransactionSourceEnumMap = {

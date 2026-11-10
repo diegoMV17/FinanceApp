@@ -10,11 +10,11 @@ part of 'person_response.dart';
 
 PersonResponse _$PersonResponseFromJson(Map<String, dynamic> json) =>
     PersonResponse(
+      id: json['id'] as String,
+      name: json['name'] as String,
       archivedAt: json['archivedAt'] == null
           ? null
           : DateTime.parse(json['archivedAt'] as String),
-      id: json['id'] as String?,
-      name: json['name'] as String?,
     );
 
 Map<String, dynamic> _$PersonResponseToJson(PersonResponse instance) =>

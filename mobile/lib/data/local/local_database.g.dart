@@ -372,14 +372,281 @@ class PendingMovementsCompanion extends UpdateCompanion<PendingMovementRow> {
   }
 }
 
+class $ReadSnapshotsTable extends ReadSnapshots
+    with TableInfo<$ReadSnapshotsTable, ReadSnapshotRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $ReadSnapshotsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _keyMeta = const VerificationMeta('key');
+  @override
+  late final GeneratedColumn<String> key = GeneratedColumn<String>(
+    'key',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _bodyMeta = const VerificationMeta('body');
+  @override
+  late final GeneratedColumn<String> body = GeneratedColumn<String>(
+    'body',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _readAtMeta = const VerificationMeta('readAt');
+  @override
+  late final GeneratedColumn<DateTime> readAt = GeneratedColumn<DateTime>(
+    'read_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [key, body, readAt];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'read_snapshots';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<ReadSnapshotRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('key')) {
+      context.handle(
+        _keyMeta,
+        key.isAcceptableOrUnknown(data['key']!, _keyMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_keyMeta);
+    }
+    if (data.containsKey('body')) {
+      context.handle(
+        _bodyMeta,
+        body.isAcceptableOrUnknown(data['body']!, _bodyMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_bodyMeta);
+    }
+    if (data.containsKey('read_at')) {
+      context.handle(
+        _readAtMeta,
+        readAt.isAcceptableOrUnknown(data['read_at']!, _readAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_readAtMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {key};
+  @override
+  ReadSnapshotRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return ReadSnapshotRow(
+      key: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}key'],
+      )!,
+      body: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}body'],
+      )!,
+      readAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}read_at'],
+      )!,
+    );
+  }
+
+  @override
+  $ReadSnapshotsTable createAlias(String alias) {
+    return $ReadSnapshotsTable(attachedDatabase, alias);
+  }
+}
+
+class ReadSnapshotRow extends DataClass implements Insertable<ReadSnapshotRow> {
+  /// Qué se leyó: `balances`, `budgets/2026-11`... La pone el repositorio.
+  final String key;
+  final String body;
+
+  /// Cuándo se leyó (un instante; Drift lo guarda en segundos Unix).
+  final DateTime readAt;
+  const ReadSnapshotRow({
+    required this.key,
+    required this.body,
+    required this.readAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['key'] = Variable<String>(key);
+    map['body'] = Variable<String>(body);
+    map['read_at'] = Variable<DateTime>(readAt);
+    return map;
+  }
+
+  ReadSnapshotsCompanion toCompanion(bool nullToAbsent) {
+    return ReadSnapshotsCompanion(
+      key: Value(key),
+      body: Value(body),
+      readAt: Value(readAt),
+    );
+  }
+
+  factory ReadSnapshotRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return ReadSnapshotRow(
+      key: serializer.fromJson<String>(json['key']),
+      body: serializer.fromJson<String>(json['body']),
+      readAt: serializer.fromJson<DateTime>(json['readAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'key': serializer.toJson<String>(key),
+      'body': serializer.toJson<String>(body),
+      'readAt': serializer.toJson<DateTime>(readAt),
+    };
+  }
+
+  ReadSnapshotRow copyWith({String? key, String? body, DateTime? readAt}) =>
+      ReadSnapshotRow(
+        key: key ?? this.key,
+        body: body ?? this.body,
+        readAt: readAt ?? this.readAt,
+      );
+  ReadSnapshotRow copyWithCompanion(ReadSnapshotsCompanion data) {
+    return ReadSnapshotRow(
+      key: data.key.present ? data.key.value : this.key,
+      body: data.body.present ? data.body.value : this.body,
+      readAt: data.readAt.present ? data.readAt.value : this.readAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ReadSnapshotRow(')
+          ..write('key: $key, ')
+          ..write('body: $body, ')
+          ..write('readAt: $readAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(key, body, readAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is ReadSnapshotRow &&
+          other.key == this.key &&
+          other.body == this.body &&
+          other.readAt == this.readAt);
+}
+
+class ReadSnapshotsCompanion extends UpdateCompanion<ReadSnapshotRow> {
+  final Value<String> key;
+  final Value<String> body;
+  final Value<DateTime> readAt;
+  final Value<int> rowid;
+  const ReadSnapshotsCompanion({
+    this.key = const Value.absent(),
+    this.body = const Value.absent(),
+    this.readAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  ReadSnapshotsCompanion.insert({
+    required String key,
+    required String body,
+    required DateTime readAt,
+    this.rowid = const Value.absent(),
+  }) : key = Value(key),
+       body = Value(body),
+       readAt = Value(readAt);
+  static Insertable<ReadSnapshotRow> custom({
+    Expression<String>? key,
+    Expression<String>? body,
+    Expression<DateTime>? readAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (key != null) 'key': key,
+      if (body != null) 'body': body,
+      if (readAt != null) 'read_at': readAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  ReadSnapshotsCompanion copyWith({
+    Value<String>? key,
+    Value<String>? body,
+    Value<DateTime>? readAt,
+    Value<int>? rowid,
+  }) {
+    return ReadSnapshotsCompanion(
+      key: key ?? this.key,
+      body: body ?? this.body,
+      readAt: readAt ?? this.readAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (key.present) {
+      map['key'] = Variable<String>(key.value);
+    }
+    if (body.present) {
+      map['body'] = Variable<String>(body.value);
+    }
+    if (readAt.present) {
+      map['read_at'] = Variable<DateTime>(readAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ReadSnapshotsCompanion(')
+          ..write('key: $key, ')
+          ..write('body: $body, ')
+          ..write('readAt: $readAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$LocalDatabase extends GeneratedDatabase {
   _$LocalDatabase(QueryExecutor e) : super(e);
   late final $PendingMovementsTable pendingMovements = $PendingMovementsTable(
     this,
   );
+  late final $ReadSnapshotsTable readSnapshots = $ReadSnapshotsTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
   @override
-  List<DatabaseSchemaEntity> get allSchemaEntities => [pendingMovements];
+  List<DatabaseSchemaEntity> get allSchemaEntities => [
+    pendingMovements,
+    readSnapshots,
+  ];
 }

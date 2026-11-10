@@ -5,9 +5,12 @@ import '../../../core/forms/submit_state.dart';
 import '../../../core/ledger/account_balance.dart';
 import '../../../core/ledger/account_ref.dart';
 import '../../../core/ledger/person.dart';
-import '../../../core/money/money_format.dart';
+import '../../../core/money/money.dart';
 import '../../../core/reading/reading.dart';
 import '../../../core/text/text_input.dart';
+import '../../../core/theme/finance_colors.dart';
+import '../../../core/widgets/account_icons.dart';
+import '../../../core/widgets/components.dart';
 import '../../../core/widgets/reading_notices.dart';
 import 'people_view_model.dart';
 
@@ -26,11 +29,7 @@ class PeopleScreen extends ConsumerWidget {
       appBar: AppBar(title: const Text('Personas')),
       floatingActionButton: FloatingActionButton.extended(
         key: newPersonKey,
-        onPressed: () => showModalBottomSheet<void>(
-          context: context,
-          isScrollControlled: true,
-          builder: (_) => const _NewPersonSheet(),
-        ),
+        onPressed: () => _openNewPerson(context),
         icon: const Icon(Icons.person_add_alt),
         label: const Text('Nueva'),
       ),
@@ -44,24 +43,44 @@ class PeopleScreen extends ConsumerWidget {
               await ref.read(peopleViewModelProvider.future);
             },
             child: ListView(
-              padding: const EdgeInsets.only(bottom: 96),
+              padding: const EdgeInsets.fromLTRB(16, 4, 16, 104),
               children: <Widget>[
                 StaleNotice(reading: r),
                 if (r.value.isEmpty)
-                  const Padding(
-                    padding: EdgeInsets.all(24),
-                    child: Text('Todavía no hay personas.'),
+                  Card(
+                    child: EmptyState(
+                      icon: Icons.people_outline,
+                      title: 'Todavía no hay personas',
+                      message:
+                          'Registra a quien le prestas o te presta, y aquí '
+                          'verás cuánto se deben.',
+                      actionLabel: 'Registrar una persona',
+                      onAction: () => _openNewPerson(context),
+                    ),
                   ),
                 for (final PersonPosition person in r.value.where(
                   (PersonPosition p) => !p.isArchived,
                 ))
-                  ListTile(
-                    title: Text(person.name),
-                    subtitle: Text(_netLabel(person)),
-                    trailing: Text(person.netOwedToYou.inPesos),
-                    onTap: () => Navigator.of(context).push(
-                      MaterialPageRoute<void>(
-                        builder: (_) => PersonScreen(personId: person.id),
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Card(
+                      clipBehavior: Clip.antiAlias,
+                      child: ListTile(
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 6,
+                        ),
+                        leading: InitialsAvatar(person.name),
+                        title: Text(person.name),
+                        subtitle: Text(_netLabel(person)),
+                        // El neto en el color del texto: su signo lo explica
+                        // la etiqueta, no un color.
+                        trailing: MoneyText(person.netOwedToYou),
+                        onTap: () => Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (_) => PersonScreen(personId: person.id),
+                          ),
+                        ),
                       ),
                     ),
                   ),
@@ -73,10 +92,17 @@ class PeopleScreen extends ConsumerWidget {
             failure: error,
             onRetry: () => ref.read(peopleViewModelProvider.notifier).refresh(),
           ),
-        _ => const Center(child: CircularProgressIndicator()),
+        _ => const LoadingBlocks(heights: <double>[72, 72, 72]),
       },
     );
   }
+
+  static void _openNewPerson(BuildContext context) =>
+      showModalBottomSheet<void>(
+        context: context,
+        isScrollControlled: true,
+        builder: (_) => const _NewPersonSheet(),
+      );
 
   /// Lo que ya decidió el servidor, dicho en palabras: el signo lo trae el
   /// neto, la app no lo interpreta más allá de leerlo.
@@ -127,27 +153,50 @@ class PersonScreen extends ConsumerWidget {
         label: const Text('Cuenta'),
       ),
       body: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.fromLTRB(16, 4, 16, 104),
         children: <Widget>[
           StaleNotice(reading: reading),
-          _Line('Me debe', person.owedToYou.inPesos),
-          _Line('Le debo', person.youOwe.inPesos),
-          _Line('Su plata que guardo', person.theirFund.inPesos),
-          const Divider(),
-          _Line('Neto a mi favor', person.netOwedToYou.inPesos),
-          const SizedBox(height: 16),
-          Text('Cuentas', style: Theme.of(context).textTheme.titleMedium),
-          if (person.accounts.isEmpty)
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 8),
-              child: Text('Sin cuentas vinculadas.'),
+          SectionCard(
+            child: Column(
+              children: <Widget>[
+                _Line('Me debe', person.owedToYou, MoneyRole.income),
+                _Line('Le debo', person.youOwe, MoneyRole.expense),
+                _Line(
+                  'Su plata que guardo',
+                  person.theirFund,
+                  MoneyRole.neutral,
+                ),
+                const Divider(height: 24),
+                _Line(
+                  'Neto a mi favor',
+                  person.netOwedToYou,
+                  MoneyRole.neutral,
+                  strong: true,
+                ),
+              ],
             ),
-          for (final AccountBalance line in person.accounts)
-            ListTile(
-              title: Text(line.account.name),
-              subtitle: Text(line.account.kind.label),
-              trailing: Text(line.balance.inPesos),
-            ),
+          ),
+          const SizedBox(height: 12),
+          SectionCard(
+            title: 'Cuentas',
+            padding: const EdgeInsets.fromLTRB(0, 16, 0, 8),
+            child: person.accounts.isEmpty
+                ? const Padding(
+                    padding: EdgeInsets.fromLTRB(16, 0, 16, 8),
+                    child: Text('Sin cuentas vinculadas.'),
+                  )
+                : Column(
+                    children: <Widget>[
+                      for (final AccountBalance line in person.accounts)
+                        ListTile(
+                          leading: Icon(iconForKind(line.account.kind)),
+                          title: Text(line.account.name),
+                          subtitle: Text(line.account.kind.label),
+                          trailing: MoneyText(line.balance),
+                        ),
+                    ],
+                  ),
+          ),
         ],
       ),
     );
@@ -155,17 +204,32 @@ class PersonScreen extends ConsumerWidget {
 }
 
 class _Line extends StatelessWidget {
-  const _Line(this.label, this.value);
+  const _Line(this.label, this.amount, this.role, {this.strong = false});
 
   final String label;
-  final String value;
+  final Money amount;
+
+  /// El color por lo que es la cifra, no por su signo.
+  final MoneyRole role;
+  final bool strong;
 
   @override
-  Widget build(BuildContext context) => ListTile(
-    contentPadding: EdgeInsets.zero,
-    title: Text(label),
-    trailing: Text(value, style: Theme.of(context).textTheme.titleMedium),
-  );
+  Widget build(BuildContext context) {
+    final TextTheme text = Theme.of(context).textTheme;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Row(
+        children: <Widget>[
+          Expanded(child: Text(label, style: strong ? text.titleMedium : null)),
+          MoneyText(
+            amount,
+            role: role,
+            style: strong ? text.titleLarge : text.titleMedium,
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _NewPersonSheet extends ConsumerStatefulWidget {

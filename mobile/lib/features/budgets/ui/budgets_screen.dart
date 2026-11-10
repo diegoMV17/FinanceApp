@@ -8,6 +8,9 @@ import '../../../core/ledger/account_ref.dart';
 import '../../../core/ledger/budget.dart';
 import '../../../core/money/money_format.dart';
 import '../../../core/reading/reading.dart';
+import '../../../core/theme/app_theme.dart';
+import '../../../core/theme/finance_colors.dart';
+import '../../../core/widgets/components.dart';
 import '../../../core/widgets/reading_notices.dart';
 import 'budgets_view_model.dart';
 
@@ -32,11 +35,7 @@ class BudgetsScreen extends ConsumerWidget {
           ? null
           : FloatingActionButton.extended(
               key: setBudgetKey,
-              onPressed: () => showModalBottomSheet<void>(
-                context: context,
-                isScrollControlled: true,
-                builder: (_) => _SetBudgetSheet(month: shown),
-              ),
+              onPressed: () => _openSetBudget(context, shown),
               icon: const Icon(Icons.add),
               label: const Text('Límite'),
             ),
@@ -45,17 +44,28 @@ class BudgetsScreen extends ConsumerWidget {
           value: final Reading<MonthBudgets> r,
         ) =>
           ListView(
-            padding: const EdgeInsets.only(bottom: 96),
+            padding: const EdgeInsets.fromLTRB(16, 4, 16, 104),
             children: <Widget>[
               StaleNotice(reading: r),
               _MonthPicker(month: r.value.month),
+              const SizedBox(height: 8),
               if (r.value.budgets.isEmpty)
-                const Padding(
-                  padding: EdgeInsets.all(24),
-                  child: Text('Sin presupuestos este mes.'),
+                Card(
+                  child: EmptyState(
+                    icon: Icons.savings_outlined,
+                    title: 'Sin presupuestos este mes',
+                    message:
+                        'Ponle un límite a una categoría de gasto y aquí '
+                        'verás cómo va.',
+                    actionLabel: 'Poner un límite',
+                    onAction: () => _openSetBudget(context, r.value.month),
+                  ),
                 ),
               for (final BudgetProgress budget in r.value.budgets)
-                BudgetTile(budget: budget),
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: BudgetTile(budget: budget),
+                ),
             ],
           ),
         AsyncError<Reading<MonthBudgets>?>(:final Object error) =>
@@ -64,10 +74,17 @@ class BudgetsScreen extends ConsumerWidget {
             onRetry: () =>
                 ref.read(budgetsViewModelProvider.notifier).refresh(),
           ),
-        _ => const Center(child: CircularProgressIndicator()),
+        _ => const LoadingBlocks(heights: <double>[56, 120, 120]),
       },
     );
   }
+
+  static void _openSetBudget(BuildContext context, YearMonth month) =>
+      showModalBottomSheet<void>(
+        context: context,
+        isScrollControlled: true,
+        builder: (_) => _SetBudgetSheet(month: month),
+      );
 }
 
 class _MonthPicker extends ConsumerWidget {
@@ -80,25 +97,30 @@ class _MonthPicker extends ConsumerWidget {
     final SelectedBudgetMonth selected = ref.read(
       selectedBudgetMonthProvider.notifier,
     );
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: <Widget>[
-        IconButton(
-          tooltip: 'Mes anterior',
-          icon: const Icon(Icons.chevron_left),
-          onPressed: () => selected.show(month.minusMonths(1)),
-        ),
-        TextButton(
-          // Tocar el mes vuelve al mes en curso, el que dice el servidor.
-          onPressed: () => selected.show(null),
-          child: Text(monthLabel(month)),
-        ),
-        IconButton(
-          tooltip: 'Mes siguiente',
-          icon: const Icon(Icons.chevron_right),
-          onPressed: () => selected.show(month.minusMonths(-1)),
-        ),
-      ],
+    return Card(
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: <Widget>[
+          IconButton(
+            tooltip: 'Mes anterior',
+            icon: const Icon(Icons.chevron_left),
+            onPressed: () => selected.show(month.minusMonths(1)),
+          ),
+          TextButton(
+            // Tocar el mes vuelve al mes en curso, el que dice el servidor.
+            onPressed: () => selected.show(null),
+            child: Text(
+              monthLabel(month),
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+          ),
+          IconButton(
+            tooltip: 'Mes siguiente',
+            icon: const Icon(Icons.chevron_right),
+            onPressed: () => selected.show(month.minusMonths(-1)),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -115,42 +137,89 @@ class BudgetTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final ColorScheme colors = Theme.of(context).colorScheme;
+    final ThemeData theme = Theme.of(context);
+    final FinanceColors finance = context.financeColors;
+    // El color sale de los avisos del servidor, no del porcentaje: así el
+    // teléfono y el servidor avisan el mismo día.
     final Color bar = budget.exceeded
-        ? colors.error
+        ? finance.expense
         : budget.nearTheLimit
-        ? colors.tertiary
-        : colors.primary;
-    return ListTile(
-      title: Row(
-        children: <Widget>[
-          Expanded(child: Text(budget.categoryName)),
-          if (budget.exceeded)
-            Chip(key: exceededKey, label: const Text('Excedido'))
-          else if (budget.nearTheLimit)
-            Chip(key: nearKey, label: const Text('Cerca del límite')),
-        ],
-      ),
-      subtitle: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          const SizedBox(height: 4),
-          // Solo la longitud de la barra sale de dividir; la cifra que se lee
-          // es el porcentaje entero del servidor.
-          LinearProgressIndicator(
-            value: (budget.percentageUsed.clamp(0, 100)) / 100,
-            color: bar,
-          ),
-          const SizedBox(height: 4),
-          Text(
-            '${budget.spent.inPesos} de ${budget.limit.inPesos} · '
-            '${budget.percentageUsed} %',
-          ),
-          Text('Queda ${budget.remaining.inPesos}'),
-        ],
+        ? finance.warning
+        : theme.colorScheme.primary;
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Row(
+              children: <Widget>[
+                Expanded(
+                  child: Text(
+                    budget.categoryName,
+                    style: theme.textTheme.titleMedium,
+                  ),
+                ),
+                if (budget.exceeded)
+                  _Flag(
+                    key: exceededKey,
+                    label: 'Excedido',
+                    color: finance.expense,
+                  )
+                else if (budget.nearTheLimit)
+                  _Flag(
+                    key: nearKey,
+                    label: 'Cerca del límite',
+                    color: finance.warning,
+                  ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            // Solo la longitud de la barra sale de dividir; la cifra que se lee
+            // es el porcentaje entero del servidor.
+            LinearProgressIndicator(
+              value: (budget.percentageUsed.clamp(0, 100)) / 100,
+              color: bar,
+            ),
+            const SizedBox(height: 10),
+            Text(
+              '${budget.spent.inPesos} de ${budget.limit.inPesos} · '
+              '${budget.percentageUsed} %',
+              style: moneyStyle(theme.textTheme.bodyMedium!),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              'Queda ${budget.remaining.inPesos}',
+              style: moneyStyle(theme.textTheme.bodySmall!)
+                  .copyWith(color: theme.colorScheme.onSurfaceVariant),
+            ),
+          ],
+        ),
       ),
     );
   }
+}
+
+/// El aviso del servidor, como una etiqueta con su color.
+class _Flag extends StatelessWidget {
+  const _Flag({required this.label, required this.color, super.key});
+
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+    decoration: BoxDecoration(
+      color: color.withValues(alpha: 0.12),
+      borderRadius: BorderRadius.circular(999),
+    ),
+    child: Text(
+      label,
+      style: Theme.of(context).textTheme.labelMedium
+          ?.copyWith(color: color, fontWeight: FontWeight.w600),
+    ),
+  );
 }
 
 class _SetBudgetSheet extends ConsumerStatefulWidget {

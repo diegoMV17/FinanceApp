@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Con el teléfono en oscuro, un verde más profundo: no deslumbra. -->
+    <color name="splash_background">#FF0F3D2E</color>
+</resources>

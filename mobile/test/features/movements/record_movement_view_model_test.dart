@@ -140,6 +140,34 @@ void main() {
     });
   });
 
+  test('los atajos de fecha: hoy y ayer, en la zona del teléfono', () {
+    // El reloj del test marca el 31 de octubre a las 23:30.
+    viewModel().chooseDaysAgo(1);
+    expect(form.read().date, CalendarDate(2026, 10, 30));
+
+    viewModel().chooseDaysAgo(0);
+    expect(form.read().date, CalendarDate(2026, 10, 31));
+  });
+
+  test('«ayer» el 1 de noviembre es el 31 de octubre', () {
+    final ProviderContainer november = appContainer(
+      server,
+      overrides: [
+        clockProvider.overrideWithValue(() => DateTime(2026, 11, 1, 0, 30)),
+        pendingSenderProvider.overrideWith(_IdleSender.new),
+      ],
+    );
+    addTearDown(november.dispose);
+    november.listen(recordMovementViewModelProvider, (_, _) {});
+
+    november.read(recordMovementViewModelProvider.notifier).chooseDaysAgo(1);
+
+    expect(
+      november.read(recordMovementViewModelProvider).date,
+      CalendarDate(2026, 10, 31),
+    );
+  });
+
   test('cambiar de tipo vacía los huecos', () {
     viewModel()
       ..chooseFirst(nequi)

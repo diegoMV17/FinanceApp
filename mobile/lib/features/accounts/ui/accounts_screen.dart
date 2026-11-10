@@ -5,6 +5,8 @@ import '../../../core/forms/submit_state.dart';
 import '../../../core/ledger/account_ref.dart';
 import '../../../core/reading/reading.dart';
 import '../../../core/text/text_input.dart';
+import '../../../core/widgets/account_icons.dart';
+import '../../../core/widgets/components.dart';
 import '../../../core/widgets/reading_notices.dart';
 import 'accounts_view_model.dart';
 
@@ -36,16 +38,18 @@ class AccountsScreen extends ConsumerWidget {
           value: final Reading<List<AccountRef>> r,
         ) =>
           ListView(
-            padding: const EdgeInsets.only(bottom: 96),
+            padding: const EdgeInsets.fromLTRB(16, 4, 16, 104),
             children: <Widget>[
               StaleNotice(reading: r),
               if (r.value.isEmpty)
-                const Padding(
-                  padding: EdgeInsets.all(24),
-                  child: Text(
-                    'Todavía no hay cuentas. Abre las cuentas donde tienes '
-                    'plata, las categorías de gasto e ingreso y una de '
-                    'patrimonio para los saldos iniciales.',
+                const Card(
+                  child: EmptyState(
+                    icon: Icons.account_balance_wallet_outlined,
+                    title: 'Todavía no hay cuentas',
+                    message:
+                        'Abre las cuentas donde tienes plata, las categorías '
+                        'de gasto e ingreso y una de patrimonio para los '
+                        'saldos iniciales.',
                   ),
                 ),
               for (final AccountKind kind in AccountKind.values)
@@ -58,7 +62,7 @@ class AccountsScreen extends ConsumerWidget {
             onRetry: () =>
                 ref.read(accountsViewModelProvider.notifier).refresh(),
           ),
-        _ => const Center(child: CircularProgressIndicator()),
+        _ => const LoadingBlocks(heights: <double>[120, 120]),
       },
     );
   }
@@ -74,13 +78,32 @@ class AccountsScreen extends ConsumerWidget {
     if (ofKind.isEmpty) {
       return const <Widget>[];
     }
+    final ColorScheme colors = Theme.of(context).colorScheme;
     return <Widget>[
       Padding(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
-        child: Text(kind.label, style: Theme.of(context).textTheme.titleSmall),
+        padding: const EdgeInsets.only(bottom: 12),
+        child: SectionCard(
+          title: kind.label,
+          padding: const EdgeInsets.fromLTRB(0, 16, 0, 8),
+          child: Column(
+            children: <Widget>[
+              for (final AccountRef account in ofKind)
+                ListTile(
+                  leading: CircleAvatar(
+                    radius: 18,
+                    backgroundColor: colors.secondaryContainer,
+                    child: Icon(
+                      iconForKind(kind),
+                      size: 18,
+                      color: colors.onSecondaryContainer,
+                    ),
+                  ),
+                  title: Text(account.name),
+                ),
+            ],
+          ),
+        ),
       ),
-      for (final AccountRef account in ofKind)
-        ListTile(dense: true, title: Text(account.name)),
     ];
   }
 }

@@ -5,6 +5,8 @@ import 'package:mobile/core/dates/calendar_date.dart';
 import 'package:mobile/core/ledger/budget.dart';
 import 'package:mobile/core/money/money.dart';
 import 'package:mobile/core/reading/reading.dart';
+import 'package:mobile/core/theme/app_theme.dart';
+import 'package:mobile/core/theme/finance_colors.dart';
 import 'package:mobile/features/budgets/ui/budgets_screen.dart';
 
 import '../../support/screen_doubles.dart';
@@ -35,7 +37,10 @@ void main() {
             readAt,
           ),
         ),
-        child: const MaterialApp(home: BudgetsScreen()),
+        child: MaterialApp(
+          theme: appTheme(Brightness.light),
+          home: const BudgetsScreen(),
+        ),
       ),
     );
     await tester.pumpAndSettle();
@@ -78,5 +83,55 @@ void main() {
 
     expect(find.byKey(BudgetTile.nearKey), findsNothing);
     expect(find.byKey(BudgetTile.exceededKey), findsNothing);
+  });
+
+  group(
+    'el color de la barra sale del aviso del servidor, no del porcentaje',
+    () {
+      Color? barColor(WidgetTester tester) => tester
+          .widget<LinearProgressIndicator>(find.byType(LinearProgressIndicator))
+          .color;
+
+      testWidgets('excedido: el color de gasto', (WidgetTester tester) async {
+        await pump(tester, food(near: true, exceeded: true));
+
+        expect(barColor(tester), FinanceColors.light.expense);
+      });
+
+      testWidgets('cerca del límite: el de aviso', (WidgetTester tester) async {
+        await pump(tester, food(near: true, exceeded: false));
+
+        expect(barColor(tester), FinanceColors.light.warning);
+      });
+
+      testWidgets('sin aviso, el de la app, aunque el porcentaje sea alto', (
+        WidgetTester tester,
+      ) async {
+        await pump(tester, food(near: false, exceeded: false));
+
+        expect(
+          barColor(tester),
+          appTheme(Brightness.light).colorScheme.primary,
+        );
+      });
+    },
+  );
+
+  testWidgets('sin presupuestos, ofrece poner el primero', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: fixedScreens(),
+        child: MaterialApp(
+          theme: appTheme(Brightness.light),
+          home: const BudgetsScreen(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Sin presupuestos este mes'), findsOneWidget);
+    expect(find.text('Poner un límite'), findsOneWidget);
   });
 }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'core/storage/server_settings.dart';
+import 'core/widgets/components.dart';
 import 'features/accounts/ui/accounts_screen.dart';
 import 'features/budgets/ui/budgets_screen.dart';
 import 'features/dashboard/ui/dashboard_screen.dart';
@@ -47,7 +48,7 @@ class _HomeShellState extends State<HomeShell> {
             // Los pendientes se ven siempre, en todas las pestañas, con su
             // número: lo que no llegó al servidor no cuenta en ninguna cifra.
             const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+              padding: EdgeInsets.fromLTRB(16, 8, 16, 0),
               child: PendingStatusView(),
             ),
             Expanded(
@@ -112,14 +113,36 @@ class _SettingsTab extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(title: const Text('Ajustes')),
       body: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
         children: <Widget>[
-          ConnectionStatusView(origin: origin),
-          const SizedBox(height: 16),
-          ListTile(
-            leading: const Icon(Icons.account_balance_wallet_outlined),
-            title: const Text('Cuentas y categorías'),
-            onTap: onOpenAccounts,
+          SectionCard(
+            title: 'Servidor',
+            child: ConnectionStatusView(origin: origin),
+          ),
+          const SizedBox(height: 12),
+          Card(
+            clipBehavior: Clip.antiAlias,
+            child: Column(
+              children: <Widget>[
+                ListTile(
+                  leading: const Icon(Icons.account_balance_wallet_outlined),
+                  title: const Text('Cuentas y categorías'),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: onOpenAccounts,
+                ),
+                const Divider(height: 1),
+                ListTile(
+                  leading: const Icon(Icons.description_outlined),
+                  title: const Text('Licencias'),
+                  trailing: const Icon(Icons.chevron_right),
+                  // Las de los paquetes y la de la fuente (Inter, OFL).
+                  onTap: () => showLicensePage(
+                    context: context,
+                    applicationName: 'FinanceApp',
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       ),

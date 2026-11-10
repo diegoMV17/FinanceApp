@@ -5,6 +5,8 @@ import 'package:mobile/core/ledger/account_balance.dart';
 import 'package:mobile/core/ledger/person.dart';
 import 'package:mobile/core/money/money.dart';
 import 'package:mobile/core/reading/reading.dart';
+import 'package:mobile/core/theme/app_theme.dart';
+import 'package:mobile/core/theme/finance_colors.dart';
 import 'package:mobile/features/people/ui/people_screen.dart';
 
 import '../../support/screen_doubles.dart';
@@ -27,7 +29,10 @@ void main() {
         overrides: fixedScreens(
           people: Reading<List<PersonPosition>>(people, readAt),
         ),
-        child: const MaterialApp(home: PeopleScreen()),
+        child: MaterialApp(
+          theme: appTheme(Brightness.light),
+          home: const PeopleScreen(),
+        ),
       ),
     );
     await tester.pumpAndSettle();
@@ -61,5 +66,32 @@ void main() {
     expect(find.text(r'$ 30.000,00'), findsOneWidget);
     expect(find.text(r'$ 50.000,00'), findsOneWidget);
     expect(find.text(r'$ 70.000,00'), findsOneWidget);
+  });
+
+  testWidgets('en el detalle, «me debe» es ingreso y «le debo» gasto; el '
+      'neto va en el color del texto, sin juzgar su signo', (
+    WidgetTester tester,
+  ) async {
+    await pump(tester, <PersonPosition>[person('a', 'Juan', -150000)]);
+    await tester.tap(find.text('Juan'));
+    await tester.pumpAndSettle();
+    Color? colorOf(String text) =>
+        tester.widgetList<Text>(find.text(text)).last.style?.color;
+
+    expect(colorOf(r'$ 100.000,00'), FinanceColors.light.income);
+    expect(colorOf(r'$ 30.000,00'), FinanceColors.light.expense);
+    expect(
+      colorOf(r'-$ 1.500,00'),
+      appTheme(Brightness.light).colorScheme.onSurface,
+    );
+  });
+
+  testWidgets('sin personas, ofrece registrar la primera', (
+    WidgetTester tester,
+  ) async {
+    await pump(tester, const <PersonPosition>[]);
+
+    expect(find.text('Todavía no hay personas'), findsOneWidget);
+    expect(find.text('Registrar una persona'), findsOneWidget);
   });
 }

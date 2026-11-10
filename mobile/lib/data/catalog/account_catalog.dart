@@ -1,6 +1,9 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/ledger/account_balance.dart';
 import '../../core/ledger/account_ref.dart';
+import '../../core/money/money.dart';
+import '../../core/reading/reading.dart';
 import '../api/export.dart';
 import '../reading/read_through.dart';
 
@@ -46,3 +49,9 @@ final FutureProvider<AccountCatalog> accountCatalogProvider =
       (Ref ref) async =>
           AccountCatalog(await ref.watch(readThroughProvider.future)),
     );
+
+/// Una cuenta con el saldo que dijo el servidor.
+AccountBalance accountBalanceOf(BalanceResponse account) => AccountBalance(
+  accountRefOf(account),
+  Money.ofCents(account.balanceInCents),
+);

@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile/core/errors/request_failure.dart';
 import 'package:mobile/core/network/api_client.dart';
 import 'package:mobile/core/network/server_gateway.dart';
+import 'package:mobile/core/reading/reading.dart';
 import 'package:mobile/core/storage/server_settings.dart';
 import 'package:mobile/data/api/export.dart';
 import 'package:mobile/data/local/local_database.dart';

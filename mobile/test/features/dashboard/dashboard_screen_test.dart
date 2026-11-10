@@ -8,6 +8,8 @@ import 'package:mobile/core/ledger/account_ref.dart';
 import 'package:mobile/core/ledger/month_summary.dart';
 import 'package:mobile/core/money/money.dart';
 import 'package:mobile/core/reading/reading.dart';
+import 'package:mobile/core/theme/app_theme.dart';
+import 'package:mobile/core/theme/finance_colors.dart';
 import 'package:mobile/core/widgets/reading_notices.dart';
 import 'package:mobile/features/dashboard/data/dashboard.dart';
 import 'package:mobile/features/dashboard/ui/dashboard_screen.dart';
@@ -64,7 +66,10 @@ void main() {
           dashboard: Reading<Dashboard>(dashboard, readAt, stale),
           waiting: waiting,
         ),
-        child: MaterialApp(home: DashboardScreen(onOpenAccounts: () {})),
+        child: MaterialApp(
+          theme: appTheme(Brightness.light),
+          home: DashboardScreen(onOpenAccounts: () {}),
+        ),
       ),
     );
     await tester.pumpAndSettle();
@@ -130,5 +135,78 @@ void main() {
     await pump(tester);
 
     expect(find.byKey(StaleNotice.noticeKey), findsNothing);
+  });
+
+  testWidgets('ingresos y gastos van en su color por papel; un saldo '
+      'negativo, en el del texto', (WidgetTester tester) async {
+    await pump(tester);
+    final ThemeData theme = Theme.of(
+      tester.element(find.byType(DashboardScreen)),
+    );
+    final FinanceColors colors = theme.extension<FinanceColors>()!;
+    Color? colorOf(String text) =>
+        tester.widgetList<Text>(find.text(text)).first.style?.color;
+
+    expect(colorOf(r'$ 5.000.000,00'), colors.income);
+    expect(colorOf(r'$ 12.500,50'), colors.expense);
+    expect(colorOf(r'-$ 25,00'), theme.colorScheme.onSurface);
+  });
+
+  testWidgets('el eje de la serie se marca con las cifras del servidor', (
+    WidgetTester tester,
+  ) async {
+    final MonthSummary october = MonthSummary(
+      asOf: CalendarDate(2026, 10, 31),
+      monthFrom: CalendarDate(2026, 10, 1),
+      moneyReallyMine: Money.ofCents(100000000),
+      income: Money.zero,
+      expenses: Money.zero,
+    );
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: fixedScreens(
+          dashboard: Reading<Dashboard>(
+            Dashboard(
+              summary: november,
+              balances: dashboard.balances,
+              overTime: <MonthSummary>[october, november],
+              expensesByCategory: const <CategoryTotal>[],
+            ),
+            readAt,
+          ),
+        ),
+        child: MaterialApp(
+          theme: appTheme(Brightness.light),
+          home: DashboardScreen(onOpenAccounts: () {}),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text(r'$ 1 M'), findsOneWidget);
+    expect(find.text(r'$ 1,5 M'), findsOneWidget);
+  });
+
+  testWidgets('sin cuentas, ofrece abrir la primera', (
+    WidgetTester tester,
+  ) async {
+    int opened = 0;
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: fixedScreens(
+          dashboard: Reading<Dashboard>(emptyDashboard(), readAt),
+        ),
+        child: MaterialApp(
+          theme: appTheme(Brightness.light),
+          home: DashboardScreen(onOpenAccounts: () => opened++),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Abrir una cuenta'));
+
+    expect(find.text('Todavía no hay cuentas'), findsOneWidget);
+    expect(opened, 1);
   });
 }

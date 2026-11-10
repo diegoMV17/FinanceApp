@@ -71,6 +71,35 @@ void main() {
     expect(find.byKey(LockGate.unlockButtonKey), findsOneWidget);
   });
 
+  testWidgets(
+    'bloqueada, un campo de un formulario de debajo pierde el foco: el '
+    'teclado no escribe en lo que no se ve',
+    (WidgetTester tester) async {
+      authenticator.next = AuthOutcome.success;
+      final FocusNode field = FocusNode();
+      addTearDown(field.dispose);
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [authenticatorProvider.overrideWithValue(authenticator)],
+          child: MaterialApp(
+            home: LockGate(
+              child: Material(child: TextField(focusNode: field)),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      field.requestFocus();
+      await tester.pump();
+      expect(field.hasFocus, isTrue);
+
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.hidden);
+      await tester.pump();
+
+      expect(field.hasFocus, isFalse);
+    },
+  );
+
   group('cancelar no vuelve a pedir', () {
     // Visto en un teléfono: el diálogo del sistema le quita el foco a la app, y
     // al cerrarse se lo devuelve con un `resumed`. Si ese `resumed` pidiera el

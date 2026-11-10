@@ -43,6 +43,17 @@ dependencies:
   sqlite3: ^3.8.0
   path_provider: ^2.1.6
 
+  # Las pantallas (7d):
+  # - fl_chart: los gráficos del tablero (la serie del año y los gastos por
+  #   categoría). Dibuja; no calcula nada: los puntos y los totales llegan del
+  #   servidor. Trae equatable y vector_math, sin red ni almacenamiento.
+  # - flutter_localizations: del SDK, no de terceros. El selector de fecha y
+  #   los textos de Material en español; sin esto, el calendario sale en
+  #   inglés y con la semana empezando en domingo.
+  fl_chart: ^1.3.1
+  flutter_localizations:
+    sdk: flutter
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

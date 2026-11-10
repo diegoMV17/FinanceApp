@@ -101,6 +101,123 @@ void main() {
     });
   });
 
+  group('Android: el ícono y el arranque son los de la app', () {
+    const String res = 'android/app/src/main/res';
+    String read(String path) => File('$res/$path').readAsStringSync();
+
+    test('el ícono es adaptativo: el vector sobre el verde, y monocromo', () {
+      expect(manifest, contains('android:icon="@mipmap/ic_launcher"'));
+      final String adaptive = read('mipmap-anydpi-v26/ic_launcher.xml');
+      expect(adaptive, contains('<adaptive-icon'));
+      expect(
+        adaptive,
+        contains('android:drawable="@color/ic_launcher_background"'),
+      );
+      expect(
+        adaptive,
+        contains('android:drawable="@drawable/ic_launcher_foreground"'),
+      );
+      expect(adaptive, contains('<monochrome'));
+      expect(read('drawable/ic_launcher_foreground.xml'), contains('<vector'));
+      expect(read('values/colors.xml'), contains('#FF1B6B50'));
+    });
+
+    test('Android 7 tiene su PNG en cada densidad, y no es el de Flutter', () {
+      for (final String density in <String>[
+        'mdpi',
+        'hdpi',
+        'xhdpi',
+        'xxhdpi',
+        'xxxhdpi',
+      ]) {
+        final List<int> png = File('$res/mipmap-$density/ic_launcher.png')
+            .readAsBytesSync();
+        expect(png.sublist(1, 4), 'PNG'.codeUnits, reason: density);
+        // El de la plantilla de Flutter es el logo azul; el nuestro lleva
+        // un comentario de texto con su origen.
+        expect(
+          String.fromCharCodes(png),
+          contains('FinanceApp'),
+          reason: density,
+        );
+      }
+    });
+
+    test('el arranque: el color de la app con el ícono, en claro y oscuro', () {
+      for (final String path in <String>[
+        'drawable/launch_background.xml',
+        'drawable-v21/launch_background.xml',
+      ]) {
+        final String background = read(path);
+        expect(background, contains('@color/splash_background'), reason: path);
+        expect(
+          background,
+          contains('@drawable/ic_launcher_foreground'),
+          reason: path,
+        );
+      }
+      expect(read('values/colors.xml'), contains('name="splash_background"'));
+      expect(
+        read('values-night/colors.xml'),
+        contains('name="splash_background"'),
+      );
+    });
+
+    test('Android 12+ usa su propio arranque: también configurado', () {
+      for (final String path in <String>[
+        'values-v31/styles.xml',
+        'values-night-v31/styles.xml',
+      ]) {
+        final String styles = read(path);
+        expect(styles, contains('name="LaunchTheme"'), reason: path);
+        expect(
+          styles,
+          contains('android:windowSplashScreenBackground'),
+          reason: path,
+        );
+        expect(
+          styles,
+          contains('android:windowSplashScreenAnimatedIcon'),
+          reason: path,
+        );
+      }
+    });
+  });
+
+  group('la fuente va dentro de la app, nunca se descarga', () {
+    final String pubspec = File('pubspec.yaml').readAsStringSync();
+
+    test('Inter, declarada con sus cuatro pesos', () {
+      expect(pubspec, contains('family: Inter'));
+      for (final (String file, int weight) in <(String, int)>[
+        ('Inter-Regular.ttf', 400),
+        ('Inter-Medium.ttf', 500),
+        ('Inter-SemiBold.ttf', 600),
+        ('Inter-Bold.ttf', 700),
+      ]) {
+        expect(pubspec, contains('assets/fonts/$file'), reason: file);
+        expect(File('assets/fonts/$file').existsSync(), isTrue, reason: file);
+        expect(pubspec, contains('weight: $weight'), reason: file);
+      }
+    });
+
+    test('con su licencia OFL junto', () {
+      expect(
+        File('assets/fonts/Inter-LICENSE.txt').readAsStringSync(),
+        contains('SIL Open Font License, Version 1.1'),
+      );
+      expect(pubspec, contains('assets/fonts/Inter-LICENSE.txt'));
+    });
+
+    test('sin google_fonts, que baja las fuentes de internet: ni directa '
+        'ni traída por otro paquete', () {
+      expect(
+        File('pubspec.lock').readAsStringSync(),
+        isNot(contains('google_fonts')),
+      );
+    });
+  });
+
   test('iOS: dice para qué usa Face ID (sin esto, el sistema la cierra)', () {
     final String plist = File('ios/Runner/Info.plist').readAsStringSync();
 

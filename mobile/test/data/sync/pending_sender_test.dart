@@ -7,6 +7,7 @@ import 'package:drift/native.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:mobile/core/ledger/book_changes.dart';
 import 'package:mobile/core/lock/app_lock.dart';
 import 'package:mobile/core/lock/authenticator.dart';
 import 'package:mobile/core/network/api_client.dart';
@@ -244,6 +245,29 @@ void main() {
 
       expect(await waiting(), isEmpty);
       expect(pause(), isNull);
+    });
+  });
+
+  group('el libro cambió solo cuando el servidor aceptó', () {
+    test('aceptado: avisa, una vez por movimiento', () async {
+      await store.enqueue(expense(first));
+      await store.enqueue(expense(second));
+
+      await unlockAndSend();
+
+      expect(container.read(bookChangesProvider), 2);
+    });
+
+    test('un conflicto, un rechazo o una pausa no cambian nada', () async {
+      await store.enqueue(expense(first));
+      await store.enqueue(expense(second));
+      adapter.handler = (RequestOptions o) async => idOf(o) == first
+          ? reply(409, problem('duplicate-id'))
+          : reply(503, problem('book-busy'));
+
+      await unlockAndSend();
+
+      expect(container.read(bookChangesProvider), 0);
     });
   });
 

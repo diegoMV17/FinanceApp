@@ -11,16 +11,16 @@ part 'history_response.g.dart';
 @JsonSerializable()
 class HistoryResponse {
   const HistoryResponse({
+    required this.movements,
     required this.page,
     required this.size,
     required this.total,
-    this.movements,
   });
 
   factory HistoryResponse.fromJson(Map<String, Object?> json) =>
       _$HistoryResponseFromJson(json);
 
-  final List<HistoryLineResponse>? movements;
+  final List<HistoryLineResponse> movements;
   final int page;
   final int size;
   final int total;

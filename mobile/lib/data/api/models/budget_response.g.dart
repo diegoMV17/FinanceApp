@@ -10,11 +10,11 @@ part of 'budget_response.dart';
 
 BudgetResponse _$BudgetResponseFromJson(Map<String, dynamic> json) =>
     BudgetResponse(
+      category: json['category'] as String,
+      categoryName: json['categoryName'] as String,
+      id: json['id'] as String,
       limitInCents: (json['limitInCents'] as num).toInt(),
-      category: json['category'] as String?,
-      categoryName: json['categoryName'] as String?,
-      id: json['id'] as String?,
-      month: json['month'] as String?,
+      month: json['month'] as String,
       replaces: json['replaces'] as String?,
     );
 

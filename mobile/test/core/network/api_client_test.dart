@@ -81,7 +81,7 @@ void main() {
   test('el cliente generado usa ese mismo Dio', () async {
     adapter.answer(200, <String, Object?>{
       'asOf': '2026-11-02',
-      'balances': <Object?>[],
+      'accounts': <Object?>[],
     });
 
     await financeApiFor(dio).book.bookBalances();

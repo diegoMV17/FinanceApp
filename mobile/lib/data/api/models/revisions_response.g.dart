@@ -10,9 +10,9 @@ part of 'revisions_response.dart';
 
 RevisionsResponse _$RevisionsResponseFromJson(Map<String, dynamic> json) =>
     RevisionsResponse(
-      movement: json['movement'] as String?,
-      revisions: (json['revisions'] as List<dynamic>?)
-          ?.map((e) => MovementResponse.fromJson(e as Map<String, dynamic>))
+      movement: json['movement'] as String,
+      revisions: (json['revisions'] as List<dynamic>)
+          .map((e) => MovementResponse.fromJson(e as Map<String, dynamic>))
           .toList(),
     );
 

@@ -9,16 +9,16 @@ part 'entry_response.g.dart';
 @JsonSerializable()
 class EntryResponse {
   const EntryResponse({
+    required this.account,
+    required this.accountName,
     required this.amountInCents,
-    this.account,
-    this.accountName,
   });
 
   factory EntryResponse.fromJson(Map<String, Object?> json) =>
       _$EntryResponseFromJson(json);
 
-  final String? account;
-  final String? accountName;
+  final String account;
+  final String accountName;
   final int amountInCents;
 
   Map<String, Object?> toJson() => _$EntryResponseToJson(this);

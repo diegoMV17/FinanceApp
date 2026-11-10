@@ -31,7 +31,7 @@ void main() {
   test('200: conecta, y lo comprobó una ruta que exige token', () async {
     adapter.answer(200, <String, Object?>{
       'asOf': '2026-11-02',
-      'balances': <Object?>[],
+      'accounts': <Object?>[],
     });
 
     expect(await check.run(settings), ConnectionResult.connected);

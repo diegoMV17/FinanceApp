@@ -231,6 +231,40 @@ class ContractTest extends PostgresIntegrationTest {
     }
 
     @Test
+    @DisplayName("H29 · en una respuesta todo campo viaja, salvo los que pueden ser nulos")
+    void responseFieldsAreRequiredUnlessNullable() throws Exception {
+        JsonNode schemas = json.readTree(specification()).path("components").path("schemas");
+        // Lo que puede faltar de verdad: un archivado que no ocurrió, una
+        // anulación que no hubo, un reemplazo que no existe. Cualquier otro
+        // campo opcional se vuelve nullable en el cliente, y la app aprendería
+        // a pintar una cuenta sin nombre o un saldo sin cuenta.
+        Map<String, List<String>> nullable = Map.of(
+                "AccountResponse", List.of("archivedAt"),
+                "AccountTotalResponse", List.of("archivedAt"),
+                "BalanceResponse", List.of("archivedAt"),
+                "PersonResponse", List.of("archivedAt"),
+                "PersonPositionResponse", List.of("archivedAt"),
+                "BudgetResponse", List.of("replaces"),
+                "MovementResponse", List.of("cancellationReason", "cancelledAt", "replaces"));
+
+        List<String> responses = new ArrayList<>();
+        schemas.properties().forEach(schema -> {
+            if (!schema.getKey().endsWith("Response")) {
+                return;
+            }
+            responses.add(schema.getKey());
+            List<String> optional = new ArrayList<>();
+            schema.getValue().path("properties").propertyNames().forEach(optional::add);
+            optional.removeAll(requiredOf(schema.getValue()));
+            assertThat(optional)
+                    .as("campos opcionales de %s", schema.getKey())
+                    .containsExactlyInAnyOrderElementsOf(
+                            nullable.getOrDefault(schema.getKey(), List.of()));
+        });
+        assertThat(responses).containsAll(nullable.keySet());
+    }
+
+    @Test
     @DisplayName("H28 · cada enum es un esquema con su nombre, no una copia en cada uso")
     void enumsAreNamedSchemas() throws Exception {
         JsonNode spec = json.readTree(specification());

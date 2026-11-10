@@ -10,9 +10,9 @@ part of 'people_response.dart';
 
 PeopleResponse _$PeopleResponseFromJson(Map<String, dynamic> json) =>
     PeopleResponse(
-      asOf: json['asOf'] as String?,
-      people: (json['people'] as List<dynamic>?)
-          ?.map(
+      asOf: json['asOf'] as String,
+      people: (json['people'] as List<dynamic>)
+          .map(
             (e) => PersonPositionResponse.fromJson(e as Map<String, dynamic>),
           )
           .toList(),

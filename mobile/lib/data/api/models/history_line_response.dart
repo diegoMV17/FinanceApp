@@ -12,22 +12,22 @@ part 'history_line_response.g.dart';
 @JsonSerializable()
 class HistoryLineResponse {
   const HistoryLineResponse({
+    required this.date,
+    required this.description,
+    required this.entries,
+    required this.id,
+    required this.source,
     required this.valueInCents,
-    this.date,
-    this.description,
-    this.entries,
-    this.id,
-    this.source,
   });
 
   factory HistoryLineResponse.fromJson(Map<String, Object?> json) =>
       _$HistoryLineResponseFromJson(json);
 
-  final String? date;
-  final String? description;
-  final List<EntryResponse>? entries;
-  final String? id;
-  final TransactionSource? source;
+  final String date;
+  final String description;
+  final List<EntryResponse> entries;
+  final String id;
+  final TransactionSource source;
   final int valueInCents;
 
   Map<String, Object?> toJson() => _$HistoryLineResponseToJson(this);

@@ -23,6 +23,7 @@ import 'package:mobile/data/sync/send_verdict.dart';
 
 import '../../core/lock/app_lock_test.dart' show FakeAuthenticator;
 import '../../support/fake_secure_store.dart';
+import '../../support/movement_samples.dart';
 import '../../support/recording_adapter.dart';
 
 /// El envío de la cola, sin widgets: el almacén de verdad sobre una base en
@@ -72,7 +73,7 @@ void main() {
       (options.data as Map<String, Object?>)['id']! as String;
 
   ResponseBody accept(RequestOptions options, [int status = 201]) =>
-      reply(status, <String, Object?>{'id': idOf(options)});
+      reply(status, movementResponseBody(idOf(options)));
 
   Map<String, Object?> problem(String code) => <String, Object?>{
     'type': 'urn:finance:error:$code',
@@ -248,7 +249,7 @@ void main() {
 
   group('un 200 que no es de este movimiento no borra nada', () {
     for (final (String name, Object? body) in <(String, Object?)>[
-      ('otro id', <String, Object?>{'id': second}),
+      ('otro id', movementResponseBody(second)),
       ('sin id', <String, Object?>{}),
     ]) {
       test(name, () async {

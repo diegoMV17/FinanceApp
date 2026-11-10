@@ -11,18 +11,18 @@ part 'movements_response.g.dart';
 @JsonSerializable()
 class MovementsResponse {
   const MovementsResponse({
+    required this.account,
+    required this.movements,
     required this.page,
     required this.size,
     required this.total,
-    this.account,
-    this.movements,
   });
 
   factory MovementsResponse.fromJson(Map<String, Object?> json) =>
       _$MovementsResponseFromJson(json);
 
-  final String? account;
-  final List<MovementLineResponse>? movements;
+  final String account;
+  final List<MovementLineResponse> movements;
   final int page;
   final int size;
   final int total;

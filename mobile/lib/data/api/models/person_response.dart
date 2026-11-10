@@ -8,14 +8,14 @@ part 'person_response.g.dart';
 
 @JsonSerializable()
 class PersonResponse {
-  const PersonResponse({this.archivedAt, this.id, this.name});
+  const PersonResponse({required this.id, required this.name, this.archivedAt});
 
   factory PersonResponse.fromJson(Map<String, Object?> json) =>
       _$PersonResponseFromJson(json);
 
   final DateTime? archivedAt;
-  final String? id;
-  final String? name;
+  final String id;
+  final String name;
 
   Map<String, Object?> toJson() => _$PersonResponseToJson(this);
 }

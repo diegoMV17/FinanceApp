@@ -12,10 +12,10 @@ part 'balance_response.g.dart';
 class BalanceResponse {
   const BalanceResponse({
     required this.balanceInCents,
+    required this.id,
+    required this.name,
+    required this.type,
     this.archivedAt,
-    this.id,
-    this.name,
-    this.type,
   });
 
   factory BalanceResponse.fromJson(Map<String, Object?> json) =>
@@ -23,9 +23,9 @@ class BalanceResponse {
 
   final DateTime? archivedAt;
   final int balanceInCents;
-  final String? id;
-  final String? name;
-  final AccountType? type;
+  final String id;
+  final String name;
+  final AccountType type;
 
   Map<String, Object?> toJson() => _$BalanceResponseToJson(this);
 }

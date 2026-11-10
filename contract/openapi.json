@@ -18,6 +18,7 @@
             "$ref" : "#/components/schemas/AccountType"
           }
         },
+        "required" : [ "id", "name", "type" ],
         "type" : "object"
       },
       "AccountTotalResponse" : {
@@ -41,7 +42,7 @@
             "$ref" : "#/components/schemas/AccountType"
           }
         },
-        "required" : [ "totalInCents" ],
+        "required" : [ "id", "name", "totalInCents", "type" ],
         "type" : "object"
       },
       "AccountType" : {
@@ -78,7 +79,7 @@
             "$ref" : "#/components/schemas/AccountType"
           }
         },
-        "required" : [ "balanceInCents" ],
+        "required" : [ "balanceInCents", "id", "name", "type" ],
         "type" : "object"
       },
       "BalancesResponse" : {
@@ -94,6 +95,7 @@
             "type" : "string"
           }
         },
+        "required" : [ "accounts", "asOf" ],
         "type" : "object"
       },
       "BorrowRequest" : {
@@ -173,7 +175,7 @@
             "type" : "integer"
           }
         },
-        "required" : [ "exceeded", "limitInCents", "nearTheLimit", "percentageUsed", "remainingInCents", "spentInCents" ],
+        "required" : [ "category", "categoryName", "exceeded", "id", "limitInCents", "month", "nearTheLimit", "percentageUsed", "remainingInCents", "spentInCents" ],
         "type" : "object"
       },
       "BudgetResponse" : {
@@ -201,7 +203,7 @@
             "type" : "string"
           }
         },
-        "required" : [ "limitInCents" ],
+        "required" : [ "category", "categoryName", "id", "limitInCents", "month" ],
         "type" : "object"
       },
       "BudgetsResponse" : {
@@ -216,6 +218,7 @@
             "type" : "string"
           }
         },
+        "required" : [ "budgets", "month" ],
         "type" : "object"
       },
       "CancelMovementRequest" : {
@@ -246,6 +249,7 @@
             "$ref" : "#/components/schemas/TransactionSource"
           }
         },
+        "required" : [ "at", "movement", "reason", "source" ],
         "type" : "object"
       },
       "CollectLoanRequest" : {
@@ -300,7 +304,7 @@
             "type" : "integer"
           }
         },
-        "required" : [ "amountInCents" ],
+        "required" : [ "account", "accountName", "amountInCents" ],
         "type" : "object"
       },
       "ExpenseRequest" : {
@@ -368,7 +372,7 @@
             "type" : "integer"
           }
         },
-        "required" : [ "valueInCents" ],
+        "required" : [ "date", "description", "entries", "id", "source", "valueInCents" ],
         "type" : "object"
       },
       "HistoryResponse" : {
@@ -392,7 +396,7 @@
             "type" : "integer"
           }
         },
-        "required" : [ "page", "size", "total" ],
+        "required" : [ "movements", "page", "size", "total" ],
         "type" : "object"
       },
       "IncomeRequest" : {
@@ -502,7 +506,7 @@
             "$ref" : "#/components/schemas/TransactionSource"
           }
         },
-        "required" : [ "effectInCents" ],
+        "required" : [ "date", "description", "effectInCents", "id", "source" ],
         "type" : "object"
       },
       "MovementRequest" : {
@@ -581,6 +585,7 @@
             "$ref" : "#/components/schemas/TransactionSource"
           }
         },
+        "required" : [ "date", "description", "entries", "id", "source" ],
         "type" : "object"
       },
       "MovementsResponse" : {
@@ -608,7 +613,7 @@
             "type" : "integer"
           }
         },
-        "required" : [ "page", "size", "total" ],
+        "required" : [ "account", "movements", "page", "size", "total" ],
         "type" : "object"
       },
       "OpenAccountRequest" : {
@@ -694,6 +699,7 @@
             "type" : "string"
           }
         },
+        "required" : [ "from", "points", "to" ],
         "type" : "object"
       },
       "PeopleResponse" : {
@@ -709,6 +715,7 @@
             "type" : "array"
           }
         },
+        "required" : [ "asOf", "people" ],
         "type" : "object"
       },
       "PersonDetailResponse" : {
@@ -721,6 +728,7 @@
             "$ref" : "#/components/schemas/PersonPositionResponse"
           }
         },
+        "required" : [ "asOf", "person" ],
         "type" : "object"
       },
       "PersonPositionResponse" : {
@@ -759,7 +767,7 @@
             "type" : "integer"
           }
         },
-        "required" : [ "netOwedToYouInCents", "owedToYouInCents", "theirFundInCents", "youOweInCents" ],
+        "required" : [ "accounts", "id", "name", "netOwedToYouInCents", "owedToYouInCents", "theirFundInCents", "youOweInCents" ],
         "type" : "object"
       },
       "PersonResponse" : {
@@ -776,6 +784,7 @@
             "type" : "string"
           }
         },
+        "required" : [ "id", "name" ],
         "type" : "object"
       },
       "Problem" : {
@@ -988,6 +997,7 @@
             "type" : "array"
           }
         },
+        "required" : [ "movement", "revisions" ],
         "type" : "object"
       },
       "SetBudgetRequest" : {
@@ -1083,7 +1093,7 @@
             "type" : "object"
           }
         },
-        "required" : [ "expensesThatMonthInCents", "incomeThatMonthInCents", "moneyReallyMineInCents" ],
+        "required" : [ "asOf", "expensesThatMonthInCents", "incomeThatMonthInCents", "moneyReallyMineInCents", "monthFrom", "totalsByTypeInCents" ],
         "type" : "object"
       },
       "TotalsByAccountResponse" : {
@@ -1103,6 +1113,7 @@
             "type" : "string"
           }
         },
+        "required" : [ "accounts", "from", "to" ],
         "type" : "object"
       },
       "TransactionSource" : {

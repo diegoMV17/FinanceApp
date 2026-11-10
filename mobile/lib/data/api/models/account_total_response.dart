@@ -11,21 +11,21 @@ part 'account_total_response.g.dart';
 @JsonSerializable()
 class AccountTotalResponse {
   const AccountTotalResponse({
+    required this.id,
+    required this.name,
     required this.totalInCents,
+    required this.type,
     this.archivedAt,
-    this.id,
-    this.name,
-    this.type,
   });
 
   factory AccountTotalResponse.fromJson(Map<String, Object?> json) =>
       _$AccountTotalResponseFromJson(json);
 
   final DateTime? archivedAt;
-  final String? id;
-  final String? name;
+  final String id;
+  final String name;
   final int totalInCents;
-  final AccountType? type;
+  final AccountType type;
 
   Map<String, Object?> toJson() => _$AccountTotalResponseToJson(this);
 }

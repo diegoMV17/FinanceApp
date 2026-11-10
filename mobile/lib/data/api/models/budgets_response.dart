@@ -10,13 +10,13 @@ part 'budgets_response.g.dart';
 
 @JsonSerializable()
 class BudgetsResponse {
-  const BudgetsResponse({this.budgets, this.month});
+  const BudgetsResponse({required this.budgets, required this.month});
 
   factory BudgetsResponse.fromJson(Map<String, Object?> json) =>
       _$BudgetsResponseFromJson(json);
 
-  final List<BudgetProgressResponse>? budgets;
-  final String? month;
+  final List<BudgetProgressResponse> budgets;
+  final String month;
 
   Map<String, Object?> toJson() => _$BudgetsResponseToJson(this);
 }

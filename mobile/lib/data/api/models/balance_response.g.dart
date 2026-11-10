@@ -11,14 +11,12 @@ part of 'balance_response.dart';
 BalanceResponse _$BalanceResponseFromJson(Map<String, dynamic> json) =>
     BalanceResponse(
       balanceInCents: (json['balanceInCents'] as num).toInt(),
+      id: json['id'] as String,
+      name: json['name'] as String,
+      type: AccountType.fromJson(json['type'] as String),
       archivedAt: json['archivedAt'] == null
           ? null
           : DateTime.parse(json['archivedAt'] as String),
-      id: json['id'] as String?,
-      name: json['name'] as String?,
-      type: json['type'] == null
-          ? null
-          : AccountType.fromJson(json['type'] as String),
     );
 
 Map<String, dynamic> _$BalanceResponseToJson(BalanceResponse instance) =>
@@ -27,7 +25,7 @@ Map<String, dynamic> _$BalanceResponseToJson(BalanceResponse instance) =>
       'balanceInCents': instance.balanceInCents,
       'id': instance.id,
       'name': instance.name,
-      'type': _$AccountTypeEnumMap[instance.type],
+      'type': _$AccountTypeEnumMap[instance.type]!,
     };
 
 const _$AccountTypeEnumMap = {

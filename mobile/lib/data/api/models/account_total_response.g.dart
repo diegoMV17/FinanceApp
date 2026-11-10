@@ -11,15 +11,13 @@ part of 'account_total_response.dart';
 AccountTotalResponse _$AccountTotalResponseFromJson(
   Map<String, dynamic> json,
 ) => AccountTotalResponse(
+  id: json['id'] as String,
+  name: json['name'] as String,
   totalInCents: (json['totalInCents'] as num).toInt(),
+  type: AccountType.fromJson(json['type'] as String),
   archivedAt: json['archivedAt'] == null
       ? null
       : DateTime.parse(json['archivedAt'] as String),
-  id: json['id'] as String?,
-  name: json['name'] as String?,
-  type: json['type'] == null
-      ? null
-      : AccountType.fromJson(json['type'] as String),
 );
 
 Map<String, dynamic> _$AccountTotalResponseToJson(
@@ -29,7 +27,7 @@ Map<String, dynamic> _$AccountTotalResponseToJson(
   'id': instance.id,
   'name': instance.name,
   'totalInCents': instance.totalInCents,
-  'type': _$AccountTypeEnumMap[instance.type],
+  'type': _$AccountTypeEnumMap[instance.type]!,
 };
 
 const _$AccountTypeEnumMap = {

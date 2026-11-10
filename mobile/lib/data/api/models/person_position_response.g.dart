@@ -11,18 +11,18 @@ part of 'person_position_response.dart';
 PersonPositionResponse _$PersonPositionResponseFromJson(
   Map<String, dynamic> json,
 ) => PersonPositionResponse(
+  accounts: (json['accounts'] as List<dynamic>)
+      .map((e) => BalanceResponse.fromJson(e as Map<String, dynamic>))
+      .toList(),
+  id: json['id'] as String,
+  name: json['name'] as String,
   netOwedToYouInCents: (json['netOwedToYouInCents'] as num).toInt(),
   owedToYouInCents: (json['owedToYouInCents'] as num).toInt(),
   theirFundInCents: (json['theirFundInCents'] as num).toInt(),
   youOweInCents: (json['youOweInCents'] as num).toInt(),
-  accounts: (json['accounts'] as List<dynamic>?)
-      ?.map((e) => BalanceResponse.fromJson(e as Map<String, dynamic>))
-      .toList(),
   archivedAt: json['archivedAt'] == null
       ? null
       : DateTime.parse(json['archivedAt'] as String),
-  id: json['id'] as String?,
-  name: json['name'] as String?,
 );
 
 Map<String, dynamic> _$PersonPositionResponseToJson(

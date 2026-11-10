@@ -10,14 +10,12 @@ part of 'account_response.dart';
 
 AccountResponse _$AccountResponseFromJson(Map<String, dynamic> json) =>
     AccountResponse(
+      id: json['id'] as String,
+      name: json['name'] as String,
+      type: AccountType.fromJson(json['type'] as String),
       archivedAt: json['archivedAt'] == null
           ? null
           : DateTime.parse(json['archivedAt'] as String),
-      id: json['id'] as String?,
-      name: json['name'] as String?,
-      type: json['type'] == null
-          ? null
-          : AccountType.fromJson(json['type'] as String),
     );
 
 Map<String, dynamic> _$AccountResponseToJson(AccountResponse instance) =>
@@ -25,7 +23,7 @@ Map<String, dynamic> _$AccountResponseToJson(AccountResponse instance) =>
       'archivedAt': instance.archivedAt?.toIso8601String(),
       'id': instance.id,
       'name': instance.name,
-      'type': _$AccountTypeEnumMap[instance.type],
+      'type': _$AccountTypeEnumMap[instance.type]!,
     };
 
 const _$AccountTypeEnumMap = {

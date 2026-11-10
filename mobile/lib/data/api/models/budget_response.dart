@@ -9,22 +9,22 @@ part 'budget_response.g.dart';
 @JsonSerializable()
 class BudgetResponse {
   const BudgetResponse({
+    required this.category,
+    required this.categoryName,
+    required this.id,
     required this.limitInCents,
-    this.category,
-    this.categoryName,
-    this.id,
-    this.month,
+    required this.month,
     this.replaces,
   });
 
   factory BudgetResponse.fromJson(Map<String, Object?> json) =>
       _$BudgetResponseFromJson(json);
 
-  final String? category;
-  final String? categoryName;
-  final String? id;
+  final String category;
+  final String categoryName;
+  final String id;
   final int limitInCents;
-  final String? month;
+  final String month;
   final String? replaces;
 
   Map<String, Object?> toJson() => _$BudgetResponseToJson(this);

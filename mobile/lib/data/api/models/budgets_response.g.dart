@@ -10,12 +10,12 @@ part of 'budgets_response.dart';
 
 BudgetsResponse _$BudgetsResponseFromJson(Map<String, dynamic> json) =>
     BudgetsResponse(
-      budgets: (json['budgets'] as List<dynamic>?)
-          ?.map(
+      budgets: (json['budgets'] as List<dynamic>)
+          .map(
             (e) => BudgetProgressResponse.fromJson(e as Map<String, dynamic>),
           )
           .toList(),
-      month: json['month'] as String?,
+      month: json['month'] as String,
     );
 
 Map<String, dynamic> _$BudgetsResponseToJson(BudgetsResponse instance) =>

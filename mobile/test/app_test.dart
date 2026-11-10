@@ -126,7 +126,7 @@ void main() {
   ) async {
     adapter.answer(200, <String, Object?>{
       'asOf': '2026-11-02',
-      'balances': <Object?>[],
+      'accounts': <Object?>[],
     });
     await pumpApp(tester);
 
@@ -179,7 +179,7 @@ void main() {
   group('adentro, la conexión con el servidor', () {
     void answerLikeTheApi() => adapter.answer(200, <String, Object?>{
       'asOf': '2026-11-02',
-      'balances': <Object?>[],
+      'accounts': <Object?>[],
     });
 
     testWidgets('dice «conectada» solo porque el servidor respondió', (

@@ -11,10 +11,10 @@ part of 'person_detail_response.dart';
 PersonDetailResponse _$PersonDetailResponseFromJson(
   Map<String, dynamic> json,
 ) => PersonDetailResponse(
-  asOf: json['asOf'] as String?,
-  person: json['person'] == null
-      ? null
-      : PersonPositionResponse.fromJson(json['person'] as Map<String, dynamic>),
+  asOf: json['asOf'] as String,
+  person: PersonPositionResponse.fromJson(
+    json['person'] as Map<String, dynamic>,
+  ),
 );
 
 Map<String, dynamic> _$PersonDetailResponseToJson(

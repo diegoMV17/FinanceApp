@@ -4,6 +4,7 @@ import com.personalfinance.domain.ledger.Account;
 import com.personalfinance.domain.ledger.AccountType;
 import java.time.Instant;
 import java.util.UUID;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Una cuenta, como la ve un cliente.
@@ -19,7 +20,7 @@ import java.util.UUID;
  * vacío».
  */
 public record AccountResponse(
-        UUID id, AccountType type, String name, Instant archivedAt) {
+        UUID id, AccountType type, String name, @Nullable Instant archivedAt) {
 
     public static AccountResponse of(Account account) {
         return new AccountResponse(

@@ -4,6 +4,7 @@ import com.personalfinance.application.read.AccountTotal;
 import com.personalfinance.domain.ledger.AccountType;
 import java.time.Instant;
 import java.util.UUID;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Cuánto movió una cuenta en el periodo.
@@ -15,7 +16,7 @@ import java.util.UUID;
  * saldo de 350.000» no significa nada.
  */
 public record AccountTotalResponse(
-        UUID id, AccountType type, String name, long totalInCents, Instant archivedAt) {
+        UUID id, AccountType type, String name, long totalInCents, @Nullable Instant archivedAt) {
 
     public static AccountTotalResponse of(AccountTotal total) {
         return new AccountTotalResponse(

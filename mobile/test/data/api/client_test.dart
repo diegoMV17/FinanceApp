@@ -99,7 +99,10 @@ void main() {
     'la dirección la pone quien construye el cliente; sin ella no hay host',
     () async {
       final _RecordingAdapter bare = _RecordingAdapter()
-        ..answer(200, _movement);
+        ..answer(200, <String, Object?>{
+          'movement': 'x',
+          'revisions': <Object?>[],
+        });
       final FinanceApi withoutAddress = FinanceApi(
         Dio()..httpClientAdapter = bare,
       );

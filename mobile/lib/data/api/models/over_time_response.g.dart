@@ -10,11 +10,11 @@ part of 'over_time_response.dart';
 
 OverTimeResponse _$OverTimeResponseFromJson(Map<String, dynamic> json) =>
     OverTimeResponse(
-      from: json['from'] as String?,
-      points: (json['points'] as List<dynamic>?)
-          ?.map((e) => SummaryResponse.fromJson(e as Map<String, dynamic>))
+      from: json['from'] as String,
+      points: (json['points'] as List<dynamic>)
+          .map((e) => SummaryResponse.fromJson(e as Map<String, dynamic>))
           .toList(),
-      to: json['to'] as String?,
+      to: json['to'] as String,
     );
 
 Map<String, dynamic> _$OverTimeResponseToJson(OverTimeResponse instance) =>

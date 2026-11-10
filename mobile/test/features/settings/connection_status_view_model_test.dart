@@ -33,7 +33,7 @@ void main() {
     adapter = RecordingAdapter()
       ..answer(200, <String, Object?>{
         'asOf': '2026-11-02',
-        'balances': <Object?>[],
+        'accounts': <Object?>[],
       });
     container = ProviderContainer(
       overrides: [

@@ -10,9 +10,9 @@ part of 'entry_response.dart';
 
 EntryResponse _$EntryResponseFromJson(Map<String, dynamic> json) =>
     EntryResponse(
+      account: json['account'] as String,
+      accountName: json['accountName'] as String,
       amountInCents: (json['amountInCents'] as num).toInt(),
-      account: json['account'] as String?,
-      accountName: json['accountName'] as String?,
     );
 
 Map<String, dynamic> _$EntryResponseToJson(EntryResponse instance) =>

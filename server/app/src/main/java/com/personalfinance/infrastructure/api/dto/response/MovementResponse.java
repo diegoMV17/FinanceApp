@@ -8,6 +8,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Un movimiento entero, con sus apuntes.
@@ -27,9 +28,9 @@ public record MovementResponse(
         String description,
         TransactionSource source,
         List<EntryResponse> entries,
-        Instant cancelledAt,
-        String cancellationReason,
-        UUID replaces) {
+        @Nullable Instant cancelledAt,
+        @Nullable String cancellationReason,
+        @Nullable UUID replaces) {
 
     public static MovementResponse of(Transaction movement) {
         return new MovementResponse(

@@ -3,6 +3,7 @@ package com.personalfinance.infrastructure.api.dto.response;
 import com.personalfinance.domain.ledger.Budget;
 import com.personalfinance.domain.ledger.BudgetId;
 import java.util.UUID;
+import org.jspecify.annotations.Nullable;
 
 /**
  * El límite que quedó puesto.
@@ -18,7 +19,7 @@ public record BudgetResponse(
         String categoryName,
         String month,
         long limitInCents,
-        UUID replaces) {
+        @Nullable UUID replaces) {
 
     public static BudgetResponse of(Budget budget) {
         return new BudgetResponse(

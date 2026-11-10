@@ -42,7 +42,7 @@ void main() {
 
   void answerLikeTheApi() => adapter.answer(200, <String, Object?>{
     'asOf': '2026-11-02',
-    'balances': <Object?>[],
+    'accounts': <Object?>[],
   });
 
   test(

@@ -4,6 +4,7 @@ import com.personalfinance.application.read.AccountBalance;
 import com.personalfinance.domain.ledger.AccountType;
 import java.time.Instant;
 import java.util.UUID;
+import org.jspecify.annotations.Nullable;
 
 /**
  * El saldo de una cuenta.
@@ -17,7 +18,7 @@ public record BalanceResponse(
         AccountType type,
         String name,
         long balanceInCents,
-        Instant archivedAt) {
+        @Nullable Instant archivedAt) {
 
     public static BalanceResponse of(AccountBalance balance) {
         return new BalanceResponse(

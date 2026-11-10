@@ -4,6 +4,7 @@ import com.personalfinance.application.read.PersonView;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
+import org.jspecify.annotations.Nullable;
 
 /**
  * HU19, HU21. Cómo está la cuenta con una persona: la respuesta que da sentido
@@ -23,7 +24,7 @@ import java.util.UUID;
 public record PersonPositionResponse(
         UUID id,
         String name,
-        Instant archivedAt,
+        @Nullable Instant archivedAt,
         long owedToYouInCents,
         long youOweInCents,
         long theirFundInCents,

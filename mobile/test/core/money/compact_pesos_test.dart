@@ -46,9 +46,8 @@ void main() {
     expect(Money.ofCents(150000099).compactPesos, r'$ 1,5 M');
   });
 
-  test('exacto en el tope, donde un double ya perdería la cuenta', () {
-    // 10 billones de pesos menos un centavo: con double, el redondeo en el
-    // camino podría dar otro número.
+  test('en el tope no desborda: el redondeo sube a la unidad entera', () {
+    // 10 billones de pesos menos un centavo.
     expect(Money.ofCents(Money.maxCents - 1).compactPesos, r'$ 10000 mil M');
   });
 }

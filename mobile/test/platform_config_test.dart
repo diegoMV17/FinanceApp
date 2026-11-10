@@ -109,15 +109,15 @@ void main() {
       expect(manifest, contains('android:icon="@mipmap/ic_launcher"'));
       final String adaptive = read('mipmap-anydpi-v26/ic_launcher.xml');
       expect(adaptive, contains('<adaptive-icon'));
-      expect(
-        adaptive,
-        contains('android:drawable="@color/ic_launcher_background"'),
-      );
-      expect(
-        adaptive,
-        contains('android:drawable="@drawable/ic_launcher_foreground"'),
-      );
-      expect(adaptive, contains('<monochrome'));
+      // Cada capa por su nombre: el monocromo usa el mismo dibujo, así que
+      // buscar solo el atributo no vería que falta el primer plano.
+      for (final String layer in <String>[
+        '<background android:drawable="@color/ic_launcher_background"',
+        '<foreground android:drawable="@drawable/ic_launcher_foreground"',
+        '<monochrome android:drawable="@drawable/ic_launcher_foreground"',
+      ]) {
+        expect(adaptive, contains(layer), reason: layer);
+      }
       expect(read('drawable/ic_launcher_foreground.xml'), contains('<vector'));
       expect(read('values/colors.xml'), contains('#FF1B6B50'));
     });

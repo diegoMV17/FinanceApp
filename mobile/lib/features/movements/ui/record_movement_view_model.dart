@@ -110,6 +110,15 @@ class RecordMovementViewModel extends Notifier<RecordMovementState> {
 
   void chooseDate(CalendarDate date) => state = state.copyWith(date: date);
 
+  /// «Hoy» (0) o «Ayer» (1), según el reloj del teléfono en su zona. El día
+  /// se resta en el calendario, no en horas: cruza bien el cambio de mes.
+  void chooseDaysAgo(int days) {
+    final DateTime now = ref.read(clockProvider)();
+    chooseDate(
+      CalendarDate.ofLocal(DateTime(now.year, now.month, now.day - days)),
+    );
+  }
+
   Future<void> submit({
     required String amount,
     required String description,

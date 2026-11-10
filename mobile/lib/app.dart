@@ -7,6 +7,7 @@ import 'core/lock/privacy_cover.dart';
 import 'core/storage/local_database.dart';
 import 'core/storage/server_settings.dart';
 import 'core/storage/server_settings_store.dart';
+import 'core/theme/app_theme.dart';
 import 'data/local/local_database.dart';
 import 'data/sync/pending_sender.dart';
 import 'features/settings/ui/server_setup_screen.dart';
@@ -25,8 +26,6 @@ class FinanceApp extends ConsumerWidget {
   static const Key unreadableDatabaseKey = Key('unreadable-database');
   static const Key eraseDatabaseButtonKey = Key('erase-database');
 
-  static const Color _seed = Color(0xFF1B6B50);
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     // El envío de la cola se escucha aquí, en la raíz, y no en una pantalla: lo
@@ -35,8 +34,8 @@ class FinanceApp extends ConsumerWidget {
     ref.listen(pendingSenderProvider, (_, _) {});
     return MaterialApp(
       title: 'FinanceApp',
-      theme: ThemeData(colorSchemeSeed: _seed, brightness: Brightness.light),
-      darkTheme: ThemeData(colorSchemeSeed: _seed, brightness: Brightness.dark),
+      theme: appTheme(Brightness.light),
+      darkTheme: appTheme(Brightness.dark),
       // En español de Colombia: el selector de fecha, los textos de Material
       // y la semana empezando en lunes.
       locale: const Locale('es', 'CO'),

@@ -15,7 +15,7 @@ dependencies:
 
   # Estado e inyección de dependencias. Es con lo que se escriben los view
   # models (Notifier / AsyncNotifier) de la arquitectura MVVM por funcionalidad.
-  flutter_riverpod: ^3.4.3
+  flutter_riverpod: ^3.5.0
 
   # El cliente de la API, generado desde ../contract/openapi.json en
   # lib/data/api/ (tool/generate_api.sh). Lo que el código generado importa:

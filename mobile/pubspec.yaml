@@ -73,7 +73,7 @@ dev_dependencies:
   retrofit_generator: ^10.3.3
   json_serializable: ^6.15.2
   # El generador de Drift: el .g.dart de la base local.
-  drift_dev: ^2.35.2
+  drift_dev: ^2.35.3
 
 # La base local va cifrada: el paquete sqlite3 empaqueta SQLite3MultipleCiphers
 # en vez del SQLite de siempre (desde drift 2.32 ya no hace falta

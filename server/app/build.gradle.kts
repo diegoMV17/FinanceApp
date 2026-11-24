@@ -71,7 +71,7 @@ dependencies {
     // no arranca aquí. El starter -api, sin interfaz: nunca el -ui. Y sus rutas
     // quedan apagadas en application.yml, porque una descripción completa de la
     // API es una herramienta de administración.
-    implementation("org.springdoc:springdoc-openapi-starter-webmvc-api:3.2.0")
+    implementation("org.springdoc:springdoc-openapi-starter-webmvc-api:3.2.1")
 
     // La arquitectura, probada: application no puede importar infrastructure.
     // Gradle ya impide que el dominio vea Spring porque son módulos distintos,

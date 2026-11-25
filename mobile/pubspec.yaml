@@ -39,7 +39,7 @@ dependencies:
   #   de la app, no documentos: no lo ve el usuario ni otras apps).
   flutter_secure_storage: ^11.2.0
   local_auth: ^3.0.2
-  drift: ^2.35.3
+  drift: ^2.35.4
   sqlite3: ^3.9.1
   path_provider: ^2.1.6
 

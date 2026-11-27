@@ -17,6 +17,7 @@ enum MovementKind {
   expense('Gasto', 'Sale de', 'Categoría'),
   income('Ingreso', 'Entra a', 'Categoría'),
   transfer('Transferencia', 'De', 'A'),
+  payCard('Pagar tarjeta', 'Desde', 'Tarjeta'),
   openingBalance('Saldo inicial', 'Cuenta', 'Patrimonio');
 
   const MovementKind(this.label, this.firstLabel, this.secondLabel);
@@ -30,20 +31,30 @@ enum MovementKind {
   bool get hasDescription => this != openingBalance;
 
   /// Qué cuentas se ofrecen en el primer hueco. Solo filtra lo que se
-  /// muestra: si es válido lo decide el servidor.
+  /// muestra: si es válido lo decide el servidor. Un gasto sale de la plata o
+  /// de una tarjeta, y una tarjeta arranca con lo que ya se debe en ella.
   List<AccountRef> firstOptions(List<AccountRef> accounts) =>
-      _of(accounts, AccountKind.asset);
+      _of(accounts, switch (this) {
+        expense || openingBalance => const <AccountKind>{
+          AccountKind.asset,
+          AccountKind.creditCard,
+        },
+        income || transfer || payCard => const <AccountKind>{AccountKind.asset},
+      });
 
   List<AccountRef> secondOptions(List<AccountRef> accounts) =>
       _of(accounts, switch (this) {
-        expense => AccountKind.expense,
-        income => AccountKind.income,
-        transfer => AccountKind.asset,
-        openingBalance => AccountKind.equity,
+        expense => const <AccountKind>{AccountKind.expense},
+        income => const <AccountKind>{AccountKind.income},
+        transfer => const <AccountKind>{AccountKind.asset},
+        payCard => const <AccountKind>{AccountKind.creditCard},
+        openingBalance => const <AccountKind>{AccountKind.equity},
       });
 
-  static List<AccountRef> _of(List<AccountRef> accounts, AccountKind kind) =>
-      accounts.where((AccountRef a) => a.kind == kind).toList();
+  static List<AccountRef> _of(
+    List<AccountRef> accounts,
+    Set<AccountKind> kinds,
+  ) => accounts.where((AccountRef a) => kinds.contains(a.kind)).toList();
 }
 
 class RecordMovementState {
@@ -78,7 +89,8 @@ class RecordMovementState {
   );
 }
 
-/// Registrar un gasto, un ingreso, una transferencia o un saldo inicial.
+/// Registrar un gasto, un ingreso, una transferencia, el pago de una tarjeta
+/// o un saldo inicial.
 ///
 /// El id se genera una vez por formulario: un doble toque, o volver a
 /// intentar después de un fallo, deja un solo movimiento en la cola. Registrar
@@ -194,6 +206,14 @@ class RecordMovementViewModel extends Notifier<RecordMovementState> {
           description: descriptionText,
           from: first,
           to: second,
+        ),
+        MovementKind.payCard => PayCardDraft(
+          id: _id,
+          date: state.date,
+          amount: amount,
+          description: descriptionText,
+          from: first,
+          card: second,
         ),
         MovementKind.openingBalance => OpeningBalanceDraft(
           id: _id,

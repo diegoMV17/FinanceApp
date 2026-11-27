@@ -35,6 +35,15 @@ MovementRequest movementRequestOf(MovementDraft draft) => switch (draft) {
     from: draft.from,
     to: draft.to,
   ),
+  PayCardDraft() => MovementRequestPayCardRequest(
+    type: PayCardRequestType.payCard,
+    id: draft.id,
+    date: draft.date.toString(),
+    amountInCents: draft.amount.cents,
+    description: draft.description,
+    from: draft.from,
+    card: draft.card,
+  ),
   OpeningBalanceDraft() => MovementRequestOpeningBalanceRequest(
     type: OpeningBalanceRequestType.openingBalance,
     id: draft.id,

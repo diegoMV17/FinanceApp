@@ -79,6 +79,25 @@ void main() {
     );
   });
 
+  test('pagar la tarjeta: las dos cuentas son UUID y la descripción cabe', () {
+    const String card = '3d3c0f5e-2b1d-4c8e-9f00-000000000004';
+    PayCardDraft payCard({String from = nequi, String to = card}) =>
+        PayCardDraft(
+          id: id,
+          date: date,
+          amount: Money.ofCents(100),
+          description: '  Pago NU  ',
+          from: from,
+          card: to,
+        );
+
+    expect(payCard().from, nequi);
+    expect(payCard().card, card);
+    expect(payCard().description, 'Pago NU');
+    expect(() => payCard(from: 'x'), throwsArgumentError);
+    expect(() => payCard(to: ''), throwsArgumentError);
+  });
+
   test('no repite el monto ni la descripción al imprimirse', () {
     final String printed = expense(description: 'Almuerzo con Juan').toString();
 

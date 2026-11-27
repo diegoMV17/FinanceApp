@@ -122,7 +122,7 @@ public class ReadBook {
      * desglose pondría la misma plata dos veces con signos opuestos.
      *
      * <p>Salen todas las cuentas del catálogo, también las que no se movieron,
-     * en cero. Es la misma razón por la que el resumen trae los siete tipos
+     * en cero. Es la misma razón por la que el resumen trae los ocho tipos
      * aunque estén en cero: un cliente no debería tener que distinguir «no
      * vino» de «está en cero».
      */

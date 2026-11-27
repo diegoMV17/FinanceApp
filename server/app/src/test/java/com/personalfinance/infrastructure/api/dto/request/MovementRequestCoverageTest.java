@@ -22,10 +22,10 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
- * H1. Que los once tipos de movimiento sigan siendo los mismos once en todas
+ * H1. Que los doce tipos de movimiento sigan siendo los mismos doce en todas
  * partes.
  *
- * <p>Hay tres listas de once que tienen que decir lo mismo: los
+ * <p>Hay tres listas de doce que tienen que decir lo mismo: los
  * {@code permits} de {@link MovementRequest}, los {@code @JsonSubTypes} de esa
  * misma interfaz, y los {@code permits} de {@link MovementCommand}. El
  * compilador vigila la primera y la tercera. La de Jackson no la vigila nadie,
@@ -40,20 +40,20 @@ import org.junit.jupiter.api.Test;
  * no es posicional sino por nombre: una misma palabra para una misma cosa en
  * las dos capas.
  */
-@DisplayName("Los once tipos de movimiento")
+@DisplayName("Los doce tipos de movimiento")
 class MovementRequestCoverageTest {
 
-    private static final int HOW_MANY = 11;
+    private static final int HOW_MANY = 12;
 
     @Test
-    @DisplayName("H1 · la interfaz sella exactamente once")
+    @DisplayName("H1 · la interfaz sella exactamente doce")
     void thereAreElevenSealedTypes() {
         assertThat(MovementRequest.class.getPermittedSubclasses()).hasSize(HOW_MANY);
         assertThat(MovementCommand.class.getPermittedSubclasses()).hasSize(HOW_MANY);
     }
 
     @Test
-    @DisplayName("H1 · y Jackson conoce esos mismos once")
+    @DisplayName("H1 · y Jackson conoce esos mismos doce")
     void jacksonKnowsTheSameEleven() {
         JsonSubTypes declared = MovementRequest.class.getAnnotation(JsonSubTypes.class);
         assertThat(declared).as("la interfaz declara sus subtipos").isNotNull();
@@ -90,7 +90,7 @@ class MovementRequestCoverageTest {
                 .collect(Collectors.toSet());
 
         assertThat(built)
-                .as("los once comandos sellados, sin repetir ninguno")
+                .as("los doce comandos sellados, sin repetir ninguno")
                 .containsExactlyInAnyOrder(MovementCommand.class.getPermittedSubclasses());
     }
 

@@ -1,0 +1,19 @@
+-- V8: tarjetas de crédito (8a-bis).
+--
+-- Una tarjeta es una deuda que no es de nadie: lo que se le debe al banco por
+-- lo que ya se compró con ella. Es un tipo de cuenta propio y no un PAYABLE
+-- sin persona, porque mezclada con lo que se le debe a alguien ensuciaría la
+-- vista de personas y el total de «debo».
+--
+-- Lo que no cambia, a propósito:
+-- * accounts_person_only_on_person_types (V1) enumera los tres tipos que
+--   pueden ser de alguien, así que una tarjeta queda fuera sin tocarlo.
+-- * Los triggers de la V3 ya impiden que una cuenta cambie de tipo: una
+--   tarjeta no puede volverse una cuenta de plata ni al revés.
+-- * Que una tarjeta con deuda no se archive es una regla del dominio
+--   (requiresZeroBalanceToArchive), igual que para las demás cuentas que
+--   guardan saldo, y como ellas no tiene red en SQL: cruza filas.
+--
+-- ADD VALUE va solo en esta migración: Postgres no deja usar el valor nuevo en
+-- la misma transacción que lo agrega.
+ALTER TYPE account_type ADD VALUE 'CREDIT_CARD';

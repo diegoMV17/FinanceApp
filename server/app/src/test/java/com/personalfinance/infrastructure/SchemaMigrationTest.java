@@ -93,7 +93,8 @@ class SchemaMigrationTest extends PostgresIntegrationTest {
                     "SELECT description FROM flyway_schema_history WHERE success",
                     String.class);
 
-            assertThat(applied).contains("esquema inicial", "limites de entrada", "personas");
+            assertThat(applied).contains(
+                    "esquema inicial", "limites de entrada", "personas", "tarjetas de credito");
         }
 
         @Test
@@ -278,6 +279,18 @@ class SchemaMigrationTest extends PostgresIntegrationTest {
             assertThatThrownBy(() -> jdbc.update(
                     "INSERT INTO accounts (id, type, name, person_id) "
                             + "VALUES (?::uuid, 'EXPENSE', 'Mal', ?::uuid)",
+                    newId(), newId()))
+                    .hasStackTraceContaining("accounts_person_only_on_person_types");
+        }
+
+        @Test
+        @DisplayName("P67 · y una tarjeta de crédito se guarda, pero tampoco es de nadie")
+        void aCardIsNobodys() {
+            openAccount(newId(), "CREDIT_CARD", "Tarjeta NU");
+
+            assertThatThrownBy(() -> jdbc.update(
+                    "INSERT INTO accounts (id, type, name, person_id) "
+                            + "VALUES (?::uuid, 'CREDIT_CARD', 'Otra', ?::uuid)",
                     newId(), newId()))
                     .hasStackTraceContaining("accounts_person_only_on_person_types");
         }

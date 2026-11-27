@@ -22,6 +22,8 @@ class DashboardScreen extends ConsumerWidget {
 
   static const Key moneyReallyMineKey = Key('money-really-mine');
   static const Key waitingKey = Key('waiting-not-counted');
+  static const Key balancesKey = Key('balances');
+  static const Key cardsKey = Key('credit-cards');
 
   /// Ir a las cuentas: es de otra funcionalidad, así que lo resuelve quien
   /// arma la app.
@@ -89,6 +91,7 @@ class _Content extends StatelessWidget {
   Widget build(BuildContext context) {
     final Dashboard dashboard = reading.value;
     final List<AccountBalance> balances = _visible(dashboard.balances).toList();
+    final List<AccountBalance> cards = _cards(dashboard.balances).toList();
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 4, 16, 104),
       children: <Widget>[
@@ -109,7 +112,7 @@ class _Content extends StatelessWidget {
           _gap,
         ],
         // Sin cuentas no hay nada que mirar todavía: lo primero es abrirlas.
-        if (balances.isEmpty) ...<Widget>[
+        if (balances.isEmpty && cards.isEmpty) ...<Widget>[
           Card(
             child: EmptyState(
               icon: Icons.account_balance_wallet_outlined,
@@ -162,45 +165,71 @@ class _Content extends StatelessWidget {
         _gap,
         if (balances.isNotEmpty)
           SectionCard(
+            key: DashboardScreen.balancesKey,
             title: 'Saldos',
             padding: const EdgeInsets.fromLTRB(0, 16, 0, 8),
             child: Column(
               children: <Widget>[
                 for (final AccountBalance line in balances)
-                  ListTile(
-                    leading: CircleAvatar(
-                      backgroundColor: Theme.of(context)
-                          .colorScheme
-                          .secondaryContainer,
-                      child: Icon(
-                        iconForKind(line.account.kind),
-                        color: Theme.of(context)
-                            .colorScheme
-                            .onSecondaryContainer,
-                        size: 20,
-                      ),
-                    ),
-                    title: Text(line.account.name),
-                    subtitle: Text(line.account.kind.label),
-                    trailing: MoneyText(line.balance),
-                  ),
+                  _balanceTile(context, line, MoneyRole.neutral),
               ],
             ),
           ),
+        // Lo que se le debe a cada tarjeta, aparte: es deuda y no plata, y
+        // va en el color de lo que debo.
+        if (cards.isNotEmpty) ...<Widget>[
+          if (balances.isNotEmpty) _gap,
+          SectionCard(
+            key: DashboardScreen.cardsKey,
+            title: 'Tarjetas',
+            padding: const EdgeInsets.fromLTRB(0, 16, 0, 8),
+            child: Column(
+              children: <Widget>[
+                for (final AccountBalance line in cards)
+                  _balanceTile(context, line, MoneyRole.expense),
+              ],
+            ),
+          ),
+        ],
       ],
     );
   }
 
+  static Widget _balanceTile(
+    BuildContext context,
+    AccountBalance line,
+    MoneyRole role,
+  ) => ListTile(
+    leading: CircleAvatar(
+      backgroundColor: Theme.of(context).colorScheme.secondaryContainer,
+      child: Icon(
+        iconForKind(line.account.kind),
+        color: Theme.of(context).colorScheme.onSecondaryContainer,
+        size: 20,
+      ),
+    ),
+    title: Text(line.account.name),
+    subtitle: Text(line.account.kind.label),
+    trailing: MoneyText(line.balance, role: role),
+  );
+
   /// Las cuentas de plata, lo que me deben, lo que debo y la plata de otros;
-  /// las categorías tienen su gráfico. Las archivadas no se listan.
+  /// las categorías tienen su gráfico y las tarjetas su grupo. Las archivadas
+  /// no se listan.
   static Iterable<AccountBalance> _visible(List<AccountBalance> all) =>
       all.where(
         (AccountBalance b) =>
             !b.account.isArchived &&
             b.account.kind != AccountKind.expense &&
             b.account.kind != AccountKind.income &&
-            b.account.kind != AccountKind.equity,
+            b.account.kind != AccountKind.equity &&
+            b.account.kind != AccountKind.creditCard,
       );
+
+  static Iterable<AccountBalance> _cards(List<AccountBalance> all) => all.where(
+    (AccountBalance b) =>
+        !b.account.isArchived && b.account.kind == AccountKind.creditCard,
+  );
 }
 
 /// La cifra principal, sobre el verde de la app.

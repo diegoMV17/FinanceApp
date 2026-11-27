@@ -37,6 +37,14 @@ void main() {
         const AccountRef(id: 'e', name: 'Mercado', kind: AccountKind.expense),
         Money.ofCents(99),
       ),
+      AccountBalance(
+        const AccountRef(
+          id: 'c',
+          name: 'Tarjeta NU',
+          kind: AccountKind.creditCard,
+        ),
+        Money.ofCents(32000000),
+      ),
     ],
     overTime: <MonthSummary>[november],
     expensesByCategory: <CategoryTotal>[
@@ -55,6 +63,7 @@ void main() {
     WidgetTester tester, {
     RequestFailure? stale,
     int waiting = 0,
+    Dashboard? showing,
   }) async {
     // Alto, para que la lista construya todo sin desplazarse.
     tester.view.physicalSize = const Size(1080, 6000);
@@ -63,7 +72,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: fixedScreens(
-          dashboard: Reading<Dashboard>(dashboard, readAt, stale),
+          dashboard: Reading<Dashboard>(showing ?? dashboard, readAt, stale),
           waiting: waiting,
         ),
         child: MaterialApp(
@@ -150,6 +159,51 @@ void main() {
     expect(colorOf(r'$ 5.000.000,00'), colors.income);
     expect(colorOf(r'$ 12.500,50'), colors.expense);
     expect(colorOf(r'-$ 25,00'), theme.colorScheme.onSurface);
+  });
+
+  testWidgets('las tarjetas van en su grupo, con lo que se debe en el color '
+      'de lo que debo', (WidgetTester tester) async {
+    await pump(tester);
+    final FinanceColors colors = Theme.of(
+      tester.element(find.byType(DashboardScreen)),
+    ).extension<FinanceColors>()!;
+    final Finder cards = find.byKey(DashboardScreen.cardsKey);
+    final Finder balances = find.byKey(DashboardScreen.balancesKey);
+
+    expect(
+      find.descendant(of: cards, matching: find.text('Tarjeta NU')),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: balances, matching: find.text('Tarjeta NU')),
+      findsNothing,
+    );
+    final Text debt = tester.widget<Text>(
+      find.descendant(of: cards, matching: find.text(r'$ 320.000,00')),
+    );
+    expect(debt.style?.color, colors.expense);
+  });
+
+  testWidgets('sin tarjetas, no hay grupo de tarjetas', (
+    WidgetTester tester,
+  ) async {
+    await pump(
+      tester,
+      showing: Dashboard(
+        summary: november,
+        balances: <AccountBalance>[
+          AccountBalance(
+            const AccountRef(id: 'a', name: 'Nequi', kind: AccountKind.asset),
+            Money.ofCents(100),
+          ),
+        ],
+        overTime: <MonthSummary>[november],
+        expensesByCategory: const <CategoryTotal>[],
+      ),
+    );
+
+    expect(find.byKey(DashboardScreen.cardsKey), findsNothing);
+    expect(find.byKey(DashboardScreen.balancesKey), findsOneWidget);
   });
 
   testWidgets('el eje de la serie se marca con las cifras del servidor', (

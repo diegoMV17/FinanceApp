@@ -8,6 +8,7 @@ IconData iconForKind(AccountKind kind) => switch (kind) {
   AccountKind.receivable => Icons.call_received,
   AccountKind.payable => Icons.call_made,
   AccountKind.thirdPartyFund => Icons.volunteer_activism_outlined,
+  AccountKind.creditCard => Icons.credit_card,
   AccountKind.income => Icons.trending_up,
   AccountKind.expense => Icons.shopping_bag_outlined,
   AccountKind.equity => Icons.account_balance_outlined,

@@ -78,6 +78,28 @@ void main() {
     },
   );
 
+  test(
+    'pagar la tarjeta queda en la cola, desde la cuenta hacia la tarjeta',
+    () async {
+      const String card = '0a3c0f5e-2b1d-4c8e-9f00-000000000003';
+      viewModel()
+        ..chooseKind(MovementKind.payCard)
+        ..chooseFirst(nequi)
+        ..chooseSecond(card);
+
+      await viewModel().submit(amount: '120.000', description: 'Pago NU');
+
+      expect(form.read().submit.isDone, isTrue);
+      final Map<String, Object?> body =
+          jsonDecode((await queued()).single.body) as Map<String, Object?>;
+      expect(body['type'], 'PAY_CARD');
+      expect(body['from'], nequi);
+      expect(body['card'], card);
+      expect(body['amountInCents'], 12000000);
+      expect(body['description'], 'Pago NU');
+    },
+  );
+
   test('encolado todavía no cambia el libro: eso lo dice el envío', () async {
     viewModel()
       ..chooseFirst(nequi)
@@ -223,13 +245,14 @@ void main() {
       AccountRef(id: 'e', name: 'Comida', kind: AccountKind.expense),
       AccountRef(id: 'i', name: 'Sueldo', kind: AccountKind.income),
       AccountRef(id: 'q', name: 'Patrimonio', kind: AccountKind.equity),
+      AccountRef(id: 'c', name: 'Tarjeta NU', kind: AccountKind.creditCard),
     ];
 
     String names(List<AccountRef> refs) =>
         refs.map((AccountRef a) => a.id).join();
 
-    test('gasto: de una cuenta de plata a una categoría de gasto', () {
-      expect(names(MovementKind.expense.firstOptions(accounts)), 'a');
+    test('gasto: de una cuenta de plata o una tarjeta a una categoría', () {
+      expect(names(MovementKind.expense.firstOptions(accounts)), 'ac');
       expect(names(MovementKind.expense.secondOptions(accounts)), 'e');
     });
 
@@ -238,12 +261,19 @@ void main() {
       expect(names(MovementKind.income.secondOptions(accounts)), 'i');
     });
 
-    test('transferencia: entre cuentas de plata', () {
+    test('transferencia: entre cuentas de plata, nunca una tarjeta', () {
+      expect(names(MovementKind.transfer.firstOptions(accounts)), 'a');
       expect(names(MovementKind.transfer.secondOptions(accounts)), 'a');
     });
 
-    test('saldo inicial: contra el patrimonio', () {
+    test('saldo inicial: de plata o de una tarjeta, contra el patrimonio', () {
+      expect(names(MovementKind.openingBalance.firstOptions(accounts)), 'ac');
       expect(names(MovementKind.openingBalance.secondOptions(accounts)), 'q');
+    });
+
+    test('pagar la tarjeta: desde una cuenta de plata hacia una tarjeta', () {
+      expect(names(MovementKind.payCard.firstOptions(accounts)), 'a');
+      expect(names(MovementKind.payCard.secondOptions(accounts)), 'c');
     });
   });
 }

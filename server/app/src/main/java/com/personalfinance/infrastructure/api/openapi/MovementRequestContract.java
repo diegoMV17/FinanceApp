@@ -23,14 +23,14 @@ import org.springdoc.core.customizers.OpenApiCustomizer;
  * {@code type} escrito, no deducido.
  *
  * <p>Lo que springdoc saca solo de {@code @JsonTypeInfo} es la forma de la
- * herencia de Java: un padre con el discriminador y once hijos que se componen
+ * herencia de Java: un padre con el discriminador y doce hijos que se componen
  * con él por {@code allOf}, más un {@code oneOf} suelto repetido donde se usa.
  * Es correcto, y es el caso que peor manejan los generadores: la referencia del
  * hijo al padre y del padre a los hijos es circular, y el {@code type} no
  * aparece en ningún hijo, así que un cliente generado no sabe escribirlo.
  *
  * <p>Esto lo reescribe en la forma plana: {@code MovementRequest} es un
- * {@code oneOf} de los once con {@code discriminator.mapping}; cada variante
+ * {@code oneOf} de los doce con {@code discriminator.mapping}; cada variante
  * declara {@code type} obligatorio con su único valor; y donde springdoc dejó
  * el {@code oneOf} suelto (el cuerpo de {@code POST /api/movements} y la
  * {@code correction} de una corrección) queda una referencia a
@@ -38,7 +38,7 @@ import org.springdoc.core.customizers.OpenApiCustomizer;
  *
  * <p>La lista sale de {@code @JsonSubTypes}, la misma que usa Jackson para
  * leer el cuerpo y que {@code MovementRequestCoverageTest} compara con los
- * {@code permits}: el contrato no tiene su propia copia de los once.
+ * {@code permits}: el contrato no tiene su propia copia de los doce.
  */
 final class MovementRequestContract implements OpenApiCustomizer {
 

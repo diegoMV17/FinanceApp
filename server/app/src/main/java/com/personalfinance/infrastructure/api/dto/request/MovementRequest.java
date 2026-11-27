@@ -7,10 +7,10 @@ import com.personalfinance.application.command.MovementCommand;
 /**
  * Un movimiento tal como llega por HTTP.
  *
- * <p>Un solo endpoint para los once tipos de movimiento, discriminados por el
+ * <p>Un solo endpoint para los doce tipos de movimiento, discriminados por el
  * campo {@code type}. El mismo DTO se anida dentro del cuerpo de una
  * corrección, que es la otra razón por la que tiene que ser una sola forma y no
- * once endpoints.
+ * doce endpoints.
  *
  * <p>Los subtipos se declaran uno por uno. Nunca tipado por omisión: eso
  * dejaría que el cuerpo nombrara la clase a instanciar, que es como se
@@ -40,7 +40,8 @@ import com.personalfinance.application.command.MovementCommand;
     @JsonSubTypes.Type(value = RepayDebtRequest.class, name = "REPAY_DEBT"),
     @JsonSubTypes.Type(value = ReceiveThirdPartyMoneyRequest.class, name = "RECEIVE_THIRD_PARTY_MONEY"),
     @JsonSubTypes.Type(value = SpendThirdPartyMoneyRequest.class, name = "SPEND_THIRD_PARTY_MONEY"),
-    @JsonSubTypes.Type(value = ReturnThirdPartyMoneyRequest.class, name = "RETURN_THIRD_PARTY_MONEY")
+    @JsonSubTypes.Type(value = ReturnThirdPartyMoneyRequest.class, name = "RETURN_THIRD_PARTY_MONEY"),
+    @JsonSubTypes.Type(value = PayCardRequest.class, name = "PAY_CARD")
 })
 public sealed interface MovementRequest permits
         OpeningBalanceRequest,
@@ -53,7 +54,8 @@ public sealed interface MovementRequest permits
         RepayDebtRequest,
         ReceiveThirdPartyMoneyRequest,
         SpendThirdPartyMoneyRequest,
-        ReturnThirdPartyMoneyRequest {
+        ReturnThirdPartyMoneyRequest,
+        PayCardRequest {
 
     /** El comando del caso de uso, con los tipos del dominio. */
     MovementCommand toCommand();

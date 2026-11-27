@@ -47,6 +47,12 @@ void main() {
     );
   });
 
+  test('una tarjeta de crédito se llama así y no es de nadie', () {
+    expect(AccountKind.fromWire('CREDIT_CARD'), AccountKind.creditCard);
+    expect(AccountKind.creditCard.label, 'Tarjeta de crédito');
+    expect(AccountKind.creditCard.belongsToAPerson, isFalse);
+  });
+
   test('cada tipo tiene su nombre en español', () {
     expect(
       AccountKind.values.map((AccountKind k) => k.label).toSet(),

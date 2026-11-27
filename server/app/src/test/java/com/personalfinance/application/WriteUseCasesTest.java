@@ -15,6 +15,7 @@ import com.personalfinance.application.command.ArchivePersonCommand;
 import com.personalfinance.application.command.BorrowCommand;
 import com.personalfinance.application.command.CancelTransactionCommand;
 import com.personalfinance.application.command.ExpenseCommand;
+import com.personalfinance.application.command.PayCardCommand;
 import com.personalfinance.application.command.LinkAccountToPersonCommand;
 import com.personalfinance.application.command.MovementCommand;
 import com.personalfinance.application.command.OpenAccountCommand;
@@ -652,6 +653,71 @@ class WriteUseCasesTest extends PostgresIntegrationTest {
             assertThat(again.value().archivedAt()).isEqualTo(archived.value().archivedAt());
             assertThat(archivedAtOfPerson(juan)).isNotNull();
             assertThat(auditCount()).isEqualTo(auditBefore);
+        }
+    }
+
+    @Nested
+    @DisplayName("con una tarjeta de crédito")
+    class CreditCards {
+
+        private AccountId card;
+
+        @BeforeEach
+        void openTheCard() {
+            card = open(AccountType.CREDIT_CARD, "Tarjeta NU");
+            recordMovement.execute(new OpeningBalanceCommand(
+                    TransactionId.generate(), TODAY, bank, equity, ofUnits(1_000_000)));
+            recordMovement.execute(new OpeningBalanceCommand(
+                    TransactionId.generate(), TODAY, card, equity, ofUnits(300_000)));
+        }
+
+        @Test
+        @DisplayName("U33 · pagarla la aplica, la audita, y el reintento cuenta una sola vez")
+        void payingTheCard() {
+            TransactionId id = TransactionId.generate();
+            PayCardCommand payment = new PayCardCommand(
+                    id, TODAY, "Pago NU", bank, card, ofUnits(100_000));
+
+            Outcome<Transaction> outcome = recordMovement.execute(payment);
+            Outcome<Transaction> again = recordMovement.execute(payment);
+
+            assertThat(outcome.status()).isEqualTo(APPLIED);
+            assertThat(again.status()).isEqualTo(ALREADY_APPLIED);
+            assertThat(balanceOf(card)).isEqualTo(ofUnits(200_000));
+            assertThat(balanceOf(bank)).isEqualTo(ofUnits(900_000));
+            assertThat(auditFor(id.value()))
+                    .extracting("entity", "action", "source")
+                    .containsExactly(tuple("transaction", "CREATE", "APP"));
+        }
+
+        @Test
+        @DisplayName("U34 · el mismo id pagando otro monto es un conflicto y no cambia nada")
+        void theSameIdWithAnotherAmount() {
+            TransactionId id = TransactionId.generate();
+            recordMovement.execute(new PayCardCommand(
+                    id, TODAY, "Pago NU", bank, card, ofUnits(100_000)));
+
+            assertThatExceptionOfType(DuplicateTransactionException.class)
+                    .isThrownBy(() -> recordMovement.execute(new PayCardCommand(
+                            id, TODAY, "Pago NU", bank, card, ofUnits(150_000))));
+
+            assertThat(balanceOf(card)).isEqualTo(ofUnits(200_000));
+        }
+
+        /** El gasto cuenta el día que se pasa la tarjeta; pagarla no es otro gasto. */
+        @Test
+        @DisplayName("U35 · el resumen cuenta el gasto con la tarjeta una vez y resta su deuda")
+        void theSummaryCountsTheSwipeOnce() {
+            recordMovement.execute(new ExpenseCommand(
+                    TransactionId.generate(), TODAY, "Spotify", card, food, ofUnits(20_000)));
+            recordMovement.execute(new PayCardCommand(
+                    TransactionId.generate(), TODAY, "Pago NU", bank, card, ofUnits(320_000)));
+
+            BookSummary summary = readBook.summary(TODAY);
+
+            assertThat(summary.expensesThatMonth()).isEqualTo(ofUnits(20_000));
+            assertThat(summary.totalFor(AccountType.CREDIT_CARD)).isEqualTo(Money.ZERO);
+            assertThat(summary.moneyReallyMine()).isEqualTo(ofUnits(680_000));
         }
     }
 

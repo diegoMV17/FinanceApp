@@ -228,6 +228,7 @@ class _RecordMovementScreenState extends ConsumerState<RecordMovementScreen> {
     MovementKind.expense => Icons.north_east,
     MovementKind.income => Icons.south_west,
     MovementKind.transfer => Icons.swap_horiz,
+    MovementKind.payCard => Icons.credit_score,
     MovementKind.openingBalance => Icons.flag_outlined,
   };
 

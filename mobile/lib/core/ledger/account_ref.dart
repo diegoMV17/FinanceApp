@@ -29,12 +29,13 @@ class AccountRef {
   int get hashCode => Object.hash(id, name, kind, isArchived);
 }
 
-/// Los siete tipos de cuenta del servidor (`AccountType` en el contrato).
+/// Los ocho tipos de cuenta del servidor (`AccountType` en el contrato).
 enum AccountKind {
   asset('ASSET', 'Cuenta de plata'),
   receivable('RECEIVABLE', 'Me deben'),
   payable('PAYABLE', 'Debo'),
   thirdPartyFund('THIRD_PARTY_FUND', 'Plata de otro'),
+  creditCard('CREDIT_CARD', 'Tarjeta de crédito'),
   income('INCOME', 'Categoría de ingreso'),
   expense('EXPENSE', 'Categoría de gasto'),
   equity('EQUITY', 'Patrimonio');

@@ -91,6 +91,26 @@ final class TransferDraft extends MovementDraft {
   final String to;
 }
 
+/// El pago de una tarjeta de crédito desde una cuenta de plata. No es un
+/// gasto: el gasto fue el día que se pasó la tarjeta.
+final class PayCardDraft extends MovementDraft {
+  PayCardDraft({
+    required super.id,
+    required super.date,
+    required super.amount,
+    required String description,
+    required this.from,
+    required this.card,
+  }) : description = checkedDescription(description) {
+    _requireAccount('from', from);
+    _requireAccount('card', card);
+  }
+
+  final String description;
+  final String from;
+  final String card;
+}
+
 /// Lo que una cuenta ya tenía el día que empezó a llevarse aquí, contra el
 /// patrimonio. No lleva descripción: el contrato no la tiene.
 final class OpeningBalanceDraft extends MovementDraft {

@@ -113,6 +113,27 @@ void main() {
     coversTheContract(json, 'OpeningBalanceRequest');
   });
 
+  test('pagar la tarjeta: desde from hacia card, sin cruzarlas', () {
+    final Map<String, Object?> json = wire(
+      PayCardDraft(
+        id: id,
+        date: date,
+        amount: amount,
+        description: 'Pago NU',
+        from: a,
+        card: b,
+      ),
+    );
+
+    expect(json['type'], 'PAY_CARD');
+    expect(json['from'], a);
+    expect(json['card'], b);
+    expect(json['amountInCents'], 1234567);
+    expect(json['description'], 'Pago NU');
+    expect(json['date'], '2026-10-31');
+    coversTheContract(json, 'PayCardRequest');
+  });
+
   test('lo traducido se puede encolar: el id es el del cuerpo', () {
     final MovementRequest request = movementRequestOf(
       ExpenseDraft(

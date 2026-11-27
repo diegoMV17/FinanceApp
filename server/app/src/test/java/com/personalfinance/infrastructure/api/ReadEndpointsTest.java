@@ -82,7 +82,7 @@ class ReadEndpointsTest extends PostgresIntegrationTest {
     class TheSummary {
 
         @Test
-        @DisplayName("H4 · trae la plata que de verdad es suya y los siete tipos")
+        @DisplayName("H4 · trae la plata que de verdad es suya y todos los tipos")
         void bringsTheMoneyAndEveryType() throws Exception {
             JsonNode body = read(ask("/api/summary?asOf=2026-12-31"));
 

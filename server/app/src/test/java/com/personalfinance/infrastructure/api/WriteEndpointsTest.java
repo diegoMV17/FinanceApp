@@ -1,6 +1,7 @@
 package com.personalfinance.infrastructure.api;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 
 import com.personalfinance.infrastructure.PostgresIntegrationTest;
@@ -231,6 +232,80 @@ class WriteEndpointsTest extends PostgresIntegrationTest {
     }
 
     @Nested
+    @DisplayName("con una tarjeta de crédito")
+    class WithACreditCard {
+
+        private UUID card;
+
+        @BeforeEach
+        void openTheCardWithItsDebt() throws Exception {
+            card = openAccount("CREDIT_CARD", "Tarjeta NU");
+            send("/api/movements", openingBalance(bank, 100_000_000));
+            send("/api/movements", openingBalance(card, 30_000_000));
+        }
+
+        @Test
+        @DisplayName("H30 · gastar con ella y pagarla: la deuda sube y baja, el gasto cuenta una vez")
+        void swipeAndPay() throws Exception {
+            MvcResult swiped = send("/api/movements", """
+                    {"type":"EXPENSE","id":"%s","date":"%s","description":"Spotify",
+                     "paidFrom":"%s","category":"%s","amountInCents":2000000}"""
+                    .formatted(UUID.randomUUID(), TODAY, card, food));
+            MvcResult paid = send("/api/movements", payCard(UUID.randomUUID(), bank, card, 12_000_000));
+
+            assertThat(swiped.getResponse().getStatus()).isEqualTo(201);
+            assertThat(paid.getResponse().getStatus()).isEqualTo(201);
+            assertThat(read(paid).get("source").asString()).isEqualTo("APP");
+
+            JsonNode summary = json.readTree(mvc.perform(get("/api/summary")
+                            .param("asOf", TODAY)
+                            .header(HttpHeaders.AUTHORIZATION, "Bearer " + TEST_API_TOKEN))
+                    .andReturn().getResponse().getContentAsString());
+            assertThat(summary.get("totalsByTypeInCents").get("CREDIT_CARD").asLong())
+                    .as("300.000 + 20.000 - 120.000").isEqualTo(20_000_000);
+            assertThat(summary.get("expensesThatMonthInCents").asLong()).isEqualTo(2_000_000);
+            assertThat(summary.get("moneyReallyMineInCents").asLong())
+                    .as("880.000 en el banco menos 200.000 de la tarjeta").isEqualTo(68_000_000);
+        }
+
+        @Test
+        @DisplayName("H31 · pagar una tarjeta con otra tarjeta es 422, no 500")
+        void payingFromACard() throws Exception {
+            UUID other = openAccount("CREDIT_CARD", "Tarjeta Falabella");
+
+            MvcResult refused = send("/api/movements", payCard(UUID.randomUUID(), other, card, 1_000));
+
+            assertThat(refused.getResponse().getStatus()).isEqualTo(422);
+            assertThat(read(refused).get("type").asString())
+                    .isEqualTo("urn:finance:error:unexpected-account-type");
+        }
+
+        @Test
+        @DisplayName("H32 · una tarjeta que todavía debe no se archiva")
+        void aCardWithDebtStaysOpen() throws Exception {
+            MvcResult refused = archive("/api/accounts/" + card + "/archivals");
+
+            assertThat(refused.getResponse().getStatus()).isEqualTo(409);
+            assertThat(read(refused).get("type").asString())
+                    .isEqualTo("urn:finance:error:account-still-holds-money");
+        }
+
+        private String openingBalance(UUID account, long cents) {
+            return """
+                    {"type":"OPENING_BALANCE","id":"%s","date":"%s","account":"%s",
+                     "equity":"%s","amountInCents":%d}"""
+                    .formatted(UUID.randomUUID(), TODAY, account, equity, cents);
+        }
+
+        private String payCard(UUID id, UUID from, UUID to, long cents) {
+            return """
+                    {"type":"PAY_CARD","id":"%s","date":"%s","description":"Pago NU",
+                     "from":"%s","card":"%s","amountInCents":%d}"""
+                    .formatted(id, TODAY, from, to, cents);
+        }
+    }
+
+    @Nested
     @DisplayName("al registrar un movimiento")
     class WhenRecordingAMovement {
 
@@ -296,14 +371,15 @@ class WriteEndpointsTest extends PostgresIntegrationTest {
         }
 
         @Test
-        @DisplayName("H3 · los once tipos se registran")
-        void allElevenTypesWork() throws Exception {
+        @DisplayName("H3 · los doce tipos se registran")
+        void allTwelveTypesWork() throws Exception {
             // Un movimiento de cada tipo, para que ninguno quede sin pasar por
             // HTTP ni una vez. Si uno falta en @JsonSubTypes, aquí se cae.
             UUID juan = openAccount("RECEIVABLE", "Juan");
             UUID salary = openAccount("INCOME", "Salario");
             UUID momsFund = openAccount("THIRD_PARTY_FUND", "Mamá");
             UUID cash = openAccount("ASSET", "Efectivo");
+            UUID card = openAccount("CREDIT_CARD", "Tarjeta NU");
 
             send("/api/movements", """
                     {"type":"OPENING_BALANCE","id":"%s","date":"%s","account":"%s",
@@ -324,6 +400,8 @@ class WriteEndpointsTest extends PostgresIntegrationTest {
                 new Case("RECEIVE_THIRD_PARTY_MONEY", "fund", momsFund.toString(), "heldIn", bank.toString()),
                 new Case("SPEND_THIRD_PARTY_MONEY", "fund", momsFund.toString(), "paidFrom", bank.toString()),
                 new Case("RETURN_THIRD_PARTY_MONEY", "fund", momsFund.toString(), "paidFrom", bank.toString()),
+                new Case("EXPENSE", "paidFrom", card.toString(), "category", food.toString()),
+                new Case("PAY_CARD", "from", bank.toString(), "card", card.toString()),
             };
 
             for (Case one : cases) {

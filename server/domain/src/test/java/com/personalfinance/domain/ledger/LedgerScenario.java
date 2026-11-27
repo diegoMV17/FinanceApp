@@ -31,10 +31,14 @@ final class LedgerScenario {
         REPAY_DEBT,
         RECEIVE_FUND,
         SPEND_FUND,
-        RETURN_FUND;
+        RETURN_FUND,
+        CARD_EXPENSE,
+        PAY_CARD;
 
         static final List<OperationKind> THIRD_PARTY_ONLY =
                 List.of(RECEIVE_FUND, SPEND_FUND, RETURN_FUND);
+
+        static final List<OperationKind> CARD_ONLY = List.of(CARD_EXPENSE, PAY_CARD);
     }
 
     /** One generated instruction. Amounts are always positive, as a person states them. */
@@ -53,9 +57,10 @@ final class LedgerScenario {
     final Account brother = chart.open(AccountType.PAYABLE, "Hermano");
     final Account momsFund = chart.open(AccountType.THIRD_PARTY_FUND, "Mamá");
     final Account openingBalances = chart.open(AccountType.EQUITY, "Saldos iniciales");
+    final Account nuCard = chart.open(AccountType.CREDIT_CARD, "Tarjeta NU");
 
     final List<Account> allAccounts = List.of(
-            bancolombia, nequi, cash, food, salary, juan, brother, momsFund, openingBalances);
+            bancolombia, nequi, cash, food, salary, juan, brother, momsFund, openingBalances, nuCard);
 
     /**
      * Puts a person behind every account that is somebody, and hands them back.
@@ -106,6 +111,10 @@ final class LedgerScenario {
                     on, what, momsFund, cash, amount);
             case RETURN_FUND -> Operations.returnThirdPartyMoney(TransactionId.generate(),
                     on, what, momsFund, cash, amount);
+            case CARD_EXPENSE -> Operations.expense(TransactionId.generate(),
+                    on, what, nuCard, food, amount);
+            case PAY_CARD -> Operations.payCard(TransactionId.generate(),
+                    on, what, bancolombia, nuCard, amount);
         };
     }
 

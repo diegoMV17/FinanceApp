@@ -5,7 +5,7 @@ import com.personalfinance.domain.ledger.Transaction;
 import com.personalfinance.domain.ledger.TransactionId;
 
 /**
- * Lo que alguien pide registrar: una de las once operaciones, con sus cuentas
+ * Lo que alguien pide registrar: una de las doce operaciones, con sus cuentas
  * por id y su monto.
  *
  * <p>Cada operación es un record propio y cada uno sabe construir su
@@ -33,7 +33,8 @@ public sealed interface MovementCommand permits
         RepayDebtCommand,
         ReceiveThirdPartyMoneyCommand,
         SpendThirdPartyMoneyCommand,
-        ReturnThirdPartyMoneyCommand {
+        ReturnThirdPartyMoneyCommand,
+        PayCardCommand {
 
     /** El id que trae el cliente, por el que se reconoce un reintento. */
     TransactionId id();

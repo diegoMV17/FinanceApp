@@ -16,6 +16,8 @@ import 'lend_request.dart';
 import 'lend_request_type.dart';
 import 'opening_balance_request.dart';
 import 'opening_balance_request_type.dart';
+import 'pay_card_request.dart';
+import 'pay_card_request_type.dart';
 import 'receive_third_party_money_request.dart';
 import 'receive_third_party_money_request_type.dart';
 import 'repay_debt_request.dart';
@@ -53,6 +55,7 @@ extension MovementRequestSealedDeserializer on MovementRequest {
       MovementRequestIncomeRequest: 'INCOME',
       MovementRequestLendRequest: 'LEND',
       MovementRequestOpeningBalanceRequest: 'OPENING_BALANCE',
+      MovementRequestPayCardRequest: 'PAY_CARD',
       MovementRequestReceiveThirdPartyMoneyRequest: 'RECEIVE_THIRD_PARTY_MONEY',
       MovementRequestRepayDebtRequest: 'REPAY_DEBT',
       MovementRequestReturnThirdPartyMoneyRequest: 'RETURN_THIRD_PARTY_MONEY',
@@ -74,6 +77,8 @@ extension MovementRequestSealedDeserializer on MovementRequest {
         MovementRequestLendRequest.fromJson(json),
       _ when value == effective[MovementRequestOpeningBalanceRequest] =>
         MovementRequestOpeningBalanceRequest.fromJson(json),
+      _ when value == effective[MovementRequestPayCardRequest] =>
+        MovementRequestPayCardRequest.fromJson(json),
       _ when value == effective[MovementRequestReceiveThirdPartyMoneyRequest] =>
         MovementRequestReceiveThirdPartyMoneyRequest.fromJson(json),
       _ when value == effective[MovementRequestRepayDebtRequest] =>
@@ -300,6 +305,41 @@ class MovementRequestOpeningBalanceRequest extends MovementRequest
   @override
   Map<String, dynamic> toJson() =>
       _$MovementRequestOpeningBalanceRequestToJson(this);
+}
+
+@JsonSerializable()
+class MovementRequestPayCardRequest extends MovementRequest
+    implements PayCardRequest {
+  @override
+  final int amountInCents;
+  @override
+  final String card;
+  @override
+  final String date;
+  @override
+  final String description;
+  @override
+  final String from;
+  @override
+  final String id;
+  @override
+  final PayCardRequestType type;
+
+  const MovementRequestPayCardRequest({
+    required this.amountInCents,
+    required this.card,
+    required this.date,
+    required this.description,
+    required this.from,
+    required this.id,
+    required this.type,
+  });
+
+  factory MovementRequestPayCardRequest.fromJson(Map<String, dynamic> json) =>
+      _$MovementRequestPayCardRequestFromJson(json);
+
+  @override
+  Map<String, dynamic> toJson() => _$MovementRequestPayCardRequestToJson(this);
 }
 
 @JsonSerializable()

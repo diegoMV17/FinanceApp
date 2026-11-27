@@ -17,7 +17,7 @@ import java.util.UUID;
  * dos veces la misma petición deja una sola cuenta.
  *
  * <p>El {@code type} es el enum del dominio y no una copia. No es un descuido:
- * los siete tipos de cuenta <em>son</em> el vocabulario del contrato, y un enum
+ * los ocho tipos de cuenta <em>son</em> el vocabulario del contrato, y un enum
  * paralelo sería una segunda lista que alguien tendria que acordarse de
  * actualizar. Un valor que no exista en el enum no deserializa, y eso es un 400.
  */

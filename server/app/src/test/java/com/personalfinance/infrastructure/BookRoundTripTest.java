@@ -175,6 +175,26 @@ class BookRoundTripTest extends PostgresIntegrationTest {
         }
 
         @Test
+        @DisplayName("R30 · y una tarjeta vuelve como tarjeta, con la deuda que tenía")
+        void aCardComesBackAsACard() {
+            Account nuCard = open(AccountType.CREDIT_CARD, "Tarjeta NU");
+            record(Operations.openingBalance(TransactionId.generate(),
+                    JANUARY, nuCard, equity, ofUnits(400_000)));
+            record(Operations.expense(TransactionId.generate(),
+                    TODAY, "Spotify", nuCard, food, ofUnits(20_000)));
+            record(Operations.payCard(TransactionId.generate(),
+                    TODAY, "Pago NU", bancolombia, nuCard, ofUnits(150_000)));
+
+            Book loaded = load();
+            Account same = loaded.chart().require(nuCard.id());
+
+            assertThat(same.type()).isEqualTo(AccountType.CREDIT_CARD);
+            assertThat(loaded.ledger().displayedBalanceOf(same, TODAY)).isEqualTo(ofUnits(270_000));
+            assertThat(loaded.ledger().moneyReallyMine(TODAY))
+                    .isEqualTo(written.ledger().moneyReallyMine(TODAY));
+        }
+
+        @Test
         @DisplayName("R3 · y el libro sigue cuadrando en cero")
         void theBookStillAddsUp() {
             assertThat(load().ledger().sumOfEveryEntry()).isEqualTo(Money.ZERO);

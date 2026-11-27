@@ -14,6 +14,8 @@ enum AccountType {
   payable('PAYABLE'),
   @JsonValue('THIRD_PARTY_FUND')
   thirdPartyFund('THIRD_PARTY_FUND'),
+  @JsonValue('CREDIT_CARD')
+  creditCard('CREDIT_CARD'),
   @JsonValue('INCOME')
   income('INCOME'),
   @JsonValue('EXPENSE')

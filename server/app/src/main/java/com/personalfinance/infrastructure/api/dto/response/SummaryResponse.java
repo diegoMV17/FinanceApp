@@ -15,7 +15,7 @@ import java.util.Map;
  * aplicación: cuánto de lo que hay en las cuentas es de verdad suyo, descontando
  * lo que debe y lo que solo está guardando para otro.
  *
- * <p>Los totales se devuelven con las siete claves de {@link AccountType}
+ * <p>Los totales se devuelven con las ocho claves de {@link AccountType}
  * siempre, incluso en cero. {@code ReadBook} ya los arma completos, y mantenerlo
  * así significa que un cliente nunca tiene que distinguir «este tipo no vino»
  * de «este tipo está en cero»: un gráfico se dibuja igual los dos primeros días

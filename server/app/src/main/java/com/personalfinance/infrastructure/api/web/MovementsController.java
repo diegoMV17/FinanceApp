@@ -40,7 +40,7 @@ import org.springframework.web.bind.annotation.RestController;
 /**
  * Los movimientos: registrarlos, anularlos, corregirlos y ver su historia.
  *
- * <p>Un solo endpoint para los once tipos de movimiento. El tipo lo dice el
+ * <p>Un solo endpoint para los doce tipos de movimiento. El tipo lo dice el
  * campo {@code type} del cuerpo y cada variante sabe construir su propio
  * comando, así que aquí no hay ni un {@code switch}: igual que en el dominio,
  * donde las operaciones solo se diferencian en qué cuentas tocan.

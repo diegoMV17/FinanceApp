@@ -46,7 +46,7 @@
         "type" : "object"
       },
       "AccountType" : {
-        "enum" : [ "ASSET", "RECEIVABLE", "PAYABLE", "THIRD_PARTY_FUND", "INCOME", "EXPENSE", "EQUITY" ],
+        "enum" : [ "ASSET", "RECEIVABLE", "PAYABLE", "THIRD_PARTY_FUND", "CREDIT_CARD", "INCOME", "EXPENSE", "EQUITY" ],
         "type" : "string"
       },
       "AmendMovementRequest" : {
@@ -519,6 +519,7 @@
             "INCOME" : "#/components/schemas/IncomeRequest",
             "LEND" : "#/components/schemas/LendRequest",
             "OPENING_BALANCE" : "#/components/schemas/OpeningBalanceRequest",
+            "PAY_CARD" : "#/components/schemas/PayCardRequest",
             "RECEIVE_THIRD_PARTY_MONEY" : "#/components/schemas/ReceiveThirdPartyMoneyRequest",
             "REPAY_DEBT" : "#/components/schemas/RepayDebtRequest",
             "RETURN_THIRD_PARTY_MONEY" : "#/components/schemas/ReturnThirdPartyMoneyRequest",
@@ -549,6 +550,8 @@
           "$ref" : "#/components/schemas/SpendThirdPartyMoneyRequest"
         }, {
           "$ref" : "#/components/schemas/ReturnThirdPartyMoneyRequest"
+        }, {
+          "$ref" : "#/components/schemas/PayCardRequest"
         } ]
       },
       "MovementResponse" : {
@@ -700,6 +703,44 @@
           }
         },
         "required" : [ "from", "points", "to" ],
+        "type" : "object"
+      },
+      "PayCardRequest" : {
+        "properties" : {
+          "amountInCents" : {
+            "exclusiveMinimum" : true,
+            "format" : "int64",
+            "maximum" : 1000000000000,
+            "minimum" : 0,
+            "type" : "integer"
+          },
+          "card" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "date" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "description" : {
+            "maxLength" : 200,
+            "minLength" : 0,
+            "type" : "string"
+          },
+          "from" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "id" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "type" : {
+            "enum" : [ "PAY_CARD" ],
+            "type" : "string"
+          }
+        },
+        "required" : [ "amountInCents", "card", "date", "description", "from", "id", "type" ],
         "type" : "object"
       },
       "PeopleResponse" : {

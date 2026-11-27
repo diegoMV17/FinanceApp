@@ -99,6 +99,27 @@ class LedgerPropertiesTest {
     }
 
     /**
+     * T10. With a card, what is really mine goes down by exactly what was
+     * spent, never by what was paid: paying the card only moves debt out of the
+     * bank. If paying counted, the same purchase would be spent twice.
+     */
+    @Property
+    void aCardCostsWhatYouSpendNotWhatYouPay(@ForAll("cardHistory") List<Step> history) {
+        LedgerScenario scenario = new LedgerScenario();
+        LocalDate theEnd = scenario.dayAfterStart(DAYS_COVERED);
+
+        Ledger ledger = scenario.ledgerFrom(history);
+
+        Money spent = ledger.totalFor(AccountType.EXPENSE, theEnd);
+        long swiped = history.stream()
+                .filter(step -> step.kind() == OperationKind.CARD_EXPENSE)
+                .mapToLong(Step::amount)
+                .sum();
+        assertThat(spent).isEqualTo(Money.ofUnits(swiped));
+        assertThat(ledger.moneyReallyMine(theEnd)).isEqualTo(spent.negated());
+    }
+
+    /**
      * The real meaning of cancelling: a ledger where you recorded A, B and C
      * and then cancelled B must read exactly like a ledger that only ever saw
      * A and C. Every account, every date. If these two ever disagree,
@@ -272,6 +293,11 @@ class LedgerPropertiesTest {
     @Provide
     Arbitrary<List<Step>> thirdPartyHistory() {
         return stepsDrawnFrom(OperationKind.THIRD_PARTY_ONLY).list().ofMaxSize(LONGEST_HISTORY);
+    }
+
+    @Provide
+    Arbitrary<List<Step>> cardHistory() {
+        return stepsDrawnFrom(OperationKind.CARD_ONLY).list().ofMaxSize(LONGEST_HISTORY);
     }
 
     @Provide

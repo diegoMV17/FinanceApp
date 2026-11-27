@@ -1,6 +1,7 @@
 package com.personalfinance.domain.ledger;
 
 import static com.personalfinance.domain.ledger.AccountType.ASSET;
+import static com.personalfinance.domain.ledger.AccountType.CREDIT_CARD;
 import static com.personalfinance.domain.ledger.AccountType.EQUITY;
 import static com.personalfinance.domain.ledger.AccountType.EXPENSE;
 import static com.personalfinance.domain.ledger.AccountType.INCOME;
@@ -57,13 +58,17 @@ public final class Operations {
                 Entry.of(category, amount.negated())));
     }
 
-    /** HU05, HU12. Money leaves and it was yours. */
+    /**
+     * HU05, HU12. Money leaves and it was yours. Paid with a card, it is spent
+     * the day the card is swiped: the card's debt goes up instead of the bank
+     * going down, and paying the card later is not another expense.
+     */
     public static Transaction expense(
             TransactionId id, LocalDate date, String description,
             Account paidFrom, Account category, Money amount) {
 
         requirePositive("An expense", amount);
-        requireType(paidFrom, ASSET);
+        requireType(paidFrom, ASSET, CREDIT_CARD);
         requireType(category, EXPENSE);
 
         return Transaction.record(id, date, description, TransactionSource.APP, List.of(
@@ -89,6 +94,24 @@ public final class Operations {
         return Transaction.record(id, date, description, TransactionSource.APP, List.of(
                 Entry.of(from, amount.negated()),
                 Entry.of(to, amount)));
+    }
+
+    /**
+     * 8a-bis. You pay the card from your money. Not an expense: the expense
+     * already happened when the card was swiped, and counting it again here
+     * would spend the same purchase twice.
+     */
+    public static Transaction payCard(
+            TransactionId id, LocalDate date, String description,
+            Account from, Account card, Money amount) {
+
+        requirePositive("A card payment", amount);
+        requireType(from, ASSET);
+        requireType(card, CREDIT_CARD);
+
+        return Transaction.record(id, date, description, TransactionSource.APP, List.of(
+                Entry.of(from, amount.negated()),
+                Entry.of(card, amount)));
     }
 
     /** HU13. You lend money out. It left your pocket but it is still yours. */

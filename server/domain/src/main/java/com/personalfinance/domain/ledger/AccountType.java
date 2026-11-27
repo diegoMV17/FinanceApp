@@ -23,6 +23,14 @@ public enum AccountType {
     /** Money someone handed you to keep or manage. Not yours. */
     THIRD_PARTY_FUND(CREDIT, true),
 
+    /**
+     * A credit card: what you owe the bank for what you already bought with it.
+     * A debt like {@link #PAYABLE}, but nobody's, so it never mixes into what
+     * you owe a person. It holds money in the sense that matters here: a card
+     * that still owes cannot be archived, or the debt would disappear.
+     */
+    CREDIT_CARD(CREDIT, true),
+
     /** Income category: salary, sales. */
     INCOME(CREDIT, false),
 

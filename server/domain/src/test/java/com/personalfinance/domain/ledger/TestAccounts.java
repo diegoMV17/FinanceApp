@@ -41,6 +41,10 @@ final class TestAccounts {
         return Account.open(AccountType.THIRD_PARTY_FUND, "Mamá");
     }
 
+    static Account nuCard() {
+        return Account.open(AccountType.CREDIT_CARD, "Tarjeta NU");
+    }
+
     static Account openingBalances() {
         return Account.open(AccountType.EQUITY, "Saldos iniciales");
     }

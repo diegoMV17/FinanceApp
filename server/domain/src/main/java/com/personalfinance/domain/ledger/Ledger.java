@@ -166,12 +166,14 @@ public final class Ledger {
 
     /**
      * What is left once you take out the money that only passes through you.
-     * Your bank says 500,000, but 100,000 of it is your mother's.
+     * Your bank says 500,000, but 100,000 of it is your mother's, and the card
+     * still owes 80,000 of what you already bought.
      */
     public Money moneyReallyMine(LocalDate asOf) {
         return totalFor(AccountType.ASSET, asOf)
                 .minus(totalFor(AccountType.THIRD_PARTY_FUND, asOf))
-                .minus(totalFor(AccountType.PAYABLE, asOf));
+                .minus(totalFor(AccountType.PAYABLE, asOf))
+                .minus(totalFor(AccountType.CREDIT_CARD, asOf));
     }
 
     /**

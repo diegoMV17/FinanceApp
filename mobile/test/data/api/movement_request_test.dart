@@ -7,14 +7,14 @@ import '../../support/movement_samples.dart';
 ///
 /// Es el caso que peor manejan los generadores de Dart y la razón por la que
 /// se eligió este: un `sealed class` con una variante por tipo, que se lee y se
-/// escribe por el campo `type`. Los once tipos salen del contrato y no de una
+/// escribe por el campo `type`. Los doce tipos salen del contrato y no de una
 /// lista escrita aquí: si el servidor agrega uno, este test lo recorre solo.
 void main() {
   final Map<String, Object?> schemas = contractSchemas();
   final Map<String, Object?> mapping = movementTypes(schemas);
 
-  test('el contrato tiene los once tipos de movimiento', () {
-    expect(mapping, hasLength(11));
+  test('el contrato tiene los doce tipos de movimiento', () {
+    expect(mapping, hasLength(12));
   });
 
   group('cada tipo de movimiento se lee y se escribe por su type', () {

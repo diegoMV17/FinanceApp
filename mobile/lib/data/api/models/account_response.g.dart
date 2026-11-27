@@ -31,6 +31,7 @@ const _$AccountTypeEnumMap = {
   AccountType.receivable: 'RECEIVABLE',
   AccountType.payable: 'PAYABLE',
   AccountType.thirdPartyFund: 'THIRD_PARTY_FUND',
+  AccountType.creditCard: 'CREDIT_CARD',
   AccountType.income: 'INCOME',
   AccountType.expense: 'EXPENSE',
   AccountType.equity: 'EQUITY',
